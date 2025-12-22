@@ -1,9 +1,18 @@
-from rest_framework import generics, permissions, status
+from rest_framework import generics, permissions, status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
-from .serializers import UserSerializer, UserProfileSerializer
+from .models import (
+    Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
+    EstadoPoliza, Poliza
+)
+from .serializers import (
+    UserSerializer, UserProfileSerializer, AgenciaSerializer,
+    DireccionSerializer, AgenteSerializer, ClienteSerializer,
+    AseguradoraSerializer, PlanSerializer, EstadoPolizaSerializer,
+    PolizaSerializer
+)
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -28,5 +37,46 @@ class LogoutView(APIView):
             return Response(status=status.HTTP_205_RESET_CONTENT)
         except Exception as e:
             return Response(status=status.HTTP_400_BAD_REQUEST)
+
+class AgenciaViewSet(viewsets.ModelViewSet):
+    queryset = Agencia.objects.all()
+    serializer_class = AgenciaSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+class DireccionViewSet(viewsets.ModelViewSet):
+    queryset = Direccion.objects.all()
+    serializer_class = DireccionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+class AgenteViewSet(viewsets.ModelViewSet):
+    queryset = Agente.objects.all()
+    serializer_class = AgenteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+class ClienteViewSet(viewsets.ModelViewSet):
+    queryset = Cliente.objects.all()
+    serializer_class = ClienteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+class AseguradoraViewSet(viewsets.ModelViewSet):
+    queryset = Aseguradora.objects.all()
+    serializer_class = AseguradoraSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+class PlanViewSet(viewsets.ModelViewSet):
+    queryset = Plan.objects.all()
+    serializer_class = PlanSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+class EstadoPolizaViewSet(viewsets.ModelViewSet):
+    queryset = EstadoPoliza.objects.all()
+    serializer_class = EstadoPolizaSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+class PolizaViewSet(viewsets.ModelViewSet):
+    queryset = Poliza.objects.all()
+    serializer_class = PolizaSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
 
  
