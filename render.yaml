@@ -1,0 +1,24 @@
+databases:
+  - name: bhealth_db
+    databaseName: bhealth
+    user: bhealth_user
+
+services:
+  - type: web
+    name: bhealth-backend
+    env: python
+    buildCommand: "./build.sh"
+    startCommand: "./start.sh"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.5
+      - key: SECRET_KEY
+        generateValue: true
+      - key: WEB_CONCURRENCY
+        value: 4
+      - key: DATABASE_URL
+        fromDatabase:
+          name: bhealth_db
+          property: connectionString
+      - key: DEBUG
+        value: 'False'
