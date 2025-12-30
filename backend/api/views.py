@@ -5,13 +5,13 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
 from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
-    EstadoPoliza, Poliza
+    EstadoPoliza, Poliza, Nota
 )
 from .serializers import (
     UserSerializer, UserProfileSerializer, AgenciaSerializer,
     DireccionSerializer, AgenteSerializer, ClienteSerializer,
     AseguradoraSerializer, PlanSerializer, EstadoPolizaSerializer,
-    PolizaSerializer
+    PolizaSerializer, NotaSerializer
 )
 
 class RegisterView(generics.CreateAPIView):
@@ -77,6 +77,14 @@ class PolizaViewSet(viewsets.ModelViewSet):
     queryset = Poliza.objects.all()
     serializer_class = PolizaSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+class NotaViewSet(viewsets.ModelViewSet):
+    queryset = Nota.objects.all()
+    serializer_class = NotaSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(autor=self.request.user)
 
 
  

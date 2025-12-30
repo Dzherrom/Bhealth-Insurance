@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+import re
 
 class Agencia(models.Model):
     nombre = models.CharField(max_length=255, verbose_name="Nombre Agencia")
@@ -132,4 +133,28 @@ def create_user_profile(sender, instance, created, **kwargs):
 @receiver(post_save, sender=User)
 def save_user_profile(sender, instance, **kwargs):
     instance.profile.save()
+
+class Nota(models.Model):
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='notas')
+    autor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notas_creadas')
+    contenido = models.TextField(verbose_name="Contenido")
+    archivo = models.FileField(upload_to='notas_archivos/', null=True, blank=True, verbose_name="Archivo Adjunto")
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
+    usuarios_etiquetados = models.ManyToManyField(User, related_name='notas_mencionado', blank=True)
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        # Extract mentions
+        mentions = re.findall(r'@(\w+)', self.contenido)
+        for username in mentions:
+            try:
+                user = User.objects.get(username=username)
+                self.usuarios_etiquetados.add(user)
+            except User.DoesNotExist:
+                pass
+
+    def __str__(self):
+        return f"Nota en {self.poliza} por {self.autor.username}"
+
+# End of models
 
