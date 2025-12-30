@@ -2,7 +2,8 @@ from django.contrib.auth.models import User
 from rest_framework import serializers
 from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
-    EstadoPoliza, Poliza, PolizaCliente, Licencia, Nota, HistorialPoliza
+    EstadoPoliza, Poliza, PolizaCliente, Licencia, Nota, HistorialPoliza,
+    Etiqueta, Documento
 )
 
 class UserSerializer(serializers.ModelSerializer):
@@ -149,4 +150,21 @@ class HistorialPolizaSerializer(serializers.ModelSerializer):
     class Meta:
         model = HistorialPoliza
         fields = '__all__'
+
+class EtiquetaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Etiqueta
+        fields = '__all__'
+
+class DocumentoSerializer(serializers.ModelSerializer):
+    subido_por_username = serializers.ReadOnlyField(source='subido_por.username')
+    etiquetas_details = EtiquetaSerializer(source='etiquetas', many=True, read_only=True)
+    etiquetas_ids = serializers.PrimaryKeyRelatedField(
+        many=True, write_only=True, queryset=Etiqueta.objects.all(), source='etiquetas'
+    )
+
+    class Meta:
+        model = Documento
+        fields = '__all__'
+        read_only_fields = ('subido_por', 'fecha_subida')
 

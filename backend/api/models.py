@@ -163,6 +163,8 @@ class HistorialPoliza(models.Model):
         ('ELIMINACION', 'Eliminación'),
         ('NOTA_AGREGADA', 'Nota/Archivo Agregado'),
         ('NOTA_ELIMINADA', 'Nota/Archivo Eliminado'),
+        ('DOCUMENTO_SUBIDO', 'Documento Subido'),
+        ('DOCUMENTO_ELIMINADO', 'Documento Eliminado'),
     ]
     poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='historial')
     usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
@@ -172,6 +174,24 @@ class HistorialPoliza(models.Model):
 
     def __str__(self):
         return f"{self.get_accion_display()} en {self.poliza} por {self.usuario}"
+
+class Etiqueta(models.Model):
+    nombre = models.CharField(max_length=50, unique=True, verbose_name="Nombre Etiqueta")
+    color = models.CharField(max_length=7, default="#FFFFFF", verbose_name="Color Hex")
+
+    def __str__(self):
+        return self.nombre
+
+class Documento(models.Model):
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='documentos')
+    archivo = models.FileField(upload_to='documentos_poliza/', verbose_name="Archivo")
+    titulo = models.CharField(max_length=255, verbose_name="Título del Documento")
+    fecha_subida = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Subida")
+    subido_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, verbose_name="Subido Por")
+    etiquetas = models.ManyToManyField(Etiqueta, related_name='documentos', blank=True)
+
+    def __str__(self):
+        return f"{self.titulo} ({self.poliza})"
 
 # End of models
 
