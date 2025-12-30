@@ -9,10 +9,11 @@ from .views import (
     AgenciaViewSet, DireccionViewSet, AgenteViewSet,
     ClienteViewSet, AseguradoraViewSet, PlanViewSet,
     EstadoPolizaViewSet, PolizaViewSet, NotaViewSet, HistorialPolizaViewSet,
-    EtiquetaViewSet, DocumentoViewSet, TareaViewSet
+    EtiquetaViewSet, DocumentoViewSet, TareaViewSet, UserManagementViewSet
 )
 
 router = DefaultRouter()
+router.register(r'users', UserManagementViewSet)
 router.register(r'agencias', AgenciaViewSet)
 router.register(r'direcciones', DireccionViewSet)
 router.register(r'agentes', AgenteViewSet)

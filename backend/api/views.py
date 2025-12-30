@@ -16,9 +16,10 @@ from .serializers import (
     DireccionSerializer, AgenteSerializer, ClienteSerializer,
     AseguradoraSerializer, PlanSerializer, EstadoPolizaSerializer,
     PolizaSerializer, NotaSerializer, HistorialPolizaSerializer,
-    EtiquetaSerializer, DocumentoSerializer, TareaSerializer
+    EtiquetaSerializer, DocumentoSerializer, TareaSerializer,
+    UserManagementSerializer
 )
-from .permissions import IsAgentL3Role, IsPolicyOwnerOrHigher
+from .permissions import IsAgentL3Role, IsPolicyOwnerOrHigher, IsAdminRole
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -207,6 +208,15 @@ class DocumentoViewSet(viewsets.ModelViewSet):
             detalles=f"Documento eliminado: {instance.titulo}"
         )
         instance.delete()
+
+class UserManagementViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserManagementSerializer
+    permission_classes = [permissions.IsAuthenticated, IsAdminRole]
+
+    def get_queryset(self):
+        # Ensure we get users with their profiles
+        return User.objects.select_related('profile').all()
 
 class TareaViewSet(viewsets.ModelViewSet):
     queryset = Tarea.objects.all()

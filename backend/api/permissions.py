@@ -1,44 +1,73 @@
 from rest_framework import permissions
 
+def check_status(request):
+    if not (request.user.is_authenticated and hasattr(request.user, 'profile')):
+        return False, None
+    return True, request.user.profile.status
+
 class IsAdminRole(permissions.BasePermission):
     def has_permission(self, request, view):
-        return request.user.is_authenticated and hasattr(request.user, 'profile') and request.user.profile.role == 'ADMIN'
+        auth, status = check_status(request)
+        if not auth: return False
+        if status == 'INACTIVE': return request.method in permissions.SAFE_METHODS
+        if status == 'CANDIDATE': return False
+        return request.user.profile.role == 'ADMIN'
 
 class IsManagerRole(permissions.BasePermission):
     def has_permission(self, request, view):
-        return request.user.is_authenticated and hasattr(request.user, 'profile') and request.user.profile.role in ['ADMIN', 'MANAGER']
+        auth, status = check_status(request)
+        if not auth: return False
+        if status == 'INACTIVE': return request.method in permissions.SAFE_METHODS
+        if status == 'CANDIDATE': return False
+        return request.user.profile.role in ['ADMIN', 'MANAGER']
 
 class IsAgentL1Role(permissions.BasePermission):
     def has_permission(self, request, view):
-        return request.user.is_authenticated and hasattr(request.user, 'profile') and request.user.profile.role in ['ADMIN', 'MANAGER', 'AGENT_L1']
+        auth, status = check_status(request)
+        if not auth: return False
+        if status == 'INACTIVE': return request.method in permissions.SAFE_METHODS
+        if status == 'CANDIDATE': return False
+        return request.user.profile.role in ['ADMIN', 'MANAGER', 'AGENT_L1']
 
 class IsAgentL2Role(permissions.BasePermission):
     def has_permission(self, request, view):
-        return request.user.is_authenticated and hasattr(request.user, 'profile') and request.user.profile.role in ['ADMIN', 'MANAGER', 'AGENT_L1', 'AGENT_L2']
+        auth, status = check_status(request)
+        if not auth: return False
+        if status == 'INACTIVE': return request.method in permissions.SAFE_METHODS
+        if status == 'CANDIDATE': return False
+        return request.user.profile.role in ['ADMIN', 'MANAGER', 'AGENT_L1', 'AGENT_L2']
 
 class IsAgentL3Role(permissions.BasePermission):
     def has_permission(self, request, view):
-        return request.user.is_authenticated and hasattr(request.user, 'profile') and request.user.profile.role in ['ADMIN', 'MANAGER', 'AGENT_L1', 'AGENT_L2', 'AGENT_L3']
+        auth, status = check_status(request)
+        if not auth: return False
+        if status == 'INACTIVE': return request.method in permissions.SAFE_METHODS
+        if status == 'CANDIDATE': return False
+        return request.user.profile.role in ['ADMIN', 'MANAGER', 'AGENT_L1', 'AGENT_L2', 'AGENT_L3']
 
 class CanViewReports(permissions.BasePermission):
     def has_permission(self, request, view):
-        # Admin and Manager can view reports (Manager can view commission reports)
-        # But Manager cannot create/edit/download reports? The prompt says "no pueden crear, editar o descargar reportes".
-        # But "pueden ver los reportes de comisiones".
-        # So View is OK for Manager.
-        return request.user.is_authenticated and hasattr(request.user, 'profile') and request.user.profile.role in ['ADMIN', 'MANAGER']
+        auth, status = check_status(request)
+        if not auth: return False
+        if status == 'INACTIVE': return request.method in permissions.SAFE_METHODS
+        if status == 'CANDIDATE': return False
+        return request.user.profile.role in ['ADMIN', 'MANAGER']
 
 class CanManageUsers(permissions.BasePermission):
     def has_permission(self, request, view):
-        # Only Admin can manage users
-        return request.user.is_authenticated and hasattr(request.user, 'profile') and request.user.profile.role == 'ADMIN'
+        auth, status = check_status(request)
+        if not auth: return False
+        if status == 'INACTIVE': return request.method in permissions.SAFE_METHODS
+        if status == 'CANDIDATE': return False
+        return request.user.profile.role == 'ADMIN'
 
 class CanPrintPolicies(permissions.BasePermission):
     def has_permission(self, request, view):
-        # Admin, Manager, Agent L1 can print.
-        # Agent L2: "no puede imprimirlas"
-        # Agent L3: "no puede imprimirlas"
-        return request.user.is_authenticated and hasattr(request.user, 'profile') and request.user.profile.role in ['ADMIN', 'MANAGER', 'AGENT_L1']
+        auth, status = check_status(request)
+        if not auth: return False
+        if status == 'INACTIVE': return request.method in permissions.SAFE_METHODS
+        if status == 'CANDIDATE': return False
+        return request.user.profile.role in ['ADMIN', 'MANAGER', 'AGENT_L1']
 
 class IsPolicyOwnerOrHigher(permissions.BasePermission):
     """
@@ -46,12 +75,10 @@ class IsPolicyOwnerOrHigher(permissions.BasePermission):
     Assumes the model instance has an `agente` attribute.
     """
     def has_object_permission(self, request, view, obj):
-        # Read permissions are allowed to any request,
-        # so we'll always allow GET, HEAD or OPTIONS requests.
-        # Wait, requirements say L3 has access ONLY to own policies.
-        
-        if not (request.user.is_authenticated and hasattr(request.user, 'profile')):
-            return False
+        auth, status = check_status(request)
+        if not auth: return False
+        if status == 'INACTIVE': return request.method in permissions.SAFE_METHODS
+        if status == 'CANDIDATE': return False # Candidates don't own policies usually? Or maybe they do? Assuming False for now as per "only candidate permissions"
 
         role = request.user.profile.role
 
@@ -70,16 +97,32 @@ class IsPolicyOwnerOrHigher(permissions.BasePermission):
 
 class IsRecruiterRole(permissions.BasePermission):
     def has_permission(self, request, view):
-        return request.user.is_authenticated and hasattr(request.user, 'profile') and request.user.profile.role in ['ADMIN', 'MANAGER', 'RECRUITER']
+        auth, status = check_status(request)
+        if not auth: return False
+        if status == 'INACTIVE': return request.method in permissions.SAFE_METHODS
+        if status == 'CANDIDATE': return False
+        return request.user.profile.role in ['ADMIN', 'MANAGER', 'RECRUITER']
 
 class IsAccountantRole(permissions.BasePermission):
     def has_permission(self, request, view):
-        return request.user.is_authenticated and hasattr(request.user, 'profile') and request.user.profile.role in ['ADMIN', 'MANAGER', 'ACCOUNTANT']
+        auth, status = check_status(request)
+        if not auth: return False
+        if status == 'INACTIVE': return request.method in permissions.SAFE_METHODS
+        if status == 'CANDIDATE': return False
+        return request.user.profile.role in ['ADMIN', 'MANAGER', 'ACCOUNTANT']
 
 class IsCandidateRole(permissions.BasePermission):
     def has_permission(self, request, view):
-        return request.user.is_authenticated and hasattr(request.user, 'profile') and request.user.profile.role == 'CANDIDATE'
+        auth, status = check_status(request)
+        if not auth: return False
+        if status == 'INACTIVE': return request.method in permissions.SAFE_METHODS
+        if status == 'CANDIDATE': return True
+        return request.user.profile.role == 'CANDIDATE'
 
 class IsStandardAgentRole(permissions.BasePermission):
     def has_permission(self, request, view):
-        return request.user.is_authenticated and hasattr(request.user, 'profile') and request.user.profile.role in ['ADMIN', 'MANAGER', 'AGENT']
+        auth, status = check_status(request)
+        if not auth: return False
+        if status == 'INACTIVE': return request.method in permissions.SAFE_METHODS
+        if status == 'CANDIDATE': return False
+        return request.user.profile.role in ['ADMIN', 'MANAGER', 'AGENT']
