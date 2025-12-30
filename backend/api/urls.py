@@ -9,7 +9,8 @@ from .views import (
     AgenciaViewSet, DireccionViewSet, AgenteViewSet,
     ClienteViewSet, AseguradoraViewSet, PlanViewSet,
     EstadoPolizaViewSet, PolizaViewSet, NotaViewSet, HistorialPolizaViewSet,
-    EtiquetaViewSet, DocumentoViewSet, TareaViewSet, UserManagementViewSet
+    EtiquetaViewSet, DocumentoViewSet, TareaViewSet, UserManagementViewSet,
+    ZipCodeLookupView
 )
 
 router = DefaultRouter()
@@ -34,6 +35,7 @@ urlpatterns = [
     path('login/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('profile/', ProfileView.as_view(), name='profile'),
     path('logout/', LogoutView.as_view(), name='logout'),
+    path('utils/zipcode/<str:zip_code>/', ZipCodeLookupView.as_view(), name='zipcode-lookup'),
     path('', include(router.urls)),
 ]
 

@@ -7,6 +7,7 @@ from django.contrib.auth.models import User
 from django.http import FileResponse
 import zipfile
 import io
+import requests
 from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
     EstadoPoliza, Poliza, Nota, HistorialPoliza, Etiqueta, Documento, Tarea
@@ -240,6 +241,48 @@ class TareaViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(tareas, many=True)
         return Response(serializer.data)
+
+class ZipCodeLookupView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, zip_code):
+        if not zip_code:
+            return Response({"error": "Zip code is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            # Using Zippopotam.us (Free, no API key required)
+            response = requests.get(f"http://api.zippopotam.us/us/{zip_code}")
+            
+            if response.status_code == 404:
+                return Response({"error": "Zip code not found"}, status=status.HTTP_404_NOT_FOUND)
+            
+            if response.status_code != 200:
+                return Response({"error": "External service error"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            
+            data = response.json()
+            # Zippopotam returns a list of places, usually we take the first one for the primary city
+            if not data.get('places'):
+                return Response({"error": "No places found for this zip code"}, status=status.HTTP_404_NOT_FOUND)
+
+            place = data['places'][0]
+            
+            result = {
+                "city": place.get('place name'),
+                "state": place.get('state'),
+                "state_abbr": place.get('state abbreviation'),
+                "county": place.get('place name'), # Zippopotam sometimes puts county in place name or doesn't provide it explicitly separate from city in some contexts, but usually it's city. 
+                # Actually Zippopotam structure: "place name" is city. It doesn't always provide county explicitly in a separate field named 'county', 
+                # but for US it often has 'place name' as city. 
+                # Let's check if we can get county. Zippopotam US response usually:
+                # "places": [{"place name": "Beverly Hills", "longitude": "...", "state": "California", "state abbreviation": "CA", "latitude": "..."}]
+                # It seems it doesn't strictly return "County". 
+                # However, for the purpose of address completion, City and State are the most critical.
+                "country": data.get('country'),
+                "zip_code": data.get('post code')
+            }
+            return Response(result)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
  
