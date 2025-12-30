@@ -31,7 +31,9 @@ class Agente(models.Model):
 
 class Cliente(models.Model):
     primer_nombre = models.CharField(max_length=100, verbose_name="Primer Nombre")
+    segundo_nombre = models.CharField(max_length=100, blank=True, null=True, verbose_name="Segundo Nombre")
     apellido_paterno = models.CharField(max_length=100, verbose_name="Apellido Paterno")
+    apellido_materno = models.CharField(max_length=100, blank=True, null=True, verbose_name="Apellido Materno")
     genero = models.CharField(max_length=20, verbose_name="Género")
     fecha_nacimiento = models.DateField(verbose_name="Fecha de Nacimiento")
     ssn = models.CharField(max_length=20, unique=True, verbose_name="SSN")
@@ -41,6 +43,7 @@ class Cliente(models.Model):
     estado_civil = models.CharField(max_length=50, verbose_name="Estado Civil")
     pais_nacimiento = models.CharField(max_length=100, verbose_name="País de Nacimiento")
     estado_inmigracion = models.CharField(max_length=100, verbose_name="Estado de Inmigración")
+    categoria_inmigracion = models.CharField(max_length=100, blank=True, null=True, verbose_name="Categoría de Inmigración")
 
     def __str__(self):
         return f"{self.primer_nombre} {self.apellido_paterno}"
@@ -76,9 +79,14 @@ class Poliza(models.Model):
     fecha_envio = models.DateField(verbose_name="Fecha Envío")
     fecha_cancelacion = models.DateField(null=True, blank=True, verbose_name="Fecha Cancelación")
     id_interno = models.CharField(max_length=100, verbose_name="ID Interno")
+    ultima_actualizacion = models.DateTimeField(auto_now=True, verbose_name="Última Actualización")
+    es_duplicado = models.BooleanField(default=False, verbose_name="Es Duplicado")
+    ultimo_duplicado = models.CharField(max_length=100, blank=True, null=True, verbose_name="Último Duplicado")
+    ffm_mercado = models.CharField(max_length=100, blank=True, null=True, verbose_name="FFM Usado en Mercado")
     agente = models.ForeignKey(Agente, on_delete=models.SET_NULL, null=True, related_name='polizas')
     plan = models.ForeignKey(Plan, on_delete=models.CASCADE, related_name='polizas')
     clientes = models.ManyToManyField(Cliente, through='PolizaCliente', related_name='polizas')
+    colaboradores = models.ManyToManyField(User, related_name='polizas_colaboracion', blank=True, verbose_name="Colaboradores")
 
     def __str__(self):
         return self.id_mercado
@@ -116,10 +124,22 @@ class UserProfile(models.Model):
         ('AGENT_L1', 'Agent Level 1'),
         ('AGENT_L2', 'Agent Level 2'),
         ('AGENT_L3', 'Agent Level 3'),
+        ('AGENT', 'Agent'),
+        ('RECRUITER', 'Recruiter'),
+        ('CANDIDATE', 'Candidate'),
+        ('ACCOUNTANT', 'Accountant'),
         ('USER', 'User'),
+    ]
+    STATUS_CHOICES = [
+        ('ACTIVE', 'Activo'),
+        ('INACTIVE', 'Inactivo'),
+        ('CANDIDATE', 'Candidato'),
     ]
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='USER')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ACTIVE', verbose_name="Estatus")
+    avatar = models.ImageField(upload_to='avatars/', null=True, blank=True, verbose_name="Avatar")
+    telefono = models.CharField(max_length=20, null=True, blank=True, verbose_name="Teléfono")
     agente = models.OneToOneField(Agente, on_delete=models.SET_NULL, null=True, blank=True, related_name='user_profile')
 
     def __str__(self):
@@ -150,6 +170,8 @@ class Nota(models.Model):
             try:
                 user = User.objects.get(username=username)
                 self.usuarios_etiquetados.add(user)
+                # Also add to policy collaborators
+                self.poliza.colaboradores.add(user)
             except User.DoesNotExist:
                 pass
 
@@ -192,6 +214,19 @@ class Documento(models.Model):
 
     def __str__(self):
         return f"{self.titulo} ({self.poliza})"
+
+class Tarea(models.Model):
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='tareas')
+    asignado_a = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tareas_asignadas', verbose_name="Asignado a")
+    creado_por = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tareas_creadas', verbose_name="Creado por")
+    titulo = models.CharField(max_length=255, verbose_name="Título")
+    descripcion = models.TextField(blank=True, null=True, verbose_name="Descripción")
+    fecha_limite = models.DateTimeField(null=True, blank=True, verbose_name="Fecha Límite")
+    completada = models.BooleanField(default=False, verbose_name="Completada")
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
+
+    def __str__(self):
+        return f"{self.titulo} - {self.asignado_a.username}"
 
 # End of models
 

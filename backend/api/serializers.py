@@ -1,9 +1,9 @@
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group
 from rest_framework import serializers
 from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
     EstadoPoliza, Poliza, PolizaCliente, Licencia, Nota, HistorialPoliza,
-    Etiqueta, Documento
+    Etiqueta, Documento, Tarea, UserProfile
 )
 
 class UserSerializer(serializers.ModelSerializer):
@@ -22,6 +22,36 @@ class UserSerializer(serializers.ModelSerializer):
             last_name=validated_data.get('last_name', '')
         )
         return user
+
+class ProfileDataSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = ('role', 'status', 'avatar', 'telefono', 'agente')
+
+class UserManagementSerializer(serializers.ModelSerializer):
+    profile = ProfileDataSerializer()
+    groups = serializers.SlugRelatedField(many=True, slug_field='name', queryset=Group.objects.all())
+
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'groups', 'profile', 'is_active', 'date_joined', 'last_login')
+        read_only_fields = ('date_joined', 'last_login')
+
+    def update(self, instance, validated_data):
+        profile_data = validated_data.pop('profile', {})
+        groups_data = validated_data.pop('groups', None)
+
+        instance = super().update(instance, validated_data)
+
+        if groups_data is not None:
+            instance.groups.set(groups_data)
+
+        profile = instance.profile
+        for attr, value in profile_data.items():
+            setattr(profile, attr, value)
+        profile.save()
+
+        return instance
 
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -93,6 +123,7 @@ class PolizaSerializer(serializers.ModelSerializer):
     agente_nombre = serializers.ReadOnlyField(source='agente.nombre_completo')
     plan_nombre = serializers.ReadOnlyField(source='plan.nombre')
     estado_nombre = serializers.ReadOnlyField(source='estado.nombre')
+    colaboradores_details = UserSerializer(source='colaboradores', many=True, read_only=True)
 
     class Meta:
         model = Poliza
@@ -100,7 +131,7 @@ class PolizaSerializer(serializers.ModelSerializer):
             'id', 'id_mercado', 'id_miembro', 'costo_poliza', 'subsidio', 'prima_mensual',
             'fecha_efectiva', 'estado', 'estado_nombre', 'fecha_envio', 'fecha_cancelacion',
             'id_interno', 'agente', 'agente_nombre', 'plan', 'plan_nombre',
-            'clientes_info', 'clientes_data'
+            'clientes_info', 'clientes_data', 'colaboradores', 'colaboradores_details'
         ]
 
     def create(self, validated_data):
@@ -167,4 +198,14 @@ class DocumentoSerializer(serializers.ModelSerializer):
         model = Documento
         fields = '__all__'
         read_only_fields = ('subido_por', 'fecha_subida')
+
+class TareaSerializer(serializers.ModelSerializer):
+    asignado_a_username = serializers.ReadOnlyField(source='asignado_a.username')
+    creado_por_username = serializers.ReadOnlyField(source='creado_por.username')
+    poliza_id_mercado = serializers.ReadOnlyField(source='poliza.id_mercado')
+
+    class Meta:
+        model = Tarea
+        fields = '__all__'
+        read_only_fields = ('creado_por', 'fecha_creacion')
 
