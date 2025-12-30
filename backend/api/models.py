@@ -1,4 +1,8 @@
 from django.db import models
+from django.contrib.auth.models import User
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+import re
 
 class Agencia(models.Model):
     nombre = models.CharField(max_length=255, verbose_name="Nombre Agencia")
@@ -104,4 +108,90 @@ class Licencia(models.Model):
 
     def __str__(self):
         return f"{self.agente} - {self.estado} ({self.anio})"
+
+class UserProfile(models.Model):
+    ROLE_CHOICES = [
+        ('ADMIN', 'Admin'),
+        ('MANAGER', 'Manager'),
+        ('AGENT_L1', 'Agent Level 1'),
+        ('AGENT_L2', 'Agent Level 2'),
+        ('AGENT_L3', 'Agent Level 3'),
+        ('USER', 'User'),
+    ]
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='USER')
+    agente = models.OneToOneField(Agente, on_delete=models.SET_NULL, null=True, blank=True, related_name='user_profile')
+
+    def __str__(self):
+        return f"{self.user.username} - {self.get_role_display()}"
+
+@receiver(post_save, sender=User)
+def create_user_profile(sender, instance, created, **kwargs):
+    if created:
+        UserProfile.objects.create(user=instance)
+
+@receiver(post_save, sender=User)
+def save_user_profile(sender, instance, **kwargs):
+    instance.profile.save()
+
+class Nota(models.Model):
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='notas')
+    autor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notas_creadas')
+    contenido = models.TextField(verbose_name="Contenido")
+    archivo = models.FileField(upload_to='notas_archivos/', null=True, blank=True, verbose_name="Archivo Adjunto")
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
+    usuarios_etiquetados = models.ManyToManyField(User, related_name='notas_mencionado', blank=True)
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        # Extract mentions
+        mentions = re.findall(r'@(\w+)', self.contenido)
+        for username in mentions:
+            try:
+                user = User.objects.get(username=username)
+                self.usuarios_etiquetados.add(user)
+            except User.DoesNotExist:
+                pass
+
+    def __str__(self):
+        return f"Nota en {self.poliza} por {self.autor.username}"
+
+class HistorialPoliza(models.Model):
+    ACCION_CHOICES = [
+        ('CREACION', 'Creación'),
+        ('EDICION', 'Edición'),
+        ('ELIMINACION', 'Eliminación'),
+        ('NOTA_AGREGADA', 'Nota/Archivo Agregado'),
+        ('NOTA_ELIMINADA', 'Nota/Archivo Eliminado'),
+        ('DOCUMENTO_SUBIDO', 'Documento Subido'),
+        ('DOCUMENTO_ELIMINADO', 'Documento Eliminado'),
+    ]
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='historial')
+    usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    accion = models.CharField(max_length=20, choices=ACCION_CHOICES)
+    detalles = models.TextField(blank=True, null=True)
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.get_accion_display()} en {self.poliza} por {self.usuario}"
+
+class Etiqueta(models.Model):
+    nombre = models.CharField(max_length=50, unique=True, verbose_name="Nombre Etiqueta")
+    color = models.CharField(max_length=7, default="#FFFFFF", verbose_name="Color Hex")
+
+    def __str__(self):
+        return self.nombre
+
+class Documento(models.Model):
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='documentos')
+    archivo = models.FileField(upload_to='documentos_poliza/', verbose_name="Archivo")
+    titulo = models.CharField(max_length=255, verbose_name="Título del Documento")
+    fecha_subida = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Subida")
+    subido_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, verbose_name="Subido Por")
+    etiquetas = models.ManyToManyField(Etiqueta, related_name='documentos', blank=True)
+
+    def __str__(self):
+        return f"{self.titulo} ({self.poliza})"
+
+# End of models
 
