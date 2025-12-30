@@ -67,3 +67,19 @@ class IsPolicyOwnerOrHigher(permissions.BasePermission):
                 return obj.agente == request.user.profile.agente
             
         return False
+
+class IsRecruiterRole(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and hasattr(request.user, 'profile') and request.user.profile.role in ['ADMIN', 'MANAGER', 'RECRUITER']
+
+class IsAccountantRole(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and hasattr(request.user, 'profile') and request.user.profile.role in ['ADMIN', 'MANAGER', 'ACCOUNTANT']
+
+class IsCandidateRole(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and hasattr(request.user, 'profile') and request.user.profile.role == 'CANDIDATE'
+
+class IsStandardAgentRole(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and hasattr(request.user, 'profile') and request.user.profile.role in ['ADMIN', 'MANAGER', 'AGENT']

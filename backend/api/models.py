@@ -116,6 +116,10 @@ class UserProfile(models.Model):
         ('AGENT_L1', 'Agent Level 1'),
         ('AGENT_L2', 'Agent Level 2'),
         ('AGENT_L3', 'Agent Level 3'),
+        ('AGENT', 'Agent'),
+        ('RECRUITER', 'Recruiter'),
+        ('CANDIDATE', 'Candidate'),
+        ('ACCOUNTANT', 'Accountant'),
         ('USER', 'User'),
     ]
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
@@ -192,6 +196,19 @@ class Documento(models.Model):
 
     def __str__(self):
         return f"{self.titulo} ({self.poliza})"
+
+class Tarea(models.Model):
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='tareas')
+    asignado_a = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tareas_asignadas', verbose_name="Asignado a")
+    creado_por = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tareas_creadas', verbose_name="Creado por")
+    titulo = models.CharField(max_length=255, verbose_name="Título")
+    descripcion = models.TextField(blank=True, null=True, verbose_name="Descripción")
+    fecha_limite = models.DateTimeField(null=True, blank=True, verbose_name="Fecha Límite")
+    completada = models.BooleanField(default=False, verbose_name="Completada")
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
+
+    def __str__(self):
+        return f"{self.titulo} - {self.asignado_a.username}"
 
 # End of models
 

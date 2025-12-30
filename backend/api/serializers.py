@@ -3,7 +3,7 @@ from rest_framework import serializers
 from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
     EstadoPoliza, Poliza, PolizaCliente, Licencia, Nota, HistorialPoliza,
-    Etiqueta, Documento
+    Etiqueta, Documento, Tarea
 )
 
 class UserSerializer(serializers.ModelSerializer):
@@ -167,4 +167,14 @@ class DocumentoSerializer(serializers.ModelSerializer):
         model = Documento
         fields = '__all__'
         read_only_fields = ('subido_por', 'fecha_subida')
+
+class TareaSerializer(serializers.ModelSerializer):
+    asignado_a_username = serializers.ReadOnlyField(source='asignado_a.username')
+    creado_por_username = serializers.ReadOnlyField(source='creado_por.username')
+    poliza_id_mercado = serializers.ReadOnlyField(source='poliza.id_mercado')
+
+    class Meta:
+        model = Tarea
+        fields = '__all__'
+        read_only_fields = ('creado_por', 'fecha_creacion')
 

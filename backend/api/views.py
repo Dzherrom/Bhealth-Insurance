@@ -1,18 +1,22 @@
 from rest_framework import generics, permissions, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
+from django.http import FileResponse
+import zipfile
+import io
 from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
-    EstadoPoliza, Poliza, Nota, HistorialPoliza, Etiqueta, Documento
+    EstadoPoliza, Poliza, Nota, HistorialPoliza, Etiqueta, Documento, Tarea
 )
 from .serializers import (
     UserSerializer, UserProfileSerializer, AgenciaSerializer,
     DireccionSerializer, AgenteSerializer, ClienteSerializer,
     AseguradoraSerializer, PlanSerializer, EstadoPolizaSerializer,
     PolizaSerializer, NotaSerializer, HistorialPolizaSerializer,
-    EtiquetaSerializer, DocumentoSerializer
+    EtiquetaSerializer, DocumentoSerializer, TareaSerializer
 )
 from .permissions import IsAgentL3Role, IsPolicyOwnerOrHigher
 
@@ -117,6 +121,32 @@ class PolizaViewSet(viewsets.ModelViewSet):
             detalles=f"Póliza actualizada"
         )
 
+    @action(detail=True, methods=['get'])
+    def download_documents(self, request, pk=None):
+        poliza = self.get_object()
+        documents = poliza.documentos.all()
+        
+        if not documents.exists():
+            return Response({"detail": "No documents found for this policy."}, status=status.HTTP_404_NOT_FOUND)
+
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, 'w') as zip_file:
+            for doc in documents:
+                if doc.archivo:
+                    # Use the filename from the file field
+                    file_name = doc.archivo.name.split('/')[-1]
+                    try:
+                        # Open the file and write it to the zip
+                        with doc.archivo.open('rb') as f:
+                            zip_file.writestr(file_name, f.read())
+                    except Exception as e:
+                        # Handle file not found or other errors
+                        pass
+        
+        buffer.seek(0)
+        response = FileResponse(buffer, as_attachment=True, filename=f'documentos_poliza_{poliza.id}.zip')
+        return response
+
 class NotaViewSet(viewsets.ModelViewSet):
     queryset = Nota.objects.all()
     serializer_class = NotaSerializer
@@ -177,6 +207,29 @@ class DocumentoViewSet(viewsets.ModelViewSet):
             detalles=f"Documento eliminado: {instance.titulo}"
         )
         instance.delete()
+
+class TareaViewSet(viewsets.ModelViewSet):
+    queryset = Tarea.objects.all()
+    serializer_class = TareaSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filterset_fields = ['poliza', 'asignado_a', 'completada']
+
+    def perform_create(self, serializer):
+        serializer.save(creado_por=self.request.user)
+
+    @action(detail=False, methods=['get'])
+    def mis_tareas(self, request):
+        """
+        Retorna las tareas asignadas al usuario autenticado.
+        """
+        tareas = Tarea.objects.filter(asignado_a=request.user).order_by('fecha_limite', '-fecha_creacion')
+        page = self.paginate_queryset(tareas)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(tareas, many=True)
+        return Response(serializer.data)
 
 
  
