@@ -8,7 +8,7 @@ from .views import (
     RegisterView, ProfileView, LogoutView,
     AgenciaViewSet, DireccionViewSet, AgenteViewSet,
     ClienteViewSet, AseguradoraViewSet, PlanViewSet,
-    EstadoPolizaViewSet, PolizaViewSet, NotaViewSet
+    EstadoPolizaViewSet, PolizaViewSet, NotaViewSet, HistorialPolizaViewSet
 )
 
 router = DefaultRouter()
@@ -21,6 +21,7 @@ router.register(r'planes', PlanViewSet)
 router.register(r'estados-poliza', EstadoPolizaViewSet)
 router.register(r'polizas', PolizaViewSet)
 router.register(r'notas', NotaViewSet)
+router.register(r'historial', HistorialPolizaViewSet)
 
 urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),

@@ -2,7 +2,7 @@ from django.contrib.auth.models import User
 from rest_framework import serializers
 from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
-    EstadoPoliza, Poliza, PolizaCliente, Licencia, Nota
+    EstadoPoliza, Poliza, PolizaCliente, Licencia, Nota, HistorialPoliza
 )
 
 class UserSerializer(serializers.ModelSerializer):
@@ -142,4 +142,11 @@ class NotaSerializer(serializers.ModelSerializer):
         model = Nota
         fields = '__all__'
         read_only_fields = ('autor', 'fecha_creacion', 'usuarios_etiquetados')
+
+class HistorialPolizaSerializer(serializers.ModelSerializer):
+    usuario_username = serializers.ReadOnlyField(source='usuario.username')
+    
+    class Meta:
+        model = HistorialPoliza
+        fields = '__all__'
 

@@ -156,5 +156,22 @@ class Nota(models.Model):
     def __str__(self):
         return f"Nota en {self.poliza} por {self.autor.username}"
 
+class HistorialPoliza(models.Model):
+    ACCION_CHOICES = [
+        ('CREACION', 'Creación'),
+        ('EDICION', 'Edición'),
+        ('ELIMINACION', 'Eliminación'),
+        ('NOTA_AGREGADA', 'Nota/Archivo Agregado'),
+        ('NOTA_ELIMINADA', 'Nota/Archivo Eliminado'),
+    ]
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='historial')
+    usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    accion = models.CharField(max_length=20, choices=ACCION_CHOICES)
+    detalles = models.TextField(blank=True, null=True)
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.get_accion_display()} en {self.poliza} por {self.usuario}"
+
 # End of models
 

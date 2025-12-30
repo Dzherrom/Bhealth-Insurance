@@ -5,13 +5,13 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
 from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
-    EstadoPoliza, Poliza, Nota
+    EstadoPoliza, Poliza, Nota, HistorialPoliza
 )
 from .serializers import (
     UserSerializer, UserProfileSerializer, AgenciaSerializer,
     DireccionSerializer, AgenteSerializer, ClienteSerializer,
     AseguradoraSerializer, PlanSerializer, EstadoPolizaSerializer,
-    PolizaSerializer, NotaSerializer
+    PolizaSerializer, NotaSerializer, HistorialPolizaSerializer
 )
 
 class RegisterView(generics.CreateAPIView):
@@ -78,13 +78,53 @@ class PolizaViewSet(viewsets.ModelViewSet):
     serializer_class = PolizaSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def perform_create(self, serializer):
+        poliza = serializer.save()
+        HistorialPoliza.objects.create(
+            poliza=poliza,
+            usuario=self.request.user,
+            accion='CREACION',
+            detalles=f"Póliza creada con ID Mercado: {poliza.id_mercado}"
+        )
+
+    def perform_update(self, serializer):
+        poliza = serializer.save()
+        HistorialPoliza.objects.create(
+            poliza=poliza,
+            usuario=self.request.user,
+            accion='EDICION',
+            detalles=f"Póliza actualizada"
+        )
+
 class NotaViewSet(viewsets.ModelViewSet):
     queryset = Nota.objects.all()
     serializer_class = NotaSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save(autor=self.request.user)
+        nota = serializer.save(autor=self.request.user)
+        HistorialPoliza.objects.create(
+            poliza=nota.poliza,
+            usuario=self.request.user,
+            accion='NOTA_AGREGADA',
+            detalles=f"Nota agregada: {nota.contenido[:50]}..."
+        )
+
+    def perform_destroy(self, instance):
+        poliza = instance.poliza
+        HistorialPoliza.objects.create(
+            poliza=poliza,
+            usuario=self.request.user,
+            accion='NOTA_ELIMINADA',
+            detalles=f"Nota eliminada"
+        )
+        instance.delete()
+
+class HistorialPolizaViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = HistorialPoliza.objects.all()
+    serializer_class = HistorialPolizaSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filterset_fields = ['poliza']
 
 
  
