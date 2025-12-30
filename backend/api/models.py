@@ -1,4 +1,7 @@
 from django.db import models
+from django.contrib.auth.models import User
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 class Agencia(models.Model):
     nombre = models.CharField(max_length=255, verbose_name="Nombre Agencia")
@@ -104,4 +107,29 @@ class Licencia(models.Model):
 
     def __str__(self):
         return f"{self.agente} - {self.estado} ({self.anio})"
+
+class UserProfile(models.Model):
+    ROLE_CHOICES = [
+        ('ADMIN', 'Admin'),
+        ('MANAGER', 'Manager'),
+        ('AGENT_L1', 'Agent Level 1'),
+        ('AGENT_L2', 'Agent Level 2'),
+        ('AGENT_L3', 'Agent Level 3'),
+        ('USER', 'User'),
+    ]
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='USER')
+    agente = models.OneToOneField(Agente, on_delete=models.SET_NULL, null=True, blank=True, related_name='user_profile')
+
+    def __str__(self):
+        return f"{self.user.username} - {self.get_role_display()}"
+
+@receiver(post_save, sender=User)
+def create_user_profile(sender, instance, created, **kwargs):
+    if created:
+        UserProfile.objects.create(user=instance)
+
+@receiver(post_save, sender=User)
+def save_user_profile(sender, instance, **kwargs):
+    instance.profile.save()
 

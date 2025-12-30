@@ -1,5 +1,19 @@
 from django.contrib import admin
-from .models import Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, Poliza, PolizaCliente, EstadoPoliza, Licencia
+from .models import Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, Poliza, PolizaCliente, EstadoPoliza, Licencia, UserProfile
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.auth.models import User
+
+class UserProfileInline(admin.StackedInline):
+    model = UserProfile
+    can_delete = False
+    verbose_name_plural = 'Profile'
+
+class UserAdmin(BaseUserAdmin):
+    inlines = (UserProfileInline,)
+
+# Re-register UserAdmin
+admin.site.unregister(User)
+admin.site.register(User, UserAdmin)
 
 # Register your models here.
 admin.site.register(Agencia)
