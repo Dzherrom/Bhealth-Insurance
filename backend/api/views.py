@@ -90,18 +90,18 @@ class PolizaViewSet(viewsets.ModelViewSet):
             return Poliza.objects.none()
         
         role = user.profile.role
-        if role in ['ADMIN', 'MANAGER', 'AGENT_L1', 'AGENT_L2']:
+        if role in ['ADMIN', 'MANAGER', 'AGENT_L1', 'AGENT_L2', 'ACCOUNTANT']:
             return Poliza.objects.all()
-        elif role == 'AGENT_L3':
+        elif role in ['AGENT_L3', 'AGENT']:
             if user.profile.agente:
                 return Poliza.objects.filter(agente=user.profile.agente)
             return Poliza.objects.none()
         return Poliza.objects.none()
 
     def perform_create(self, serializer):
-        # Auto-assign agent if the creator is an Agent L3
+        # Auto-assign agent if the creator is an Agent L3 or AGENT
         user = self.request.user
-        if hasattr(user, 'profile') and user.profile.role == 'AGENT_L3' and user.profile.agente:
+        if hasattr(user, 'profile') and user.profile.role in ['AGENT_L3', 'AGENT'] and user.profile.agente:
             poliza = serializer.save(agente=user.profile.agente)
         else:
             poliza = serializer.save()

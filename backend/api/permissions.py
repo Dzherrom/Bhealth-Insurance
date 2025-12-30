@@ -43,7 +43,7 @@ class IsAgentL3Role(permissions.BasePermission):
         if not auth: return False
         if status == 'INACTIVE': return request.method in permissions.SAFE_METHODS
         if status == 'CANDIDATE': return False
-        return request.user.profile.role in ['ADMIN', 'MANAGER', 'AGENT_L1', 'AGENT_L2', 'AGENT_L3']
+        return request.user.profile.role in ['ADMIN', 'MANAGER', 'AGENT_L1', 'AGENT_L2', 'AGENT_L3', 'AGENT', 'ACCOUNTANT']
 
 class CanViewReports(permissions.BasePermission):
     def has_permission(self, request, view):
