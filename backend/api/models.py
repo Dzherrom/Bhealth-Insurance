@@ -229,10 +229,23 @@ class Etiqueta(models.Model):
         return self.nombre
 
 class Documento(models.Model):
+    CATEGORIA_CHOICES = [
+        ('CARTA_MERCADO', 'Carta de Mercado'),
+        ('ASEGURANZA', 'Aseguranza'),
+        ('CITAS_MEDICAS', 'Citas Médicas'),
+        ('BILLS', 'Bills'),
+        ('IDENTIFICACION', 'Identificación'),
+        ('ESTATUS_MIGRATORIO', 'Estatus Migratorio'),
+        ('CONSENTIMIENTO', 'Consentimiento'),
+        ('OTRO', 'Otro'),
+    ]
     poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='documentos')
+    cliente = models.ForeignKey(Cliente, on_delete=models.SET_NULL, null=True, blank=True, related_name='documentos', verbose_name="Cliente")
     archivo = models.FileField(upload_to='documentos_poliza/', verbose_name="Archivo")
     titulo = models.CharField(max_length=255, verbose_name="Título del Documento")
     fecha_subida = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Subida")
+    fecha_vencimiento = models.DateField(null=True, blank=True, verbose_name="Fecha de Vencimiento")
+    categoria = models.CharField(max_length=50, choices=CATEGORIA_CHOICES, default='OTRO', verbose_name="Categoría")
     subido_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, verbose_name="Subido Por")
     etiquetas = models.ManyToManyField(Etiqueta, related_name='documentos', blank=True)
 
@@ -281,6 +294,17 @@ class CuentaBancaria(models.Model):
 
     def __str__(self):
         return f"{self.nombre_banco} - {self.titular_cuenta}"
+
+class PolizaViewer(models.Model):
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='viewers')
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE)
+    last_seen = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('poliza', 'usuario')
+
+    def __str__(self):
+        return f"{self.usuario.username} viendo {self.poliza}"
 
 # End of models
 

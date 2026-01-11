@@ -5,12 +5,14 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
 from django.http import FileResponse
+from django.utils import timezone
 import zipfile
 import io
 import requests
 from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
-    EstadoPoliza, Poliza, Nota, HistorialPoliza, Etiqueta, Documento, Tarea
+    EstadoPoliza, Poliza, Nota, HistorialPoliza, Etiqueta, Documento, Tarea,
+    PolizaViewer
 )
 from .serializers import (
     UserSerializer, UserProfileSerializer, AgenciaSerializer,
@@ -122,6 +124,20 @@ class PolizaViewSet(viewsets.ModelViewSet):
             accion='EDICION',
             detalles=f"Póliza actualizada"
         )
+
+    @action(detail=True, methods=['post'])
+    def heartbeat(self, request, pk=None):
+        """
+        Updates the 'last_seen' timestamp for the current user on this policy.
+        Frontend should call this every 15-30 seconds while viewing the policy.
+        """
+        poliza = self.get_object()
+        PolizaViewer.objects.update_or_create(
+            poliza=poliza,
+            usuario=request.user,
+            defaults={'last_seen': timezone.now()}
+        )
+        return Response({'status': 'ok'})
 
     @action(detail=True, methods=['get'])
     def download_documents(self, request, pk=None):

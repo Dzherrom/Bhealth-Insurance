@@ -4,7 +4,7 @@ from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
     EstadoPoliza, Poliza, PolizaCliente, Licencia, Nota, HistorialPoliza,
     Etiqueta, Documento, Tarea, UserProfile,
-    InfoPago, TarjetaCredito, CuentaBancaria
+    InfoPago, TarjetaCredito, CuentaBancaria, PolizaViewer
 )
 
 class UserSerializer(serializers.ModelSerializer):
@@ -113,6 +113,38 @@ class CuentaBancariaSerializer(serializers.ModelSerializer):
         model = CuentaBancaria
         fields = '__all__'
 
+class EtiquetaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Etiqueta
+        fields = '__all__'
+
+class DocumentoSerializer(serializers.ModelSerializer):
+    subido_por_username = serializers.ReadOnlyField(source='subido_por.username')
+    cliente_nombre = serializers.ReadOnlyField(source='cliente.__str__')
+    etiquetas_details = EtiquetaSerializer(source='etiquetas', many=True, read_only=True)
+    etiquetas_ids = serializers.PrimaryKeyRelatedField(
+        many=True, write_only=True, queryset=Etiqueta.objects.all(), source='etiquetas'
+    )
+
+    class Meta:
+        model = Documento
+        fields = '__all__'
+        read_only_fields = ('subido_por', 'fecha_subida')
+
+class NotaSerializer(serializers.ModelSerializer):
+    autor_username = serializers.ReadOnlyField(source='autor.username')
+    usuarios_etiquetados_names = serializers.SlugRelatedField(
+        many=True, 
+        read_only=True, 
+        slug_field='username', 
+        source='usuarios_etiquetados'
+    )
+
+    class Meta:
+        model = Nota
+        fields = '__all__'
+        read_only_fields = ('autor', 'fecha_creacion', 'usuarios_etiquetados')
+
 class PolizaClienteSerializer(serializers.ModelSerializer):
     cliente_details = ClienteSerializer(source='cliente', read_only=True)
     direccion_residencia_details = DireccionSerializer(source='direccion_residencia', read_only=True)
@@ -140,6 +172,7 @@ class PolizaSerializer(serializers.ModelSerializer):
     plan_nombre = serializers.ReadOnlyField(source='plan.nombre')
     estado_nombre = serializers.ReadOnlyField(source='estado.nombre')
     colaboradores_details = UserSerializer(source='colaboradores', many=True, read_only=True)
+    active_viewers = serializers.SerializerMethodField()
 
     # Address Details
     direccion_fisica_details = DireccionSerializer(source='direccion_fisica', read_only=True)
@@ -150,7 +183,11 @@ class PolizaSerializer(serializers.ModelSerializer):
     info_pago = InfoPagoSerializer(read_only=True)
     tarjetas_credito = TarjetaCreditoSerializer(many=True, read_only=True)
     cuentas_bancarias = CuentaBancariaSerializer(many=True, read_only=True)
+    
+    # Extras
     otras_polizas = serializers.SerializerMethodField()
+    notas = NotaSerializer(many=True, read_only=True)
+    documentos = DocumentoSerializer(many=True, read_only=True)
 
     class Meta:
         model = Poliza
@@ -165,15 +202,33 @@ class PolizaSerializer(serializers.ModelSerializer):
             'direccion_fisica', 'direccion_fisica_details',
             'direccion_postal', 'direccion_postal_details',
             'direccion_facturacion', 'direccion_facturacion_details',
-            'info_pago', 'tarjetas_credito', 'cuentas_bancarias', 'otras_polizas',
+            'info_pago', 'tarjetas_credito', 'cuentas_bancarias', 
+            'otras_polizas', 'notas', 'documentos',
+            'active_viewers',
             'ultima_actualizacion', 'es_duplicado', 'ultimo_duplicado'
         ]
+
+    def get_active_viewers(self, obj):
+        from django.utils import timezone
+        import datetime
+        threshold = timezone.now() - datetime.timedelta(seconds=60)
+        viewers = obj.viewers.filter(last_seen__gte=threshold)
+        return [v.usuario.username for v in viewers]
 
     def get_otras_polizas(self, obj):
         main_applicant_link = obj.polizacliente_set.filter(es_solicitante_principal=True).first()
         if main_applicant_link:
             other_policies = Poliza.objects.filter(clientes=main_applicant_link.cliente).exclude(id=obj.id).distinct()
-            return [{"id": p.id, "id_mercado": p.id_mercado, "estado": p.estado.nombre if p.estado else None} for p in other_policies]
+            return [
+                {
+                    "id": p.id,
+                    "id_mercado": p.id_mercado,
+                    "estado": p.estado.nombre if p.estado else None,
+                    "agente": p.agente.nombre_completo if p.agente else None,
+                    "cliente": str(main_applicant_link.cliente),
+                    "asignado": [u.username for u in p.colaboradores.all()]
+                } for p in other_policies
+            ]
         return []
 
     def create(self, validated_data):
@@ -203,43 +258,12 @@ class PolizaSerializer(serializers.ModelSerializer):
                 
         return instance
 
-class NotaSerializer(serializers.ModelSerializer):
-    autor_username = serializers.ReadOnlyField(source='autor.username')
-    usuarios_etiquetados_names = serializers.SlugRelatedField(
-        many=True, 
-        read_only=True, 
-        slug_field='username', 
-        source='usuarios_etiquetados'
-    )
-
-    class Meta:
-        model = Nota
-        fields = '__all__'
-        read_only_fields = ('autor', 'fecha_creacion', 'usuarios_etiquetados')
-
 class HistorialPolizaSerializer(serializers.ModelSerializer):
     usuario_username = serializers.ReadOnlyField(source='usuario.username')
     
     class Meta:
         model = HistorialPoliza
         fields = '__all__'
-
-class EtiquetaSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Etiqueta
-        fields = '__all__'
-
-class DocumentoSerializer(serializers.ModelSerializer):
-    subido_por_username = serializers.ReadOnlyField(source='subido_por.username')
-    etiquetas_details = EtiquetaSerializer(source='etiquetas', many=True, read_only=True)
-    etiquetas_ids = serializers.PrimaryKeyRelatedField(
-        many=True, write_only=True, queryset=Etiqueta.objects.all(), source='etiquetas'
-    )
-
-    class Meta:
-        model = Documento
-        fields = '__all__'
-        read_only_fields = ('subido_por', 'fecha_subida')
 
 class TareaSerializer(serializers.ModelSerializer):
     asignado_a_username = serializers.ReadOnlyField(source='asignado_a.username')
