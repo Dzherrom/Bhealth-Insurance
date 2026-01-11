@@ -6,6 +6,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
 from django.http import FileResponse
 from django.utils import timezone
+import datetime
 import zipfile
 import io
 import requests
@@ -138,6 +139,17 @@ class PolizaViewSet(viewsets.ModelViewSet):
             defaults={'last_seen': timezone.now()}
         )
         return Response({'status': 'ok'})
+
+    @action(detail=True, methods=['get'])
+    def active_viewers(self, request, pk=None):
+        """
+        Returns a lightweight list of active viewers for polling.
+        """
+        poliza = self.get_object()
+        threshold = timezone.now() - datetime.timedelta(seconds=60)
+        viewers = poliza.viewers.filter(last_seen__gte=threshold)
+        data = [v.usuario.username for v in viewers]
+        return Response(data)
 
     @action(detail=True, methods=['get'])
     def download_documents(self, request, pk=None):
