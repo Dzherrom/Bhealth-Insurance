@@ -69,11 +69,19 @@ class EstadoPoliza(models.Model):
         return self.nombre
 
 class Poliza(models.Model):
+    TIPO_INSCRIPCION_CHOICES = [
+        ('NUEVA', 'Nueva Venta'),
+        ('RENOVACION', 'Renovación'),
+    ]
+
     id_mercado = models.CharField(max_length=100, verbose_name="ID Mercado")
     id_miembro = models.CharField(max_length=100, verbose_name="ID Miembro")
     costo_poliza = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Costo Póliza")
     subsidio = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Subsidio")
     prima_mensual = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Prima Mensual")
+    total_ahorros = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Total Ahorros")
+    plan_era = models.CharField(max_length=255, blank=True, null=True, verbose_name="El Plan Era (Calculado)")
+    
     fecha_efectiva = models.DateField(verbose_name="Fecha Efectiva")
     estado = models.ForeignKey(EstadoPoliza, on_delete=models.SET_NULL, null=True, verbose_name="Estado")
     fecha_envio = models.DateField(verbose_name="Fecha Envío")
@@ -82,7 +90,23 @@ class Poliza(models.Model):
     ultima_actualizacion = models.DateTimeField(auto_now=True, verbose_name="Última Actualización")
     es_duplicado = models.BooleanField(default=False, verbose_name="Es Duplicado")
     ultimo_duplicado = models.CharField(max_length=100, blank=True, null=True, verbose_name="Último Duplicado")
+    
     ffm_mercado = models.CharField(max_length=100, blank=True, null=True, verbose_name="FFM Usado en Mercado")
+    npn_mercado = models.CharField(max_length=50, blank=True, null=True, verbose_name="NPN Mercado")
+    tipo_inscripcion = models.CharField(max_length=20, choices=TIPO_INSCRIPCION_CHOICES, blank=True, null=True, verbose_name="Tipo Inscripción")
+    razon_inscripcion_especial = models.CharField(max_length=255, blank=True, null=True, verbose_name="Razón Inscripción Especial")
+    fecha_inscripcion_especial = models.DateField(null=True, blank=True, verbose_name="Fecha Inscripción Especial")
+    
+    # Information Totals
+    total_miembros = models.IntegerField(default=0, verbose_name="Total Miembros")
+    total_aplicantes = models.IntegerField(default=0, verbose_name="Total Aplicantes")
+    total_dependientes = models.IntegerField(default=0, verbose_name="Total Dependientes")
+    
+    # Addresses (Linked to Policy)
+    direccion_fisica = models.ForeignKey(Direccion, on_delete=models.SET_NULL, null=True, blank=True, related_name='poliza_fisica', verbose_name="Dirección Física")
+    direccion_postal = models.ForeignKey(Direccion, on_delete=models.SET_NULL, null=True, blank=True, related_name='poliza_postal', verbose_name="Dirección Postal")
+    direccion_facturacion = models.ForeignKey(Direccion, on_delete=models.SET_NULL, null=True, blank=True, related_name='poliza_facturacion', verbose_name="Dirección Facturación")
+
     agente = models.ForeignKey(Agente, on_delete=models.SET_NULL, null=True, related_name='polizas')
     plan = models.ForeignKey(Plan, on_delete=models.CASCADE, related_name='polizas')
     clientes = models.ManyToManyField(Cliente, through='PolizaCliente', related_name='polizas')
@@ -227,6 +251,36 @@ class Tarea(models.Model):
 
     def __str__(self):
         return f"{self.titulo} - {self.asignado_a.username}"
+
+class InfoPago(models.Model):
+    poliza = models.OneToOneField(Poliza, on_delete=models.CASCADE, related_name='info_pago', verbose_name="Póliza")
+    pago_recurrente = models.BooleanField(default=False, verbose_name="Pago Recurrente")
+    fecha_primer_pago = models.DateField(null=True, blank=True, verbose_name="Fecha Primer Pago")
+    dia_pago_preferido = models.IntegerField(null=True, blank=True, verbose_name="Día de Pago Preferido (1-31)")
+
+    def __str__(self):
+        return f"Pago Info {self.poliza}"
+
+class TarjetaCredito(models.Model):
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='tarjetas_credito', verbose_name="Póliza")
+    tipo_tarjeta = models.CharField(max_length=50, verbose_name="Tipo de Tarjeta")
+    numero = models.CharField(max_length=100, verbose_name="Número de Tarjeta (Enmascarado)")
+    nombre_titular = models.CharField(max_length=255, verbose_name="Nombre Titular")
+    cvv = models.CharField(max_length=10, verbose_name="CVV")
+    fecha_vencimiento = models.CharField(max_length=10, verbose_name="Fecha Vencimiento (MM/YY)")
+
+    def __str__(self):
+        return f"{self.tipo_tarjeta} *{self.numero[-4:]}"
+
+class CuentaBancaria(models.Model):
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='cuentas_bancarias', verbose_name="Póliza")
+    nombre_banco = models.CharField(max_length=255, verbose_name="Nombre del Banco")
+    numero_cuenta = models.CharField(max_length=100, verbose_name="Número de Cuenta")
+    aba_routing = models.CharField(max_length=100, verbose_name="ABA/Enrutamiento")
+    titular_cuenta = models.CharField(max_length=255, verbose_name="Titular de la Cuenta")
+
+    def __str__(self):
+        return f"{self.nombre_banco} - {self.titular_cuenta}"
 
 # End of models
 

@@ -3,7 +3,8 @@ from rest_framework import serializers
 from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
     EstadoPoliza, Poliza, PolizaCliente, Licencia, Nota, HistorialPoliza,
-    Etiqueta, Documento, Tarea, UserProfile
+    Etiqueta, Documento, Tarea, UserProfile,
+    InfoPago, TarjetaCredito, CuentaBancaria
 )
 
 class UserSerializer(serializers.ModelSerializer):
@@ -97,6 +98,21 @@ class EstadoPolizaSerializer(serializers.ModelSerializer):
         model = EstadoPoliza
         fields = '__all__'
 
+class InfoPagoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InfoPago
+        fields = '__all__'
+
+class TarjetaCreditoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TarjetaCredito
+        fields = '__all__'
+
+class CuentaBancariaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CuentaBancaria
+        fields = '__all__'
+
 class PolizaClienteSerializer(serializers.ModelSerializer):
     cliente_details = ClienteSerializer(source='cliente', read_only=True)
     direccion_residencia_details = DireccionSerializer(source='direccion_residencia', read_only=True)
@@ -125,14 +141,40 @@ class PolizaSerializer(serializers.ModelSerializer):
     estado_nombre = serializers.ReadOnlyField(source='estado.nombre')
     colaboradores_details = UserSerializer(source='colaboradores', many=True, read_only=True)
 
+    # Address Details
+    direccion_fisica_details = DireccionSerializer(source='direccion_fisica', read_only=True)
+    direccion_postal_details = DireccionSerializer(source='direccion_postal', read_only=True)
+    direccion_facturacion_details = DireccionSerializer(source='direccion_facturacion', read_only=True)
+
+    # Payment Info
+    info_pago = InfoPagoSerializer(read_only=True)
+    tarjetas_credito = TarjetaCreditoSerializer(many=True, read_only=True)
+    cuentas_bancarias = CuentaBancariaSerializer(many=True, read_only=True)
+    otras_polizas = serializers.SerializerMethodField()
+
     class Meta:
         model = Poliza
         fields = [
             'id', 'id_mercado', 'id_miembro', 'costo_poliza', 'subsidio', 'prima_mensual',
+            'total_ahorros', 'plan_era',
             'fecha_efectiva', 'estado', 'estado_nombre', 'fecha_envio', 'fecha_cancelacion',
             'id_interno', 'agente', 'agente_nombre', 'plan', 'plan_nombre',
-            'clientes_info', 'clientes_data', 'colaboradores', 'colaboradores_details'
+            'clientes_info', 'clientes_data', 'colaboradores', 'colaboradores_details',
+            'ffm_mercado', 'npn_mercado', 'tipo_inscripcion', 'razon_inscripcion_especial', 'fecha_inscripcion_especial',
+            'total_miembros', 'total_aplicantes', 'total_dependientes',
+            'direccion_fisica', 'direccion_fisica_details',
+            'direccion_postal', 'direccion_postal_details',
+            'direccion_facturacion', 'direccion_facturacion_details',
+            'info_pago', 'tarjetas_credito', 'cuentas_bancarias', 'otras_polizas',
+            'ultima_actualizacion', 'es_duplicado', 'ultimo_duplicado'
         ]
+
+    def get_otras_polizas(self, obj):
+        main_applicant_link = obj.polizacliente_set.filter(es_solicitante_principal=True).first()
+        if main_applicant_link:
+            other_policies = Poliza.objects.filter(clientes=main_applicant_link.cliente).exclude(id=obj.id).distinct()
+            return [{"id": p.id, "id_mercado": p.id_mercado, "estado": p.estado.nombre if p.estado else None} for p in other_policies]
+        return []
 
     def create(self, validated_data):
         clientes_data = validated_data.pop('clientes_data', [])
