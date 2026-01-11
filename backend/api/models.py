@@ -306,5 +306,40 @@ class PolizaViewer(models.Model):
     def __str__(self):
         return f"{self.usuario.username} viendo {self.poliza}"
 
+class Medico(models.Model):
+    nombre = models.CharField(max_length=255, verbose_name="Nombre Completo")
+    hospital = models.CharField(max_length=255, verbose_name="Hospital")
+    especializacion = models.CharField(max_length=255, verbose_name="Especialización")
+
+    def __str__(self):
+        return f"{self.nombre} - {self.hospital}"
+
+class Cita(models.Model):
+    ESTADO_CHOICES = [
+        ('PROGRAMADA', 'Programada'),
+        ('COMPLETADA', 'Completada'),
+        ('CANCELADA', 'Cancelada'),
+        ('NO_ASISTIO', 'No Asistió'),
+    ]
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='citas', verbose_name="Póliza")
+    cliente = models.ForeignKey(Cliente, on_delete=models.SET_NULL, null=True, blank=True, related_name='citas', verbose_name="Paciente")
+    creado_por = models.ForeignKey(User, on_delete=models.CASCADE, related_name='citas_creadas', verbose_name="Creado por")
+    fecha_hora = models.DateTimeField(verbose_name="Fecha y Hora")
+    proveedor = models.CharField(max_length=255, verbose_name="Proveedor/Doctor")
+    lugar = models.CharField(max_length=255, verbose_name="Lugar/Dirección")
+    motivo = models.TextField(blank=True, null=True, verbose_name="Motivo de la Cita")
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='PROGRAMADA', verbose_name="Estado")
+    notas = models.TextField(blank=True, null=True, verbose_name="Notas Adicionales")
+    medico_asignado = models.ForeignKey(Medico, on_delete=models.SET_NULL, null=True, blank=True, related_name='citas_medicas', verbose_name="Médico Asignado")
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
+
+    class Meta:
+        verbose_name = "Cita Médica"
+        verbose_name_plural = "Citas Médicas"
+        ordering = ['fecha_hora']
+
+    def __str__(self):
+        return f"Cita {self.cliente} - {self.fecha_hora.date()}"
+
 # End of models
 

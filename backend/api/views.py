@@ -13,7 +13,7 @@ import requests
 from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
     EstadoPoliza, Poliza, Nota, HistorialPoliza, Etiqueta, Documento, Tarea,
-    PolizaViewer
+    PolizaViewer, Cita, Medico
 )
 from .serializers import (
     UserSerializer, UserProfileSerializer, AgenciaSerializer,
@@ -21,7 +21,7 @@ from .serializers import (
     AseguradoraSerializer, PlanSerializer, EstadoPolizaSerializer,
     PolizaSerializer, NotaSerializer, HistorialPolizaSerializer,
     EtiquetaSerializer, DocumentoSerializer, TareaSerializer,
-    UserManagementSerializer
+    UserManagementSerializer, CitaSerializer, MedicoSerializer
 )
 from .permissions import IsAgentL3Role, IsPolicyOwnerOrHigher, IsAdminRole
 
@@ -269,6 +269,26 @@ class TareaViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(tareas, many=True)
         return Response(serializer.data)
+
+class CitaViewSet(viewsets.ModelViewSet):
+    queryset = Cita.objects.all()
+    serializer_class = CitaSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filterset_fields = ['poliza', 'cliente', 'estado', 'proveedor']
+
+    def perform_create(self, serializer):
+        cita = serializer.save(creado_por=self.request.user)
+        HistorialPoliza.objects.create(
+            poliza=cita.poliza,
+            usuario=self.request.user,
+            accion='EDICION',
+            detalles=f"Cita creada para {cita.fecha_hora.date()} en {cita.proveedor}"
+        )
+
+class MedicoViewSet(viewsets.ModelViewSet):
+    queryset = Medico.objects.all()
+    serializer_class = MedicoSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
 class ZipCodeLookupView(APIView):
     permission_classes = [permissions.IsAuthenticated]
