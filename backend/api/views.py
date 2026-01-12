@@ -1,4 +1,4 @@
-from rest_framework import generics, permissions, status, viewsets
+from rest_framework import generics, permissions, status, viewsets, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -6,6 +6,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
 from django.http import FileResponse
 from django.utils import timezone
+from django_filters.rest_framework import DjangoFilterBackend
 import datetime
 import zipfile
 import io
@@ -242,10 +243,27 @@ class UserManagementViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserManagementSerializer
     permission_classes = [permissions.IsAuthenticated, IsAdminRole]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['is_active', 'profile__status', 'profile__role']
+    search_fields = ['username', 'email', 'first_name', 'last_name']
 
     def get_queryset(self):
         # Ensure we get users with their profiles
         return User.objects.select_related('profile').all()
+
+    @action(detail=True, methods=['get'], url_path='status')
+    def check_status(self, request, pk=None):
+        """
+        Retorna específicamente el estado de actividad de un usuario.
+        """
+        user = self.get_object()
+        return Response({
+            "id": user.id,
+            "username": user.username,
+            "is_active": user.is_active,
+            "profile_status": user.profile.status,
+            "role": user.profile.role
+        })
 
 class TareaViewSet(viewsets.ModelViewSet):
     queryset = Tarea.objects.all()
