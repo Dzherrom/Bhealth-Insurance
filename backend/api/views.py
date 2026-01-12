@@ -16,7 +16,8 @@ from django.db.models.functions import TruncMonth, TruncYear
 from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
     EstadoPoliza, Poliza, Nota, HistorialPoliza, Etiqueta, Documento, Tarea,
-    PolizaViewer, Cita, Medico, Recordatorio, IntentoLoginFallido
+    PolizaViewer, Cita, Medico, Recordatorio, IntentoLoginFallido,
+    Contrato, ReporteComision
 )
 
 class DashboardStatsView(APIView):
@@ -155,7 +156,8 @@ from .serializers import (
     AseguradoraSerializer, PlanSerializer, EstadoPolizaSerializer,
     PolizaSerializer, NotaSerializer, HistorialPolizaSerializer,
     EtiquetaSerializer, DocumentoSerializer, TareaSerializer,
-    UserManagementSerializer, CitaSerializer, MedicoSerializer, RecordatorioSerializer
+    UserManagementSerializer, CitaSerializer, MedicoSerializer, RecordatorioSerializer,
+    ContratoSerializer, ReporteComisionSerializer
 )
 from .permissions import IsAgentL3Role, IsPolicyOwnerOrHigher, IsAdminRole
 
@@ -602,6 +604,24 @@ class ReporteIntentosFallidosView(APIView):
             } for fl in failed_logins
         ]
         return Response(data)
+
+class ContratoViewSet(viewsets.ModelViewSet):
+    queryset = Contrato.objects.all()
+    serializer_class = ContratoSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['agente', 'activo']
+    search_fields = ['titulo', 'agente__nombre_completo']
+    ordering_fields = ['fecha_inicio', 'fecha_fin']
+
+class ReporteComisionViewSet(viewsets.ModelViewSet):
+    queryset = ReporteComision.objects.all()
+    serializer_class = ReporteComisionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['agente', 'poliza', 'estado']
+    search_fields = ['agente__nombre_completo', 'poliza__id_mercado']
+    ordering_fields = ['fecha_pago', 'monto']
 
 
  

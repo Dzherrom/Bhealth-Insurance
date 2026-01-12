@@ -4,7 +4,8 @@ from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
     EstadoPoliza, Poliza, PolizaCliente, Licencia, Nota, HistorialPoliza,
     Etiqueta, Documento, Tarea, UserProfile,
-    InfoPago, TarjetaCredito, CuentaBancaria, PolizaViewer, Cita, Medico, Medicamento, Recordatorio
+    InfoPago, TarjetaCredito, CuentaBancaria, PolizaViewer, Cita, Medico, Medicamento, Recordatorio,
+    Contrato, ReporteComision
 )
 
 class UserSerializer(serializers.ModelSerializer):
@@ -313,4 +314,14 @@ class TareaSerializer(serializers.ModelSerializer):
         model = Tarea
         fields = '__all__'
         read_only_fields = ('creado_por', 'fecha_creacion')
+
+class ContratoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Contrato
+        fields = '__all__'
+
+class ReporteComisionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReporteComision
+        fields = '__all__'
 

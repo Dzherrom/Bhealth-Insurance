@@ -406,5 +406,39 @@ class IntentoLoginFallido(models.Model):
     def __str__(self):
         return f"Fallo: {self.usuario_intentado} en {self.fecha_intento}"
 
+class Contrato(models.Model):
+    titulo = models.CharField(max_length=255, verbose_name="Título")
+    archivo = models.FileField(upload_to='contratos/', verbose_name="Archivo del Contrato")
+    fecha_inicio = models.DateField(verbose_name="Fecha Inicio")
+    fecha_fin = models.DateField(verbose_name="Fecha Fin", null=True, blank=True)
+    agente = models.ForeignKey(Agente, on_delete=models.CASCADE, related_name='contratos', verbose_name="Agente")
+    activo = models.BooleanField(default=True, verbose_name="Activo")
+    descripcion = models.TextField(blank=True, null=True, verbose_name="Descripción")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.titulo} - {self.agente}"
+
+class ReporteComision(models.Model):
+    ESTADO_CHOICES = [
+        ('PENDIENTE', 'Pendiente'),
+        ('PAGADO', 'Pagado'),
+        ('CANCELADO', 'Cancelado'),
+    ]
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='reportes_comision', verbose_name="Póliza")
+    agente = models.ForeignKey(Agente, on_delete=models.CASCADE, related_name='reportes_comision', verbose_name="Agente")
+    monto = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Monto")
+    fecha_pago = models.DateField(verbose_name="Fecha de Pago")
+    estado = models.CharField(max_length=50, choices=ESTADO_CHOICES, default='PENDIENTE', verbose_name="Estado")
+    comentarios = models.TextField(blank=True, null=True, verbose_name="Comentarios")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Comision {self.poliza} - {self.monto}"
+
 # End of models
 
