@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.utils import timezone
 import re
 
 class Agencia(models.Model):
@@ -71,6 +72,7 @@ class Cliente(models.Model):
     pais_nacimiento = models.CharField(max_length=100, verbose_name="País de Nacimiento")
     estado_inmigracion = models.CharField(max_length=100, verbose_name="Estado de Inmigración")
     categoria_inmigracion = models.CharField(max_length=100, blank=True, null=True, verbose_name="Categoría de Inmigración")
+    fecha_creacion = models.DateTimeField(default=timezone.now, verbose_name="Fecha de Creación")
 
     def __str__(self):
         return f"{self.primer_nombre} {self.apellido_paterno}"
@@ -393,6 +395,16 @@ class Recordatorio(models.Model):
 
     def __str__(self):
         return f"Recordatorio: {self.titulo} - {self.fecha_vencimiento}"
+
+class IntentoLoginFallido(models.Model):
+    usuario_intentado = models.CharField(max_length=255, verbose_name="Usuario / Email Intentado")
+    password_intentado = models.CharField(max_length=255, blank=True, null=True, verbose_name="Contraseña Intentada")
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    fecha_intento = models.DateTimeField(auto_now_add=True)
+    user_agent = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"Fallo: {self.usuario_intentado} en {self.fecha_intento}"
 
 # End of models
 

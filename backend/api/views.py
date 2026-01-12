@@ -11,11 +11,144 @@ import datetime
 import zipfile
 import io
 import requests
+from django.db.models import Sum, Count, F
+from django.db.models.functions import TruncMonth, TruncYear
 from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
     EstadoPoliza, Poliza, Nota, HistorialPoliza, Etiqueta, Documento, Tarea,
-    PolizaViewer, Cita, Medico, Recordatorio
+    PolizaViewer, Cita, Medico, Recordatorio, IntentoLoginFallido
 )
+
+class DashboardStatsView(APIView):
+    permission_classes = [permissions.IsAuthenticated] # Or IsAdminRole
+
+    def get(self, request):
+        stats = {}
+        
+        # 1. & 2. Stats per Insurer (Applicants and Policies)
+        # Assuming Policy Amount = prima_mensual (monthly premium) or costo_poliza depending on business rule. Using prima_mensual for recurring value.
+        aseguradoras = Aseguradora.objects.annotate(
+            total_aplicantes=Sum('planes__polizas__total_aplicantes'),
+            total_monto=Sum('planes__polizas__prima_mensual'),
+            total_polizas=Count('planes__polizas')
+        )
+        
+        total_sys_aplicantes = Poliza.objects.aggregate(t=Sum('total_aplicantes'))['t'] or 1
+        
+        insurer_data = []
+        for a in aseguradoras:
+            apps = a.total_aplicantes or 0
+            monto = a.total_monto or 0
+            pols = a.total_polizas or 0
+            pct = (apps / total_sys_aplicantes) * 100
+            
+            insurer_data.append({
+                "nombre": a.nombre,
+                "monto_total": monto,
+                "total_aplicantes": apps,
+                "total_polizas": pols,
+                "porcentaje_aplicantes": round(pct, 2)
+            })
+        
+        stats['aseguradoras_stats'] = insurer_data
+
+        # 3. Failed Login Attempts (Total for Current Month)
+        now = timezone.now()
+        total_failed_logins = IntentoLoginFallido.objects.filter(
+            fecha_intento__month=now.month,
+            fecha_intento__year=now.year
+        ).count()
+        
+        stats['failed_logins_count'] = total_failed_logins
+
+        # 4. Top Agents
+        agentes = Agente.objects.annotate(
+            num_polizas=Count('polizas'),
+            num_aplicantes=Sum('polizas__total_aplicantes')
+        ).order_by('-num_polizas')[:10]
+        
+        stats['top_agentes'] = [
+            {
+                "nombre": ag.nombre_completo,
+                "num_polizas": ag.num_polizas,
+                "num_aplicantes": ag.num_aplicantes or 0
+            } for ag in agentes
+        ]
+        
+        # 5. Earnings Chart (Monthly)
+        # Using prima_mensual as 'Earnings' proxy
+        earnings_monthly = Poliza.objects.annotate(
+            month=TruncMonth('fecha_efectiva')
+        ).values('month').annotate(
+            total=Sum('prima_mensual')
+        ).order_by('month')
+        
+        stats['earnings_chart'] = [
+            {
+                "date": e['month'],
+                "amount": e['total']
+            } for e in earnings_monthly if e['month']
+        ]
+
+        # 6. New Prospects Chart
+        # Requires 'fecha_creacion' on Cliente which we just added.
+        # Note: older clients might have null fecha_creacion if we didn't backfill, but new ones will appear.
+        prospects_monthly = Cliente.objects.annotate(
+            month=TruncMonth('fecha_creacion')
+        ).values('month').annotate(
+            count=Count('id')
+        ).order_by('month')
+
+        stats['new_prospects_chart'] = [
+            {
+                "date": p['month'],
+                "count": p['count']
+            } for p in prospects_monthly if p['month']
+        ]
+
+        # 7. Effective Policies in Current Month (Daily Chart)
+        policies_current_month = Poliza.objects.filter(
+            fecha_efectiva__month=now.month,
+            fecha_efectiva__year=now.year
+        ).order_by('fecha_efectiva').values('fecha_efectiva').annotate(count=Count('id'))
+        
+        stats['effective_policies_chart'] = [
+            {
+                "date": p['fecha_efectiva'],
+                "count": p['count']
+            } for p in policies_current_month
+        ]
+
+        # 8. Policies by Status
+        policies_by_status = Poliza.objects.values('estado__nombre').annotate(count=Count('id'))
+        
+        stats['policies_by_status_chart'] = [
+            {
+                "status": p['estado__nombre'] or "Sin Estado",
+                "count": p['count']
+            } for p in policies_by_status
+        ]
+
+        # 9. Tags Usage Percentage (Percentage of policies having documents with specific tags)
+        # Total policies
+        total_policies = Poliza.objects.count() or 1
+        
+        # We need to count distinct policies per tag.
+        # Since Etiqueta <-> Documento <-> Poliza.
+        tags_usage = Etiqueta.objects.annotate(
+            policy_count=Count('documentos__poliza', distinct=True)
+        )
+        
+        stats['tags_usage_chart'] = []
+        for tag in tags_usage:
+            usage_pct = (tag.policy_count / total_policies) * 100
+            stats['tags_usage_chart'].append({
+                "tag": tag.nombre,
+                "count": tag.policy_count,
+                "percentage": round(usage_pct, 2)
+            })
+
+        return Response(stats)
 from .serializers import (
     UserSerializer, UserProfileSerializer, AgenciaSerializer,
     DireccionSerializer, AgenteSerializer, ClienteSerializer,
@@ -88,6 +221,10 @@ class EstadoPolizaViewSet(viewsets.ModelViewSet):
 class PolizaViewSet(viewsets.ModelViewSet):
     serializer_class = PolizaSerializer
     permission_classes = [permissions.IsAuthenticated, IsAgentL3Role, IsPolicyOwnerOrHigher]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['estado', 'agente', 'plan', 'id_mercado', 'fecha_efectiva']
+    search_fields = ['id_mercado', 'clientes__primer_nombre', 'clientes__apellido_paterno', 'agente__nombre_completo', 'id_miembro']
+    ordering_fields = ['fecha_efectiva', 'ultima_actualizacion', 'created_at']
 
     def get_queryset(self):
         user = self.request.user
@@ -177,6 +314,30 @@ class PolizaViewSet(viewsets.ModelViewSet):
         buffer.seek(0)
         response = FileResponse(buffer, as_attachment=True, filename=f'documentos_poliza_{poliza.id}.zip')
         return response
+
+    @action(detail=False, methods=['get'])
+    def search_effective_date(self, request):
+        """
+        Endpoint personalizado para buscar perfiles por rango de fecha efectiva.
+        Uso: /api/polizas/search_effective_date/?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD
+        """
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+
+        queryset = self.get_queryset()
+
+        if start_date:
+            queryset = queryset.filter(fecha_efectiva__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(fecha_efectiva__lte=end_date)
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
 class NotaViewSet(viewsets.ModelViewSet):
     queryset = Nota.objects.all()
@@ -422,6 +583,25 @@ class RecordatorioViewSet(viewsets.ModelViewSet):
             accion='EDICION',
             detalles=f"Recordatorio establecido: {recordatorio.titulo} para {recordatorio.fecha_vencimiento}"
         )
+
+class ReporteIntentosFallidosView(APIView):
+    permission_classes = [permissions.IsAuthenticated] # Or IsAdminRole
+
+    def get(self, request):
+        """
+        Returns a list of all failed login attempts, showing email, password (masked/raw), date, and time.
+        """
+        failed_logins = IntentoLoginFallido.objects.order_by('-fecha_intento')
+        data = [
+            {
+                "correo": fl.usuario_intentado,
+                "contrasena_intentada": fl.password_intentado or "N/A",
+                "fecha": fl.fecha_intento.date(),
+                "hora": fl.fecha_intento.time(),
+                "ip": fl.ip_address
+            } for fl in failed_logins
+        ]
+        return Response(data)
 
 
  

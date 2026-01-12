@@ -11,7 +11,7 @@ from .views import (
     EstadoPolizaViewSet, PolizaViewSet, NotaViewSet, HistorialPolizaViewSet,
     EtiquetaViewSet, DocumentoViewSet, TareaViewSet, UserManagementViewSet,
     ZipCodeLookupView, CitaViewSet, MedicoViewSet, RecordatorioViewSet,
-    ReporteAgentesView
+    ReporteAgentesView, DashboardStatsView, ReporteIntentosFallidosView
 )
 
 router = DefaultRouter()
@@ -41,6 +41,8 @@ urlpatterns = [
     path('logout/', LogoutView.as_view(), name='logout'),
     path('utils/zipcode/<str:zip_code>/', ZipCodeLookupView.as_view(), name='zipcode-lookup'),
     path('reportes/agentes-facturacion/', ReporteAgentesView.as_view(), name='reporte-agentes'),
+    path('reportes/intentos-fallidos/', ReporteIntentosFallidosView.as_view(), name='reporte-intentos-fallidos'),
+    path('dashboard/stats/', DashboardStatsView.as_view(), name='dashboard-stats'),
     path('', include(router.urls)),
 ]
 
