@@ -1,8 +1,3 @@
-databases:
-  - name: bhealth_db
-    databaseName: bhealth
-    user: bhealth_user
-
 services:
   - type: web
     name: bhealth-backend
@@ -17,8 +12,6 @@ services:
       - key: WEB_CONCURRENCY
         value: 4
       - key: DATABASE_URL
-        fromDatabase:
-          name: bhealth_db
-          property: connectionString
+        value: postgresql://bhealth_insurance_db_user:zjOEnlt6sYyEike3nvM86UTKBtOStdA6@dpg-d5i5ta8gjchc73ajfo0g-a.virginia-postgres.render.com/bhealth_insurance_db
       - key: DEBUG
         value: 'False'
