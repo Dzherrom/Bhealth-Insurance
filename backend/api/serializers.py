@@ -4,7 +4,7 @@ from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
     EstadoPoliza, Poliza, PolizaCliente, Licencia, Nota, HistorialPoliza,
     Etiqueta, Documento, Tarea, UserProfile,
-    InfoPago, TarjetaCredito, CuentaBancaria, PolizaViewer, Cita, Medico
+    InfoPago, TarjetaCredito, CuentaBancaria, PolizaViewer, Cita, Medico, Medicamento, Recordatorio
 )
 
 class UserSerializer(serializers.ModelSerializer):
@@ -168,19 +168,9 @@ class MedicoSerializer(serializers.ModelSerializer):
         model = Medico
         fields = '__all__'
 
-class CitaSerializer(serializers.ModelSerializer):
-    creado_por_username = serializers.ReadOnlyField(source='creado_por.username')
-    cliente_nombre = serializers.ReadOnlyField(source='cliente.__str__')
-    medico_asignado_details = MedicoSerializer(source='medico_asignado', read_only=True)
-    
+class MedicamentoSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Cita
-        fields = '__all__'
-        read_only_fields = ('creado_por', 'fecha_creacion')
-
-class MedicoSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Medico
+        model = Medicamento
         fields = '__all__'
 
 class CitaSerializer(serializers.ModelSerializer):
@@ -192,6 +182,20 @@ class CitaSerializer(serializers.ModelSerializer):
         model = Cita
         fields = '__all__'
         read_only_fields = ('creado_por', 'fecha_creacion')
+
+class HistorialPolizaSerializer(serializers.ModelSerializer):
+    usuario_username = serializers.ReadOnlyField(source='usuario.username')
+    
+    class Meta:
+        model = HistorialPoliza
+        fields = '__all__'
+
+class RecordatorioSerializer(serializers.ModelSerializer):
+    usuario_notificar_username = serializers.ReadOnlyField(source='usuario_notificar.username')
+
+    class Meta:
+        model = Recordatorio
+        fields = '__all__'
 
 class PolizaSerializer(serializers.ModelSerializer):
     clientes_info = PolizaClienteSerializer(source='polizacliente_set', many=True, read_only=True)
@@ -219,6 +223,9 @@ class PolizaSerializer(serializers.ModelSerializer):
     notas = NotaSerializer(many=True, read_only=True)
     documentos = DocumentoSerializer(many=True, read_only=True)
     citas = CitaSerializer(many=True, read_only=True)
+    medicamentos = MedicamentoSerializer(many=True, read_only=True)
+    historial = HistorialPolizaSerializer(many=True, read_only=True)
+    recordatorios = RecordatorioSerializer(many=True, read_only=True)
 
     class Meta:
         model = Poliza
@@ -234,7 +241,7 @@ class PolizaSerializer(serializers.ModelSerializer):
             'direccion_postal', 'direccion_postal_details',
             'direccion_facturacion', 'direccion_facturacion_details',
             'info_pago', 'tarjetas_credito', 'cuentas_bancarias', 
-            'otras_polizas', 'notas', 'documentos', 'citas',
+            'otras_polizas', 'notas', 'documentos', 'citas', 'medicamentos', 'historial', 'recordatorios',
             'active_viewers',
             'ultima_actualizacion', 'es_duplicado', 'ultimo_duplicado'
         ]
@@ -296,20 +303,6 @@ class TareaSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Tarea
-        fields = '__all__'
-        read_only_fields = ('creado_por', 'fecha_creacion')
-
-class HistorialPolizaSerializer(serializers.ModelSerializer):
-    usuario_username = serializers.ReadOnlyField(source='usuario.username')
-    
-    class Meta:
-        model = HistorialPoliza
-        fields = '__all__'
-    cliente_nombre = serializers.ReadOnlyField(source='cliente.__str__')
-    medico_asignado_details = MedicoSerializer(source='medico_asignado', read_only=True)
-    
-    class Meta:
-        model = Cita
         fields = '__all__'
         read_only_fields = ('creado_por', 'fecha_creacion')
 

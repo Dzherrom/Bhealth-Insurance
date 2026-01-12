@@ -341,5 +341,31 @@ class Cita(models.Model):
     def __str__(self):
         return f"Cita {self.cliente} - {self.fecha_hora.date()}"
 
+class Medicamento(models.Model):
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='medicamentos', verbose_name="Póliza")
+    nombre = models.CharField(max_length=255, verbose_name="Nombre del Medicamento")
+    dosis = models.CharField(max_length=100, blank=True, null=True, verbose_name="Dosis")
+    frecuencia = models.CharField(max_length=100, blank=True, null=True, verbose_name="Frecuencia")
+    fecha_inicio = models.DateField(null=True, blank=True, verbose_name="Fecha de Inicio")
+    fecha_fin = models.DateField(null=True, blank=True, verbose_name="Fecha de Fin")
+    activo = models.BooleanField(default=True, verbose_name="Activo")
+
+    def __str__(self):
+        return f"{self.nombre} ({self.dosis})"
+
+class Recordatorio(models.Model):
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='recordatorios', verbose_name="Póliza")
+    titulo = models.CharField(max_length=255, verbose_name="Para qué es este recordatorio")
+    fecha_vencimiento = models.DateField(verbose_name="Fecha de Vencimiento")
+    hora_vencimiento = models.TimeField(verbose_name="Hora de Vencimiento")
+    zona_horaria = models.CharField(max_length=50, default="UTC", verbose_name="Zona Horaria")
+    establecer_recordatorio = models.BooleanField(default=True, verbose_name="Establecer Recordatorio")
+    usuario_notificar = models.ForeignKey(User, on_delete=models.CASCADE, related_name='recordatorios_asignados', verbose_name="Quién debe ser notificado")
+    descripcion = models.TextField(blank=True, null=True, verbose_name="Descripción o Comentarios")
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Recordatorio: {self.titulo} - {self.fecha_vencimiento}"
+
 # End of models
 

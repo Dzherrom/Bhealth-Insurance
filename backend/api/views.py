@@ -13,7 +13,7 @@ import requests
 from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
     EstadoPoliza, Poliza, Nota, HistorialPoliza, Etiqueta, Documento, Tarea,
-    PolizaViewer, Cita, Medico
+    PolizaViewer, Cita, Medico, Recordatorio
 )
 from .serializers import (
     UserSerializer, UserProfileSerializer, AgenciaSerializer,
@@ -21,7 +21,7 @@ from .serializers import (
     AseguradoraSerializer, PlanSerializer, EstadoPolizaSerializer,
     PolizaSerializer, NotaSerializer, HistorialPolizaSerializer,
     EtiquetaSerializer, DocumentoSerializer, TareaSerializer,
-    UserManagementSerializer, CitaSerializer, MedicoSerializer
+    UserManagementSerializer, CitaSerializer, MedicoSerializer, RecordatorioSerializer
 )
 from .permissions import IsAgentL3Role, IsPolicyOwnerOrHigher, IsAdminRole
 
@@ -331,6 +331,21 @@ class ZipCodeLookupView(APIView):
             return Response(result)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+class RecordatorioViewSet(viewsets.ModelViewSet):
+    queryset = Recordatorio.objects.all()
+    serializer_class = RecordatorioSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filterset_fields = ['poliza', 'fecha_vencimiento', 'usuario_notificar']
+
+    def perform_create(self, serializer):
+        recordatorio = serializer.save()
+        HistorialPoliza.objects.create(
+            poliza=recordatorio.poliza,
+            usuario=self.request.user,
+            accion='EDICION',
+            detalles=f"Recordatorio establecido: {recordatorio.titulo} para {recordatorio.fecha_vencimiento}"
+        )
 
 
  

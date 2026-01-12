@@ -10,7 +10,7 @@ from .views import (
     ClienteViewSet, AseguradoraViewSet, PlanViewSet,
     EstadoPolizaViewSet, PolizaViewSet, NotaViewSet, HistorialPolizaViewSet,
     EtiquetaViewSet, DocumentoViewSet, TareaViewSet, UserManagementViewSet,
-    ZipCodeLookupView, CitaViewSet, MedicoViewSet
+    ZipCodeLookupView, CitaViewSet, MedicoViewSet, RecordatorioViewSet
 )
 
 router = DefaultRouter()
@@ -28,6 +28,7 @@ router.register(r'historial', HistorialPolizaViewSet)
 router.register(r'etiquetas', EtiquetaViewSet)
 router.register(r'documentos', DocumentoViewSet)
 router.register(r'tareas', TareaViewSet)
+router.register(r'recordatorios', RecordatorioViewSet)
 router.register(r'citas', CitaViewSet)
 router.register(r'medicos', MedicoViewSet)
 
