@@ -5,7 +5,34 @@ from django.dispatch import receiver
 import re
 
 class Agencia(models.Model):
-    nombre = models.CharField(max_length=255, verbose_name="Nombre Agencia")
+    # Basic Info
+    nombre = models.CharField(max_length=255, verbose_name="Nombre Agencia") # Internal/Display
+    codigo_postal = models.CharField(max_length=20, verbose_name="Código Postal", null=True, blank=True)
+    cliente_desde = models.DateField(null=True, blank=True, verbose_name="Cliente Desde")
+    ultima_actualizacion = models.DateTimeField(auto_now=True, verbose_name="Última Actualización")
+    
+    # Business Info
+    nombre_legal = models.CharField(max_length=255, verbose_name="Nombre Legal", null=True, blank=True)
+    dba = models.CharField(max_length=255, verbose_name="DBA (Nombre Comercial)", null=True, blank=True)
+    telefono = models.CharField(max_length=50, verbose_name="Teléfono", null=True, blank=True)
+    email = models.EmailField(verbose_name="Correo Electrónico", null=True, blank=True)
+    
+    # Business Address (Linked)
+    direccion_negocio = models.ForeignKey(
+        'Direccion', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='agencia_negocio',
+        verbose_name="Dirección del Negocio"
+    )
+
+    # Branding
+    logo_light = models.ImageField(upload_to='agencia/logos/', null=True, blank=True, verbose_name="Logo Claro")
+    logo_dark = models.ImageField(upload_to='agencia/logos/', null=True, blank=True, verbose_name="Logo Oscuro")
+    favicon = models.ImageField(upload_to='agencia/favicons/', null=True, blank=True, verbose_name="Favicon")
+    titulo_portal = models.CharField(max_length=255, verbose_name="Título del Portal", null=True, blank=True)
+    pie_email = models.TextField(verbose_name="Pie de Correos", null=True, blank=True)
 
     def __str__(self):
         return self.nombre

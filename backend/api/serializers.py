@@ -59,14 +59,22 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = User
         fields = ('id', 'username', 'email', 'first_name', 'last_name')
 
-class AgenciaSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Agencia
-        fields = '__all__'
-
 class DireccionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Direccion
+        fields = '__all__'
+
+class AgenciaSerializer(serializers.ModelSerializer):
+    direccion_negocio_details = DireccionSerializer(source='direccion_negocio', read_only=True)
+    # Allow creating/updating address via ID
+    direccion_negocio = serializers.PrimaryKeyRelatedField(
+        queryset=Direccion.objects.all(), 
+        required=False, 
+        allow_null=True
+    )
+
+    class Meta:
+        model = Agencia
         fields = '__all__'
 
 class AgenteSerializer(serializers.ModelSerializer):

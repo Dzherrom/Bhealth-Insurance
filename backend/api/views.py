@@ -332,6 +332,64 @@ class ZipCodeLookupView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
+class ReporteAgentesView(APIView):
+    permission_classes = [permissions.IsAuthenticated] # Or IsAdminRole if strict
+
+    def get(self, request):
+        month = request.query_params.get('month')
+        year = request.query_params.get('year')
+
+        if not month or not year:
+            return Response({"error": "Month and Year are required params"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            month = int(month)
+            year = int(year)
+        except ValueError:
+            return Response({"error": "Invalid month/year format"}, status=status.HTTP_400_BAD_REQUEST)
+
+        agentes = Agente.objects.all()
+        report_data = []
+
+        for agente in agentes:
+            # Calculate total 'facturados' (Assuming policies sold/active with effective date in that month)
+            # Adjust filter logic as per specific business rule (e.g. fecha_inscripcion vs fecha_efectiva)
+            # Assuming 'fecha_efectiva' determines the billing start.
+            total_facturados = Poliza.objects.filter(
+                agente=agente,
+                fecha_efectiva__month=month,
+                fecha_efectiva__year=year
+            ).count()
+
+            # Access user profile role if linked
+            # Note: Agente model is separate from UserProfile model in current invalid implementation 
+            # (UserProfile has OneToOne to Agente, but Agente strictly doesn't know about user unless reverse queried)
+            role = "N/A"
+            email = "N/A"
+            username = "N/A"
+            
+            # Try to find the linked UserProfile
+            # profile linked to agent: user.profile.agente = agente
+            # Reverse relation name in UserProfile: related_name='user_profile' (on Agente field)
+            try:
+                if hasattr(agente, 'user_profile'):
+                    profile = agente.user_profile
+                    role = profile.get_role_display() # Human readable
+                    email = profile.user.email
+                    username = profile.user.username
+            except Exception:
+                pass
+
+            report_data.append({
+                "nombre": agente.nombre_completo,
+                "npn": agente.npn,
+                "correo": email,
+                "rol": role,
+                "total_usuarios_facturados": total_facturados
+            })
+            
+        return Response(report_data)
+
 class RecordatorioViewSet(viewsets.ModelViewSet):
     queryset = Recordatorio.objects.all()
     serializer_class = RecordatorioSerializer

@@ -10,7 +10,8 @@ from .views import (
     ClienteViewSet, AseguradoraViewSet, PlanViewSet,
     EstadoPolizaViewSet, PolizaViewSet, NotaViewSet, HistorialPolizaViewSet,
     EtiquetaViewSet, DocumentoViewSet, TareaViewSet, UserManagementViewSet,
-    ZipCodeLookupView, CitaViewSet, MedicoViewSet, RecordatorioViewSet
+    ZipCodeLookupView, CitaViewSet, MedicoViewSet, RecordatorioViewSet,
+    ReporteAgentesView
 )
 
 router = DefaultRouter()
@@ -39,6 +40,7 @@ urlpatterns = [
     path('profile/', ProfileView.as_view(), name='profile'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('utils/zipcode/<str:zip_code>/', ZipCodeLookupView.as_view(), name='zipcode-lookup'),
+    path('reportes/agentes-facturacion/', ReporteAgentesView.as_view(), name='reporte-agentes'),
     path('', include(router.urls)),
 ]
 
