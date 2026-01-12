@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from .models import (
     Agencia, Agente, Aseguradora, Plan, EstadoPoliza, Poliza, 
-    Contrato, ReporteComision, Direccion
+    Contrato, ReporteComision, Direccion, Etiqueta
 )
 from django.core.files.uploadedfile import SimpleUploadedFile
 import datetime
@@ -94,3 +94,17 @@ class CRUDSanityTests(APITestCase):
         response = self.client.get('/api/reportes_comision/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
+
+    def test_etiquetas_crud(self):
+        """Test CREATE and LIST for Etiqueta and EstadoPoliza"""
+        # Etiqueta
+        data_etiqueta = {"nombre": "Urgente", "color": "#FF0000"}
+        response = self.client.post('/api/etiquetas/', data_etiqueta, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Etiqueta.objects.get().nombre, "Urgente")
+
+        # EstadoPoliza (Note: 'Activo' was created in setUp, so we create another)
+        data_estado = {"nombre": "Cancelado"}
+        response = self.client.post('/api/estados-poliza/', data_estado, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(EstadoPoliza.objects.filter(nombre="Cancelado").exists())

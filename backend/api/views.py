@@ -219,6 +219,9 @@ class EstadoPolizaViewSet(viewsets.ModelViewSet):
     queryset = EstadoPoliza.objects.all()
     serializer_class = EstadoPolizaSerializer
     permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['nombre']
+    ordering_fields = ['nombre']
 
 class PolizaViewSet(viewsets.ModelViewSet):
     serializer_class = PolizaSerializer
@@ -376,6 +379,9 @@ class EtiquetaViewSet(viewsets.ModelViewSet):
     queryset = Etiqueta.objects.all()
     serializer_class = EtiquetaSerializer
     permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['nombre', 'color']
+    ordering_fields = ['nombre']
 
 class DocumentoViewSet(viewsets.ModelViewSet):
     queryset = Documento.objects.all()
