@@ -280,8 +280,12 @@ class PolizaSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         clientes_data = validated_data.pop('clientes_data', [])
+        colaboradores = validated_data.pop('colaboradores', [])
         poliza = Poliza.objects.create(**validated_data)
         
+        if colaboradores:
+            poliza.colaboradores.set(colaboradores)
+
         for client_data in clientes_data:
             PolizaCliente.objects.create(poliza=poliza, **client_data)
             
@@ -289,11 +293,15 @@ class PolizaSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         clientes_data = validated_data.pop('clientes_data', None)
+        colaboradores = validated_data.pop('colaboradores', None)
         
         # Update standard fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
+        
+        if colaboradores is not None:
+            instance.colaboradores.set(colaboradores)
         
         # Update relationships if provided
         if clientes_data is not None:
