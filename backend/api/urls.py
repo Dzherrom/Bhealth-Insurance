@@ -12,7 +12,7 @@ from .views import (
     EtiquetaViewSet, DocumentoViewSet, TareaViewSet, UserManagementViewSet,
     ZipCodeLookupView, CitaViewSet, MedicoViewSet, RecordatorioViewSet,
     ReporteAgentesView, DashboardStatsView, ReporteIntentosFallidosView,
-    ContratoViewSet, ReporteComisionViewSet
+    ContratoViewSet, ReporteComisionViewSet, NotificacionViewSet
 )
 
 router = DefaultRouter()
@@ -35,6 +35,7 @@ router.register(r'citas', CitaViewSet)
 router.register(r'medicos', MedicoViewSet)
 router.register(r'contratos', ContratoViewSet)
 router.register(r'reportes_comision', ReporteComisionViewSet)
+router.register(r'notificaciones', NotificacionViewSet, basename='notificacion')
 
 urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),

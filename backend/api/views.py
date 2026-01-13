@@ -17,7 +17,7 @@ from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
     EstadoPoliza, Poliza, Nota, HistorialPoliza, Etiqueta, Documento, Tarea,
     PolizaViewer, Cita, Medico, Recordatorio, IntentoLoginFallido,
-    Contrato, ReporteComision
+    Contrato, ReporteComision, Notificacion
 )
 
 class DashboardStatsView(APIView):
@@ -157,7 +157,7 @@ from .serializers import (
     PolizaSerializer, NotaSerializer, HistorialPolizaSerializer,
     EtiquetaSerializer, DocumentoSerializer, TareaSerializer,
     UserManagementSerializer, CitaSerializer, MedicoSerializer, RecordatorioSerializer,
-    ContratoSerializer, ReporteComisionSerializer
+    ContratoSerializer, ReporteComisionSerializer, NotificacionSerializer
 )
 from .permissions import IsAgentL3Role, IsPolicyOwnerOrHigher, IsAdminRole
 
@@ -628,6 +628,26 @@ class ReporteComisionViewSet(viewsets.ModelViewSet):
     filterset_fields = ['agente', 'poliza', 'estado']
     search_fields = ['agente__nombre_completo', 'poliza__id_mercado']
     ordering_fields = ['fecha_pago', 'monto']
+
+class NotificacionViewSet(viewsets.ModelViewSet):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = NotificacionSerializer
+
+    def get_queryset(self):
+        return Notificacion.objects.filter(usuario=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def marcar_leida(self, request, pk=None):
+        notificacion = self.get_object()
+        notificacion.leida = True
+        notificacion.save()
+        return Response({'status': 'notificacion marcada como leida'})
+
+    @action(detail=False, methods=['post'])
+    def marcar_todas_leidas(self, request):
+        self.get_queryset().update(leida=True)
+        return Response({'status': 'todas marcadas como leidas'})
+
 
 
  

@@ -1,8 +1,11 @@
 from django.db import models
+from django.db.models import Q
 from django.contrib.auth.models import User
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, m2m_changed
 from django.dispatch import receiver
 from django.utils import timezone
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 import re
 
 class Agencia(models.Model):
@@ -444,4 +447,73 @@ class ReporteComision(models.Model):
         return f"Comision {self.poliza} - {self.monto}"
 
 # End of models
+
+class Notificacion(models.Model):
+    TIPO_CHOICES = [
+        ('TAG', 'Etiquetado'),
+        ('ASIGNACION', 'Asignación'),
+        ('SEGURIDAD', 'Seguridad'),
+        ('SISTEMA', 'Sistema'),
+    ]
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notificaciones')
+    mensaje = models.CharField(max_length=255)
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default='SISTEMA')
+    leida = models.BooleanField(default=False)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    
+    # Generic relation
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, null=True, blank=True)
+    object_id = models.PositiveIntegerField(null=True, blank=True)
+    content_object = GenericForeignKey('content_type', 'object_id')
+
+    class Meta:
+        ordering = ['-fecha_creacion']
+
+    def __str__(self):
+        return f"Notificación para {self.usuario.username}: {self.mensaje}"
+
+@receiver(m2m_changed, sender=Nota.usuarios_etiquetados.through)
+def notificar_etiqueta_nota(sender, instance, action, reverse, model, pk_set, **kwargs):
+    if action == "post_add":
+        for pk in pk_set:
+            try:
+                user = User.objects.get(pk=pk)
+                # Avoid notifying self if needed, but requirements say "receive a notification when tagged"
+                if user != instance.autor:
+                    Notificacion.objects.create(
+                        usuario=user,
+                        mensaje=f"Has sido etiquetado en una nota de la póliza {instance.poliza.id_mercado}",
+                        tipo='TAG',
+                        content_object=instance
+                    )
+            except User.DoesNotExist:
+                pass
+
+@receiver(m2m_changed, sender=Poliza.colaboradores.through)
+def notificar_colaborador_poliza(sender, instance, action, pk_set, **kwargs):
+    if action == "post_add":
+        for pk in pk_set:
+            try:
+                user = User.objects.get(pk=pk)
+                Notificacion.objects.create(
+                    usuario=user,
+                    mensaje=f"Has sido asignado como colaborador en la póliza {instance.id_mercado}",
+                    tipo='ASIGNACION',
+                    content_object=instance
+                )
+            except User.DoesNotExist:
+                pass
+
+@receiver(post_save, sender=IntentoLoginFallido)
+def notificar_login_fallido(sender, instance, created, **kwargs):
+    if created:
+        user = User.objects.filter(Q(username=instance.usuario_intentado) | Q(email=instance.usuario_intentado)).first()
+        if user:
+            Notificacion.objects.create(
+                usuario=user,
+                mensaje=f"Se detectó un intento de inicio de sesión fallido en tu cuenta desde IP {instance.ip_address or 'Desconocida'}",
+                tipo='SEGURIDAD',
+                content_object=instance
+            )
+
 
