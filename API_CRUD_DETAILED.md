@@ -21,6 +21,7 @@ Este documento proporciona ejemplos detallados de todos los endpoints CRUD del s
 11. [Citas](#citas)
 12. [Documentos](#documentos)
 13. [Recordatorios](#recordatorios)
+14. [Notificaciones](#notificaciones)
 
 ---
 
@@ -976,6 +977,75 @@ PATCH /api/recordatorios/{id}/
 ```
 DELETE /api/recordatorios/{id}/
 ```
+
+---
+
+## Notificaciones
+
+**Nota importante:** A diferencia de los recordatorios (que son creados manualmente por el usuario), las notificaciones se generan automáticamente por eventos del sistema (ej. login fallido, asignación a póliza, mención en nota).
+
+**Endpoint Base:** `/api/notificaciones/` (Solo lista las del usuario autenticado)
+
+### Listar Notificaciones
+```
+GET /api/notificaciones/
+```
+
+**Ejemplo de Respuesta:**
+```json
+[
+  {
+    "id": 15,
+    "usuario": 2,
+    "mensaje": "Has sido etiquetado en una nota de la póliza MKT-2024-001",
+    "tipo": "TAG",
+    "leida": false,
+    "fecha_creacion": "2024-02-15T10:30:00Z",
+    "content_type": 12, // ID interno del modelo (ej. Nota)
+    "object_id": 45     // ID del objeto específico (ID de la Nota)
+  },
+  {
+    "id": 14,
+    "usuario": 2,
+    "mensaje": "Se detectó un intento de inicio de sesión fallido en tu cuenta",
+    "tipo": "SEGURIDAD",
+    "leida": true,
+    "fecha_creacion": "2024-02-14T08:15:00Z"
+  }
+]
+```
+
+### Marcar Una Notificación como Leída
+
+```
+POST /api/notificaciones/{id}/marcar_leida/
+```
+
+**Respuesta Esperada (200 OK):**
+```json
+{
+  "status": "notificacion marcada como leida"
+}
+```
+
+### Marcar TODAS las Notificaciones como Leídas
+
+```
+POST /api/notificaciones/marcar_todas_leidas/
+```
+
+**Respuesta Esperada (200 OK):**
+```json
+{
+  "status": "todas marcadas como leidas"
+}
+```
+
+**Tipos de Notificaciones (`tipo`):**
+- `TAG`: Mención/etiquetado en nota o comentario.
+- `ASIGNACION`: Asignado a póliza o recurso.
+- `SEGURIDAD`: Alertas de seguridad (ej. login fallido).
+- `SISTEMA`: Notificaciones generales del sistema.
 
 ---
 
