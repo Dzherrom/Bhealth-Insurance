@@ -157,8 +157,10 @@ from .serializers import (
     PolizaSerializer, NotaSerializer, HistorialPolizaSerializer,
     EtiquetaSerializer, DocumentoSerializer, TareaSerializer,
     UserManagementSerializer, CitaSerializer, MedicoSerializer, RecordatorioSerializer,
-    ContratoSerializer, ReporteComisionSerializer, NotificacionSerializer
+    ContratoSerializer, ReporteComisionSerializer, NotificacionSerializer,
+    ZipCodeSerializer
 )
+from .utils import fetch_location_from_zip
 from .permissions import IsAgentL3Role, IsPolicyOwnerOrHigher, IsAdminRole
 
 class RegisterView(generics.CreateAPIView):
@@ -647,6 +649,26 @@ class NotificacionViewSet(viewsets.ModelViewSet):
     def marcar_todas_leidas(self, request):
         self.get_queryset().update(leida=True)
         return Response({'status': 'todas marcadas como leidas'})
+
+class LocationLookupView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = ZipCodeSerializer(data=request.data)
+        if serializer.is_valid():
+            zip_code = serializer.validated_data['zip_code']
+            country_code = serializer.validated_data.get('country_code', 'us')
+            
+            try:
+                data = fetch_location_from_zip(zip_code, country_code)
+                if data:
+                    return Response(data, status=status.HTTP_200_OK)
+                else:
+                    return Response({"error": "Zip code not found"}, status=status.HTTP_404_NOT_FOUND)
+            except requests.RequestException:
+                return Response({"error": "External service unavailable"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 

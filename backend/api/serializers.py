@@ -338,3 +338,7 @@ class ReporteComisionSerializer(serializers.ModelSerializer):
         model = ReporteComision
         fields = '__all__'
 
+class ZipCodeSerializer(serializers.Serializer):
+    zip_code = serializers.CharField(max_length=20)
+    country_code = serializers.CharField(max_length=2, required=False, default='us')
+
