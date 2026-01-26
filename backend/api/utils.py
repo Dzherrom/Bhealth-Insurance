@@ -1,4 +1,24 @@
 import requests
+import threading
+from django.conf import settings
+
+def send_activity_webhook(data):
+    """
+    Sends activity data to a configured webhook URL asynchronously.
+    """
+    url = getattr(settings, 'ACTIVITY_WEBHOOK_URL', None)
+    if not url:
+        return
+
+    def _send():
+        try:
+            requests.post(url, json=data, timeout=3)
+        except Exception:
+            # Silently fail for webhooks to not disrupt main flow
+            pass
+
+    # Fire and forget
+    threading.Thread(target=_send).start()
 
 def fetch_location_from_zip(zip_code, country_code='us'):
     """

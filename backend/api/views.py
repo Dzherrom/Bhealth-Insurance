@@ -160,7 +160,7 @@ from .serializers import (
     ContratoSerializer, ReporteComisionSerializer, NotificacionSerializer,
     ZipCodeSerializer, TarjetaCreditoSerializer
 )
-from .utils import fetch_location_from_zip
+from .utils import fetch_location_from_zip, send_activity_webhook
 from .permissions import IsAgentL3Role, IsPolicyOwnerOrHigher, IsAdminRole
 
 class RegisterView(generics.CreateAPIView):
@@ -314,27 +314,33 @@ class PolizaViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def heartbeat(self, request, pk=None):
         """
-        Updates the 'last_seen' timestamp for the current user on this policy.
-        Frontend should call this every 15-30 seconds while viewing the policy.
+        Sends a heartbeat to the configured webhook to indicate user presence.
+        Replaces internal DB tracking to save resources.
         """
         poliza = self.get_object()
-        PolizaViewer.objects.update_or_create(
-            poliza=poliza,
-            usuario=request.user,
-            defaults={'last_seen': timezone.now()}
-        )
-        return Response({'status': 'ok'})
+        user = request.user
+
+        # Webhook payload
+        payload = {
+            'event': 'heartbeat',
+            'policy_id': poliza.id,
+            'policy_market_id': poliza.id_mercado,
+            'user_id': user.id,
+            'username': user.username,
+            'timestamp': timezone.now().isoformat()
+        }
+        
+        # Async send
+        send_activity_webhook(payload)
+        
+        return Response({'status': 'ok', 'mode': 'webhook'})
 
     @action(detail=True, methods=['get'])
     def active_viewers(self, request, pk=None):
         """
-        Returns a lightweight list of active viewers for polling.
+        Deprecated: Active viewers are now managed via external webhook system.
         """
-        poliza = self.get_object()
-        threshold = timezone.now() - datetime.timedelta(seconds=60)
-        viewers = poliza.viewers.filter(last_seen__gte=threshold)
-        data = [v.usuario.username for v in viewers]
-        return Response(data)
+        return Response({"detail": "Active viewers system has been moved to webhooks. Please consult the external activity service."}, status=status.HTTP_410_GONE)
 
     @action(detail=True, methods=['get'])
     def download_documents(self, request, pk=None):

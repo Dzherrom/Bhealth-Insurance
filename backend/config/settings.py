@@ -155,3 +155,5 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
 }
+
+ACTIVITY_WEBHOOK_URL = 'http://localhost:3000/webhooks/activity'
