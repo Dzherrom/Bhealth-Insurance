@@ -263,12 +263,52 @@ class PolizaViewSet(viewsets.ModelViewSet):
         )
 
     def perform_update(self, serializer):
+        instance = serializer.instance
+        old_state = {}
+        
+        # Snapshot old values
+        # We iterate over validated_data to only check fields that are being updated
+        for field in serializer.validated_data:
+            if field in ['clientes_data', 'colaboradores']: # Skip complex or m2m fields
+                continue
+            if hasattr(instance, field):
+                try:
+                    val = getattr(instance, field)
+                    # Use str() to handle objects like ForeignKeys (EstadoPoliza, Agente, etc.)
+                    old_state[field] = str(val) if val is not None else "None"
+                except Exception:
+                    pass
+
         poliza = serializer.save()
+        
+        changes = []
+        for field in serializer.validated_data:
+            if field in ['clientes_data', 'colaboradores']:
+                continue
+            if hasattr(poliza, field):
+                try:
+                    new_val = getattr(poliza, field)
+                    new_val_str = str(new_val) if new_val is not None else "None"
+                    
+                    old_val_str = old_state.get(field, "None")
+                    
+                    if old_val_str != new_val_str:
+                        # Translate field names to something more user friendly if needed, 
+                        # or just usage the field name
+                        changes.append(f"{field}: '{old_val_str}' -> '{new_val_str}'")
+                except Exception:
+                    pass
+        
+        if changes:
+            detalles_str = "Póliza actualizada. Cambios: " + "; ".join(changes)
+        else:
+            detalles_str = "Póliza actualizada (sin cambios en campos principales)"
+
         HistorialPoliza.objects.create(
             poliza=poliza,
             usuario=self.request.user,
             accion='EDICION',
-            detalles=f"Póliza actualizada"
+            detalles=detalles_str
         )
 
     @action(detail=True, methods=['post'])
