@@ -312,13 +312,13 @@ class InfoPago(models.Model):
 class TarjetaCredito(models.Model):
     poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='tarjetas_credito', verbose_name="Póliza")
     tipo_tarjeta = models.CharField(max_length=50, verbose_name="Tipo de Tarjeta")
-    numero = models.CharField(max_length=100, verbose_name="Número de Tarjeta (Enmascarado)")
+    numero = models.CharField(max_length=500, verbose_name="Número de Tarjeta (Enmascarado)")
     nombre_titular = models.CharField(max_length=255, verbose_name="Nombre Titular")
-    cvv = models.CharField(max_length=10, verbose_name="CVV")
+    cvv = models.CharField(max_length=100, verbose_name="CVV")
     fecha_vencimiento = models.CharField(max_length=10, verbose_name="Fecha Vencimiento (MM/YY)")
 
     def __str__(self):
-        return f"{self.tipo_tarjeta} *{self.numero[-4:]}"
+        return f"{self.tipo_tarjeta}"
 
 class CuentaBancaria(models.Model):
     poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='cuentas_bancarias', verbose_name="Póliza")

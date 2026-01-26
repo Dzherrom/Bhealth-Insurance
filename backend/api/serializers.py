@@ -117,10 +117,84 @@ class InfoPagoSerializer(serializers.ModelSerializer):
         model = InfoPago
         fields = '__all__'
 
+from .encryption import encrypt_text, decrypt_text
+
 class TarjetaCreditoSerializer(serializers.ModelSerializer):
+    numero = serializers.CharField(max_length=500)
+    cvv = serializers.CharField(max_length=100)
+
     class Meta:
         model = TarjetaCredito
         fields = '__all__'
+
+    def to_internal_value(self, data):
+        # Encrypt before validating/saving
+        # We need to copy data because QueryDict might be immutable
+        if hasattr(data, 'copy'):
+            data = data.copy()
+        
+        # We assume input is raw. If it is already encrypted? We assume API receives raw.
+        if 'numero' in data and data['numero']:
+            data['numero'] = encrypt_text(data['numero'])
+        
+        if 'cvv' in data and data['cvv']:
+            data['cvv'] = encrypt_text(data['cvv'])
+            
+        return super().to_internal_value(data)
+
+    def to_representation(self, instance):
+        # Start with default representation
+        ret = super().to_representation(instance)
+        
+        # Access control logic
+        request = self.context.get('request')
+        if not request or not request.user:
+            # No user context, return masked
+            ret['numero'] = self._mask_number(instance.numero)
+            ret['cvv'] = "***"
+            return ret
+
+        user = request.user
+        can_view_full = False
+
+        # 1. Admin/Superuser
+        try:
+            if user.is_superuser or (hasattr(user, 'profile') and user.profile.role == 'ADMIN'):
+                can_view_full = True
+        except Exception:
+            pass
+        
+        if not can_view_full:
+            # 2. Agent assigned or creating (Owner of policy agent)
+            # 3. User involved in policy (Collaborator)
+            poliza = instance.poliza
+            
+            # Agent check
+            if poliza.agente and hasattr(user, 'profile') and user.profile.agente:
+                if poliza.agente == user.profile.agente:
+                    can_view_full = True
+            
+            # Collaborator check (includes "dueño" if they are added as collaborator)
+            if not can_view_full and user in poliza.colaboradores.all():
+                can_view_full = True
+
+        if can_view_full:
+            ret['numero'] = decrypt_text(instance.numero)
+            ret['cvv'] = decrypt_text(instance.cvv)
+        else:
+            # Mask data
+            decrypted_num = decrypt_text(instance.numero)
+            ret['numero'] = self._mask_number(decrypted_num) if decrypted_num else None
+            ret['cvv'] = "***"
+            
+        return ret
+
+    def _mask_number(self, full_number):
+        if not full_number:
+            return ""
+        if len(full_number) > 4:
+            return "*" * (len(full_number) - 4) + full_number[-4:]
+        return full_number
 
 class CuentaBancariaSerializer(serializers.ModelSerializer):
     class Meta:
