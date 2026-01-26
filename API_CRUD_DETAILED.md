@@ -22,6 +22,9 @@ Este documento proporciona ejemplos detallados de todos los endpoints CRUD del s
 12. [Documentos](#documentos)
 13. [Recordatorios](#recordatorios)
 14. [Notificaciones](#notificaciones)
+15. [Tarjetas de Crédito](#tarjetas-de-crédito)
+16. [Utilidades y Búsqueda](#utilidades-y-búsqueda)
+17. [Actividad del Sistema](#actividad-del-sistema)
 
 ---
 
@@ -1046,6 +1049,109 @@ POST /api/notificaciones/marcar_todas_leidas/
 - `ASIGNACION`: Asignado a póliza o recurso.
 - `SEGURIDAD`: Alertas de seguridad (ej. login fallido).
 - `SISTEMA`: Notificaciones generales del sistema.
+
+---
+
+## Tarjetas de Crédito
+
+**Endpoint Base:** `/api/tarjetas_credito/`
+
+Las tarjetas de crédito se almacenan de forma **encriptada**. El acceso a los datos sensibles (`numero` y `cvv`) está restringido:
+- **Admin / Agente Dueño / Colaborador:** Reciben datos desencriptados.
+- **Otros Usuarios:** Reciben datos enmascarados (ej: `************4444`).
+
+### Listar Tarjetas
+```
+GET /api/tarjetas_credito/
+```
+
+### Crear Tarjeta
+
+```
+POST /api/tarjetas_credito/
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "poliza": 1,
+  "tipo_tarjeta": "Visa",
+  "numero": "4111222233334444",
+  "nombre_titular": "Juan Perez",
+  "cvv": "123",
+  "fecha_vencimiento": "12/28"
+}
+```
+*El backend encriptará automáticamente el número y CVV antes de guardarlo. El campo `numero` ahora soporta hasta 500 caracteres para almacenar el hash cifrado.*
+
+---
+
+## Utilidades y Búsqueda
+
+### Búsqueda de Ubicación (Zip Code)
+
+Permite autocompletar formularios de dirección obteniendo ciudad y estado desde un código postal.
+
+**Endpoint:** `/api/locations/lookup/`
+
+```
+POST /api/locations/lookup/
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "zip_code": "90210",
+  "country_code": "us" // Opcional, default "us"
+}
+```
+
+**Respuesta (200 OK):**
+```json
+{
+  "city": "Beverly Hills",
+  "state": "California",
+  "state_abbr": "CA",
+  "latitude": "34.0901",
+  "longitude": "-118.4065",
+  "country": "United States",
+  "country_code": "US",
+  "zip_code": "90210"
+}
+```
+
+---
+
+## Actividad del Sistema
+
+### Historial de Pólizas (Diff Log)
+Al actualizar una póliza (`PATCH/PUT /api/polizas/{id}/`), el sistema genera automáticamente un **registro de diferencias** en el historial.
+
+**Ejemplo de entrada en historial:**
+`Póliza actualizada. Cambios: prima_mensual: '300.00' -> '325.00'; estado: 'Pendiente' -> 'Activa'`
+
+No se requiere acción adicional por parte del usuario; esto es automático.
+
+### Monitoreo en Tiempo Real (Webhooks)
+Para evitar sobrecarga en la base de datos, la actividad de "quién está viendo una póliza" usa un sistema de Webhooks asíncronos.
+
+**Enviar Heartbeat (Presencia):**
+El frontend debe llamar a este endpoint periódicamente (ej. cada 30 segundos) mientras el usuario tiene abierta una póliza.
+
+```
+POST /api/polizas/{id}/heartbeat/
+```
+
+**Respuesta:**
+```json
+{
+  "status": "ok",
+  "mode": "webhook"
+}
+```
+*El sistema enviará el evento a la URL configurada en `ACTIVITY_WEBHOOK_URL`.*
 
 ---
 
