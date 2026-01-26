@@ -17,7 +17,7 @@ from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
     EstadoPoliza, Poliza, Nota, HistorialPoliza, Etiqueta, Documento, Tarea,
     PolizaViewer, Cita, Medico, Recordatorio, IntentoLoginFallido,
-    Contrato, ReporteComision, Notificacion
+    Contrato, ReporteComision, Notificacion, TarjetaCredito
 )
 
 class DashboardStatsView(APIView):
@@ -158,7 +158,7 @@ from .serializers import (
     EtiquetaSerializer, DocumentoSerializer, TareaSerializer,
     UserManagementSerializer, CitaSerializer, MedicoSerializer, RecordatorioSerializer,
     ContratoSerializer, ReporteComisionSerializer, NotificacionSerializer,
-    ZipCodeSerializer
+    ZipCodeSerializer, TarjetaCreditoSerializer
 )
 from .utils import fetch_location_from_zip
 from .permissions import IsAgentL3Role, IsPolicyOwnerOrHigher, IsAdminRole
@@ -649,6 +649,11 @@ class NotificacionViewSet(viewsets.ModelViewSet):
     def marcar_todas_leidas(self, request):
         self.get_queryset().update(leida=True)
         return Response({'status': 'todas marcadas como leidas'})
+
+class TarjetaCreditoViewSet(viewsets.ModelViewSet):
+    queryset = TarjetaCredito.objects.all()
+    serializer_class = TarjetaCreditoSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
 class LocationLookupView(APIView):
     permission_classes = [permissions.IsAuthenticated]
