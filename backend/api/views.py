@@ -3,6 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth.models import User
 from django.http import FileResponse
 from django.utils import timezone
@@ -158,10 +159,13 @@ from .serializers import (
     EtiquetaSerializer, DocumentoSerializer, TareaSerializer,
     UserManagementSerializer, CitaSerializer, MedicoSerializer, RecordatorioSerializer,
     ContratoSerializer, ReporteComisionSerializer, NotificacionSerializer,
-    ZipCodeSerializer, TarjetaCreditoSerializer
+    ZipCodeSerializer, TarjetaCreditoSerializer, CustomTokenObtainPairSerializer
 )
 from .utils import fetch_location_from_zip, send_activity_webhook
 from .permissions import IsAgentL3Role, IsPolicyOwnerOrHigher, IsAdminRole
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()

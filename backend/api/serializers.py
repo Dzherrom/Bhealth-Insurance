@@ -1,5 +1,6 @@
 from django.contrib.auth.models import User, Group
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
     EstadoPoliza, Poliza, PolizaCliente, Licencia, Nota, HistorialPoliza,
@@ -415,4 +416,17 @@ class ReporteComisionSerializer(serializers.ModelSerializer):
 class ZipCodeSerializer(serializers.Serializer):
     zip_code = serializers.CharField(max_length=20)
     country_code = serializers.CharField(max_length=2, required=False, default='us')
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        
+        data['role'] = self.user.profile.role
+        data['username'] = self.user.username
+        data['id'] = self.user.id
+        data['email'] = self.user.email
+        data['first_name'] = self.user.first_name
+        data['last_name'] = self.user.last_name
+        
+        return data
 
