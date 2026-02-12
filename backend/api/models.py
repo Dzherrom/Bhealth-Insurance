@@ -77,6 +77,18 @@ class Cliente(models.Model):
     categoria_inmigracion = models.CharField(max_length=100, blank=True, null=True, verbose_name="Categoría de Inmigración")
     fecha_creacion = models.DateTimeField(default=timezone.now, verbose_name="Fecha de Creación")
 
+    # Marketplace Login
+    marketplace_user = models.CharField(max_length=150, blank=True, null=True, verbose_name="Usuario Mercado")
+    marketplace_url = models.URLField(max_length=500, blank=True, null=True, verbose_name="Link Mercado")
+    # Store encrypted
+    marketplace_password = models.CharField(max_length=255, blank=True, null=True, verbose_name="Contraseña Mercado") 
+
+    # Carrier Portal Login
+    portal_user = models.CharField(max_length=150, blank=True, null=True, verbose_name="Usuario Portal Aseguradora")
+    portal_url = models.URLField(max_length=500, blank=True, null=True, verbose_name="Link Portal Aseguradora")
+    # Store encrypted
+    portal_password = models.CharField(max_length=255, blank=True, null=True, verbose_name="Contraseña Portal Aseguradora")
+
     def __str__(self):
         return f"{self.primer_nombre} {self.apellido_paterno}"
 

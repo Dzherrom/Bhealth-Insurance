@@ -35,7 +35,11 @@ class DashboardStatsView(APIView):
             total_polizas=Count('planes__polizas')
         )
         
-        total_sys_aplicantes = Poliza.objects.aggregate(t=Sum('total_aplicantes'))['t'] or 1
+        # Calculate real total for display purposes and avoiding division by zero
+        real_total_aplicantes = Poliza.objects.aggregate(t=Sum('total_aplicantes'))['t'] or 0
+        stats['total_aplicantes'] = real_total_aplicantes
+        
+        total_sys_aplicantes = real_total_aplicantes or 1
         
         insurer_data = []
         for a in aseguradoras:

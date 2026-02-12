@@ -92,9 +92,44 @@ class AgenteSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class ClienteSerializer(serializers.ModelSerializer):
+    marketplace_password = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    portal_password = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
     class Meta:
         model = Cliente
         fields = '__all__'
+
+    def to_internal_value(self, data):
+        if hasattr(data, 'copy'):
+            data = data.copy()
+        
+        if 'marketplace_password' in data and data['marketplace_password']:
+            data['marketplace_password'] = encrypt_text(data['marketplace_password'])
+            
+        if 'portal_password' in data and data['portal_password']:
+            data['portal_password'] = encrypt_text(data['portal_password'])
+            
+        return super().to_internal_value(data)
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        
+        # Access control logic could go here, for now we return decrypted values
+        # as requested for the frontend to display them.
+        
+        if instance.marketplace_password:
+            try:
+                ret['marketplace_password'] = decrypt_text(instance.marketplace_password)
+            except:
+                ret['marketplace_password'] = None
+                
+        if instance.portal_password:
+            try:
+                ret['portal_password'] = decrypt_text(instance.portal_password)
+            except:
+                ret['portal_password'] = None
+                
+        return ret
 
 class AseguradoraSerializer(serializers.ModelSerializer):
     class Meta:
@@ -419,7 +454,7 @@ class ZipCodeSerializer(serializers.Serializer):
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
-        data = super().validate(attrs)
+        data = super().validate(attrs) 
         
         data['role'] = self.user.profile.role
         data['username'] = self.user.username
