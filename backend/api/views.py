@@ -263,61 +263,9 @@ class PolizaViewSet(viewsets.ModelViewSet):
         else:
             poliza = serializer.save()
             
-        HistorialPoliza.objects.create(
-            poliza=poliza,
-            usuario=self.request.user,
-            accion='CREACION',
-            detalles=f"Póliza creada con ID Mercado: {poliza.id_mercado}"
-        )
 
     def perform_update(self, serializer):
-        instance = serializer.instance
-        old_state = {}
-        
-        # Snapshot old values
-        # We iterate over validated_data to only check fields that are being updated
-        for field in serializer.validated_data:
-            if field in ['clientes_data', 'colaboradores']: # Skip complex or m2m fields
-                continue
-            if hasattr(instance, field):
-                try:
-                    val = getattr(instance, field)
-                    # Use str() to handle objects like ForeignKeys (EstadoPoliza, Agente, etc.)
-                    old_state[field] = str(val) if val is not None else "None"
-                except Exception:
-                    pass
-
-        poliza = serializer.save()
-        
-        changes = []
-        for field in serializer.validated_data:
-            if field in ['clientes_data', 'colaboradores']:
-                continue
-            if hasattr(poliza, field):
-                try:
-                    new_val = getattr(poliza, field)
-                    new_val_str = str(new_val) if new_val is not None else "None"
-                    
-                    old_val_str = old_state.get(field, "None")
-                    
-                    if old_val_str != new_val_str:
-                        # Translate field names to something more user friendly if needed, 
-                        # or just usage the field name
-                        changes.append(f"{field}: '{old_val_str}' -> '{new_val_str}'")
-                except Exception:
-                    pass
-        
-        if changes:
-            detalles_str = "Póliza actualizada. Cambios: " + "; ".join(changes)
-        else:
-            detalles_str = "Póliza actualizada (sin cambios en campos principales)"
-
-        HistorialPoliza.objects.create(
-            poliza=poliza,
-            usuario=self.request.user,
-            accion='EDICION',
-            detalles=detalles_str
-        )
+        serializer.save()
 
     @action(detail=True, methods=['post'])
     def heartbeat(self, request, pk=None):
@@ -408,21 +356,9 @@ class NotaViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         nota = serializer.save(autor=self.request.user)
-        HistorialPoliza.objects.create(
-            poliza=nota.poliza,
-            usuario=self.request.user,
-            accion='NOTA_AGREGADA',
-            detalles=f"Nota agregada: {nota.contenido[:50]}..."
-        )
 
     def perform_destroy(self, instance):
         poliza = instance.poliza
-        HistorialPoliza.objects.create(
-            poliza=poliza,
-            usuario=self.request.user,
-            accion='NOTA_ELIMINADA',
-            detalles=f"Nota eliminada"
-        )
         instance.delete()
 
 class HistorialPolizaViewSet(viewsets.ReadOnlyModelViewSet):
@@ -447,21 +383,9 @@ class DocumentoViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         documento = serializer.save(subido_por=self.request.user)
-        HistorialPoliza.objects.create(
-            poliza=documento.poliza,
-            usuario=self.request.user,
-            accion='DOCUMENTO_SUBIDO',
-            detalles=f"Documento subido: {documento.titulo}"
-        )
 
     def perform_destroy(self, instance):
         poliza = instance.poliza
-        HistorialPoliza.objects.create(
-            poliza=poliza,
-            usuario=self.request.user,
-            accion='DOCUMENTO_ELIMINADO',
-            detalles=f"Documento eliminado: {instance.titulo}"
-        )
         instance.delete()
 
 class UserManagementViewSet(viewsets.ModelViewSet):
@@ -521,12 +445,6 @@ class CitaViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         cita = serializer.save(creado_por=self.request.user)
-        HistorialPoliza.objects.create(
-            poliza=cita.poliza,
-            usuario=self.request.user,
-            accion='EDICION',
-            detalles=f"Cita creada para {cita.fecha_hora.date()} en {cita.proveedor}"
-        )
 
 class MedicoViewSet(viewsets.ModelViewSet):
     queryset = Medico.objects.all()
@@ -641,12 +559,6 @@ class RecordatorioViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         recordatorio = serializer.save()
-        HistorialPoliza.objects.create(
-            poliza=recordatorio.poliza,
-            usuario=self.request.user,
-            accion='EDICION',
-            detalles=f"Recordatorio establecido: {recordatorio.titulo} para {recordatorio.fecha_vencimiento}"
-        )
 
 class ReporteIntentosFallidosView(APIView):
     permission_classes = [permissions.IsAuthenticated] # Or IsAdminRole

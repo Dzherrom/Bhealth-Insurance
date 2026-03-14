@@ -1,7 +1,7 @@
 from django.db import models
 from django.db.models import Q
 from django.contrib.auth.models import User
-from django.db.models.signals import post_save, m2m_changed
+from django.db.models.signals import post_save, post_delete, m2m_changed, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
 from django.contrib.contenttypes.fields import GenericForeignKey
@@ -529,3 +529,116 @@ def notificar_login_fallido(sender, instance, created, **kwargs):
             )
 
 
+
+
+# ==============================================================================
+# AUDITORIA AUTOMATICA DE HISTORIAL DE PÓLIZAS
+# ==============================================================================
+
+@receiver(pre_save, sender=Poliza)
+def poliza_pre_save_changes(sender, instance, **kwargs):
+    if instance.pk:
+        # Póliza existente, vamos a capturar cómo estaba antes
+        try:
+            old_instance = Poliza.objects.get(pk=instance.pk)
+            instance._old_instance_state = old_instance
+        except Poliza.DoesNotExist:
+            instance._old_instance_state = None
+
+@receiver(post_save, sender=Poliza)
+def track_poliza_save(sender, instance, created, **kwargs):
+    from api.middleware import get_current_user
+    user = get_current_user()
+    
+    if getattr(instance, '_history_tracked', False):
+        return
+        
+    if created:
+        HistorialPoliza.objects.create(
+            poliza=instance,
+            usuario=user,
+            accion='CREACION',
+            detalles=f"Póliza creada (ID Mercado: {instance.id_mercado})"
+        )
+    else:
+        old_instance = getattr(instance, '_old_instance_state', None)
+        changes = []
+        if old_instance:
+            for field in instance._meta.fields:
+                # Ignoramos campos que cambian automáticamente
+                if field.name in ['ultima_actualizacion', 'created_at', 'updated_at']:
+                    continue
+                old_val = getattr(old_instance, field.name)
+                new_val = getattr(instance, field.name)
+                if old_val != new_val:
+                    changes.append(f"{field.verbose_name or field.name}")
+        
+        if changes:
+            detalles_str = "Campos actualizados: " + ", ".join(changes)
+        else:
+            detalles_str = "Póliza actualizada sin cambios observables en campos principales."
+            
+        HistorialPoliza.objects.create(
+            poliza=instance,
+            usuario=user,
+            accion='EDICION',
+            detalles=detalles_str
+        )
+    
+    instance._history_tracked = True
+
+@receiver(post_save, sender=Nota)
+def track_nota_save(sender, instance, created, **kwargs):
+    if created and not getattr(instance, '_history_tracked', False):
+        from api.middleware import get_current_user
+        user = get_current_user()
+        HistorialPoliza.objects.create(
+            poliza=instance.poliza,usuario=user,accion='NOTA_AGREGADA',
+            detalles=f"Nota agregada: {instance.contenido[:50]}..."
+        )
+        instance._history_tracked = True
+
+@receiver(post_delete, sender=Nota)
+def track_nota_delete(sender, instance, **kwargs):
+    from api.middleware import get_current_user
+    HistorialPoliza.objects.create(
+        poliza=instance.poliza,usuario=get_current_user(),accion='NOTA_ELIMINADA',detalles="Nota eliminada"
+    )
+
+@receiver(post_save, sender=Documento)
+def track_documento_save(sender, instance, created, **kwargs):
+    if created and not getattr(instance, '_history_tracked', False):
+        from api.middleware import get_current_user
+        HistorialPoliza.objects.create(
+            poliza=instance.poliza,usuario=get_current_user(),accion='DOCUMENTO_SUBIDO',
+            detalles=f"Documento subido: {instance.titulo}"
+        )
+        instance._history_tracked = True
+
+@receiver(post_delete, sender=Documento)
+def track_documento_delete(sender, instance, **kwargs):
+    from api.middleware import get_current_user
+    HistorialPoliza.objects.create(
+        poliza=instance.poliza,usuario=get_current_user(),accion='DOCUMENTO_ELIMINADO',
+        detalles=f"Documento eliminado: {instance.titulo}"
+    )
+
+@receiver(post_save, sender=Cita)
+def track_cita_save(sender, instance, created, **kwargs):
+    if created and not getattr(instance, '_history_tracked', False):
+        from api.middleware import get_current_user
+        HistorialPoliza.objects.create(
+            poliza=instance.poliza,usuario=get_current_user(),accion='EDICION',
+            detalles=f"Cita creada para {instance.fecha_hora.date()} en {getattr(instance, 'proveedor', 'proveedor')}"
+        )
+        instance._history_tracked = True
+
+@receiver(post_save, sender=Recordatorio)
+def track_recordatorio_save(sender, instance, created, **kwargs):
+    if created and not getattr(instance, '_history_tracked', False):
+        from api.middleware import get_current_user
+        HistorialPoliza.objects.create(
+            poliza=instance.poliza,usuario=get_current_user(),accion='EDICION',
+            detalles=f"Recordatorio establecido: {instance.titulo} para {instance.fecha_vencimiento}"
+        )
+        instance._history_tracked = True

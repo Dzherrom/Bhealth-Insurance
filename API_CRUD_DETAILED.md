@@ -25,6 +25,7 @@ Este documento proporciona ejemplos detallados de todos los endpoints CRUD del s
 15. [Tarjetas de Crédito](#tarjetas-de-crédito)
 16. [Utilidades y Búsqueda](#utilidades-y-búsqueda)
 17. [Actividad del Sistema](#actividad-del-sistema)
+18. [Dashboard](#dashboard)
 
 ---
 
@@ -308,7 +309,13 @@ Content-Type: application/json
   "estado_civil": "Casado",
   "pais_nacimiento": "México",
   "estado_inmigracion": "Residente Permanente",
-  "categoria_inmigracion": "Green Card Holder"
+  "categoria_inmigracion": "Green Card Holder",
+  "marketplace_user": "usuario_mercado",
+  "marketplace_password": "password_mercado_123",
+  "marketplace_url": "https://www.healthcare.gov/login",
+  "portal_user": "usuario_portal",
+  "portal_password": "password_portal_123",
+  "portal_url": "https://provider.bcbs.com/login"
 }
 ```
 
@@ -327,6 +334,12 @@ Content-Type: application/json
 - `pais_nacimiento` (requerido): País de nacimiento
 - `estado_inmigracion` (requerido): Estado de inmigración
 - `categoria_inmigracion`: Categoría de inmigración (opcional)
+- `marketplace_user`: Usuario para el Mercado de Salud (opcional)
+- `marketplace_password`: Contraseña para el Mercado (se guarda encriptada) (opcional)
+- `marketplace_url`: Link de acceso al Mercado (opcional)
+- `portal_user`: Usuario para el Portal de la Aseguradora (opcional)
+- `portal_password`: Contraseña para el Portal (se guarda encriptada) (opcional)
+- `portal_url`: Link de acceso al Portal (opcional)
 
 ### Actualizar Cliente
 ```
@@ -1152,6 +1165,43 @@ POST /api/polizas/{id}/heartbeat/
 }
 ```
 *El sistema enviará el evento a la URL configurada en `ACTIVITY_WEBHOOK_URL`.*
+
+---
+
+## Dashboard
+
+**Endpoint Base:** `/api/dashboard/`
+
+### Obtener Estadísticas del Dashboard
+```
+GET /api/dashboard/stats/
+```
+
+**Respuesta:**
+```json
+{
+  "total_aplicantes": 1250,
+  "aseguradoras_stats": [
+    {
+      "nombre": "Blue Cross",
+      "monto_total": 50000.00,
+      "total_aplicantes": 500,
+      "total_polizas": 200,
+      "porcentaje_aplicantes": 40.0
+    }
+  ],
+  "failed_logins_count": 5,
+  "top_agentes": [],
+  "earnings_chart": [],
+  "new_prospects_chart": [],
+  "effective_policies_chart": [],
+  "policies_by_status_chart": [],
+  "tags_usage_chart": []
+}
+```
+
+**Notas:**
+- `total_aplicantes`: El número total de aplicantes activos en el sistema (suma global).
 
 ---
 
