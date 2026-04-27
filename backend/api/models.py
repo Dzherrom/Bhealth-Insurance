@@ -189,14 +189,11 @@ class UserProfile(models.Model):
     ROLE_CHOICES = [
         ('ADMIN', 'Admin'),
         ('MANAGER', 'Manager'),
-        ('AGENT_L1', 'Agent Level 1'),
-        ('AGENT_L2', 'Agent Level 2'),
-        ('AGENT_L3', 'Agent Level 3'),
-        ('AGENT', 'Agent'),
-        ('RECRUITER', 'Recruiter'),
-        ('CANDIDATE', 'Candidate'),
-        ('ACCOUNTANT', 'Accountant'),
-        ('USER', 'User'),
+        ('ASISTENTE', 'Asistente'),
+        ('SHERPA', 'Sherpa'),
+        ('PAGOS', 'Pagos'),
+        ('CITAS', 'Citas'),
+        ('USER', 'Usuario Básico'),
     ]
     STATUS_CHOICES = [
         ('ACTIVE', 'Activo'),

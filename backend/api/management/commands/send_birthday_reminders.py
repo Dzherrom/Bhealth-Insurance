@@ -41,9 +41,8 @@ class Command(BaseCommand):
                     profile = agente.user_profile
                     role = profile.role
                     
-                    # Roles authorized to receive alerts: Admin, Manager (Staff Agent), Agent L3, Agent
-                    # Excluded: Agent L1, Agent L2 (per prompt instructions)
-                    AUTHORIZED_ROLES = ['ADMIN', 'MANAGER', 'AGENT_L3', 'AGENT']
+                    # Roles authorized to receive alerts: Admin, Manager, Asistente
+                    AUTHORIZED_ROLES = ['ADMIN', 'MANAGER', 'ASISTENTE']
 
                     if role in AUTHORIZED_ROLES:
                         self.send_notification(profile.user, cliente, poliza)

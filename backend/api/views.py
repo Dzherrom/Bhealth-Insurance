@@ -166,7 +166,7 @@ from .serializers import (
     ZipCodeSerializer, TarjetaCreditoSerializer, CustomTokenObtainPairSerializer
 )
 from .utils import fetch_location_from_zip, send_activity_webhook
-from .permissions import IsAgentL3Role, IsPolicyOwnerOrHigher, IsAdminRole
+from .permissions import IsAsistenteRole, IsPolicyOwnerOrHigher, IsAdminRole
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
@@ -235,7 +235,7 @@ class EstadoPolizaViewSet(viewsets.ModelViewSet):
 
 class PolizaViewSet(viewsets.ModelViewSet):
     serializer_class = PolizaSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAgentL3Role, IsPolicyOwnerOrHigher]
+    permission_classes = [permissions.IsAuthenticated, IsAsistenteRole, IsPolicyOwnerOrHigher]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['estado', 'agente', 'plan', 'id_mercado', 'fecha_efectiva']
     search_fields = ['id_mercado', 'clientes__primer_nombre', 'clientes__apellido_paterno', 'agente__nombre_completo', 'id_miembro']
@@ -247,18 +247,18 @@ class PolizaViewSet(viewsets.ModelViewSet):
             return Poliza.objects.none()
         
         role = user.profile.role
-        if role in ['ADMIN', 'MANAGER', 'AGENT_L1', 'AGENT_L2', 'ACCOUNTANT']:
+        if role in ['ADMIN', 'MANAGER', 'PAGOS', 'SHERPA', 'CITAS']:
             return Poliza.objects.all()
-        elif role in ['AGENT_L3', 'AGENT']:
+        elif role in ['ASISTENTE']:
             if user.profile.agente:
                 return Poliza.objects.filter(agente=user.profile.agente)
             return Poliza.objects.none()
         return Poliza.objects.none()
 
     def perform_create(self, serializer):
-        # Auto-assign agent if the creator is an Agent L3 or AGENT
+        # Auto-assign agent if the creator is an ASISTENTE
         user = self.request.user
-        if hasattr(user, 'profile') and user.profile.role in ['AGENT_L3', 'AGENT'] and user.profile.agente:
+        if hasattr(user, 'profile') and user.profile.role in ['ASISTENTE'] and user.profile.agente:
             poliza = serializer.save(agente=user.profile.agente)
         else:
             poliza = serializer.save()
