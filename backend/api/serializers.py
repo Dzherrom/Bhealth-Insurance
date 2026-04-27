@@ -9,6 +9,18 @@ from .models import (
     Contrato, ReporteComision, Notificacion
 )
 
+def can_view_sensitive_data(request_user):
+    if not request_user or not request_user.is_authenticated:
+        return False
+    if request_user.is_superuser:
+        return True
+    try:
+        if hasattr(request_user, 'profile'):
+            return request_user.profile.role in ['ADMIN', 'MANAGER', 'SHERPA']
+    except Exception:
+        pass
+    return False
+
 class NotificacionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notificacion
@@ -114,9 +126,17 @@ class ClienteSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         
-        # Access control logic could go here, for now we return decrypted values
-        # as requested for the frontend to display them.
+        request = self.context.get('request')
+        user = request.user if request else None
         
+        can_view_full = can_view_sensitive_data(user)
+        
+        if not can_view_full and instance.ssn:
+            if len(instance.ssn) > 4:
+                ret['ssn'] = "***-**-" + instance.ssn[-4:]
+            else:
+                ret['ssn'] = "***-**-****"
+                
         if instance.marketplace_password:
             try:
                 ret['marketplace_password'] = decrypt_text(instance.marketplace_password)
@@ -182,37 +202,10 @@ class TarjetaCreditoSerializer(serializers.ModelSerializer):
         # Start with default representation
         ret = super().to_representation(instance)
         
-        # Access control logic
         request = self.context.get('request')
-        if not request or not request.user:
-            # No user context, return masked
-            ret['numero'] = self._mask_number(instance.numero)
-            ret['cvv'] = "***"
-            return ret
-
-        user = request.user
-        can_view_full = False
-
-        # 1. Admin/Superuser
-        try:
-            if user.is_superuser or (hasattr(user, 'profile') and user.profile.role == 'ADMIN'):
-                can_view_full = True
-        except Exception:
-            pass
+        user = request.user if request else None
         
-        if not can_view_full:
-            # 2. Agent assigned or creating (Owner of policy agent)
-            # 3. User involved in policy (Collaborator)
-            poliza = instance.poliza
-            
-            # Agent check
-            if poliza.agente and hasattr(user, 'profile') and user.profile.agente:
-                if poliza.agente == user.profile.agente:
-                    can_view_full = True
-            
-            # Collaborator check (includes "dueño" if they are added as collaborator)
-            if not can_view_full and user in poliza.colaboradores.all():
-                can_view_full = True
+        can_view_full = can_view_sensitive_data(user)
 
         if can_view_full:
             ret['numero'] = decrypt_text(instance.numero)
@@ -237,6 +230,25 @@ class CuentaBancariaSerializer(serializers.ModelSerializer):
         model = CuentaBancaria
         fields = '__all__'
 
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        request = self.context.get('request')
+        user = request.user if request else None
+
+        if not can_view_sensitive_data(user):
+            # Mask data
+            if instance.numero_cuenta and len(instance.numero_cuenta) > 4:
+                ret['numero_cuenta'] = "***" + instance.numero_cuenta[-4:]
+            else:
+                ret['numero_cuenta'] = "***"
+                
+            if instance.aba_routing and len(instance.aba_routing) > 4:
+                ret['aba_routing'] = "***" + instance.aba_routing[-4:]
+            else:
+                ret['aba_routing'] = "***"
+
+        return ret
+
 class EtiquetaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Etiqueta
@@ -254,6 +266,21 @@ class DocumentoSerializer(serializers.ModelSerializer):
         model = Documento
         fields = '__all__'
         read_only_fields = ('subido_por', 'fecha_subida')
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        request = self.context.get('request')
+        user = request.user if request else None
+
+        if not can_view_sensitive_data(user):
+            # No-descargables para ASISTENTES y otros roles no permitidos.
+            # Remplazamos la URL del archivo con el nombre o nulo, para que no puedan abrir/descargar el archivo.
+            ret['archivo'] = None
+            ret['descarga_bloqueada'] = True
+        else:
+            ret['descarga_bloqueada'] = False
+
+        return ret
 
 class NotaSerializer(serializers.ModelSerializer):
     autor_username = serializers.ReadOnlyField(source='autor.username')
