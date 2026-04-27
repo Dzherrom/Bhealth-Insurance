@@ -21,6 +21,19 @@ def can_view_sensitive_data(request_user):
         pass
     return False
 
+def get_request_user_role(serializer_instance):
+    request = serializer_instance.context.get('request') if hasattr(serializer_instance, 'context') else None
+    if not request or not hasattr(request, 'user'):
+        return None
+    user = request.user
+    if not user or not user.is_authenticated:
+        return None
+    if user.is_superuser:
+        return 'ADMIN'
+    if hasattr(user, 'profile'):
+        return user.profile.role
+    return None
+
 class NotificacionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notificacion
@@ -344,10 +357,14 @@ class HistorialPolizaSerializer(serializers.ModelSerializer):
 class PolizaTransferenciaSerializer(serializers.ModelSerializer):
     de_usuario_username = serializers.ReadOnlyField(source='de_usuario.username')
     a_usuario_username = serializers.ReadOnlyField(source='a_usuario.username')
+    request_user_role = serializers.SerializerMethodField()
 
     class Meta:
         model = PolizaTransferencia
         fields = '__all__'
+
+    def get_request_user_role(self, obj):
+        return get_request_user_role(self)
 
 class MatrizPermisoRolSerializer(serializers.ModelSerializer):
     actualizado_por_username = serializers.ReadOnlyField(source='actualizado_por.username')
@@ -401,6 +418,7 @@ class PolizaSerializer(serializers.ModelSerializer):
     historial = HistorialPolizaSerializer(many=True, read_only=True)
     recordatorios = RecordatorioSerializer(many=True, read_only=True)
     transferencias = PolizaTransferenciaSerializer(many=True, read_only=True)
+    request_user_role = serializers.SerializerMethodField()
 
     class Meta:
         model = Poliza
@@ -417,9 +435,13 @@ class PolizaSerializer(serializers.ModelSerializer):
             'direccion_facturacion', 'direccion_facturacion_details',
             'info_pago', 'tarjetas_credito', 'cuentas_bancarias', 
             'otras_polizas', 'notas', 'documentos', 'citas', 'medicamentos', 'historial', 'recordatorios', 'transferencias',
+            'request_user_role',
             'active_viewers',
             'ultima_actualizacion', 'es_duplicado', 'ultimo_duplicado'
         ]
+
+    def get_request_user_role(self, obj):
+        return get_request_user_role(self)
 
     def get_active_viewers(self, obj):
         from django.utils import timezone

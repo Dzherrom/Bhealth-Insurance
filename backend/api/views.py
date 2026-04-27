@@ -454,14 +454,16 @@ class PolizaViewSet(viewsets.ModelViewSet):
         # Async send
         send_activity_webhook(payload)
         
-        return Response({'status': 'ok', 'mode': 'webhook'})
+        current_role = request.user.profile.role if hasattr(request.user, 'profile') else None
+        return Response({'status': 'ok', 'mode': 'webhook', 'request_user_role': current_role})
 
     @action(detail=True, methods=['get'])
     def active_viewers(self, request, pk=None):
         """
         Deprecated: Active viewers are now managed via external webhook system.
         """
-        return Response({"detail": "Active viewers system has been moved to webhooks. Please consult the external activity service."}, status=status.HTTP_410_GONE)
+        current_role = request.user.profile.role if hasattr(request.user, 'profile') else None
+        return Response({"detail": "Active viewers system has been moved to webhooks. Please consult the external activity service.", "request_user_role": current_role}, status=status.HTTP_410_GONE)
 
     @action(detail=True, methods=['get'])
     def download_documents(self, request, pk=None):
