@@ -13,7 +13,9 @@ from .views import (
     ZipCodeLookupView, CitaViewSet, MedicoViewSet, RecordatorioViewSet,
     ReporteAgentesView, DashboardStatsView, ReporteIntentosFallidosView,
     ContratoViewSet, ReporteComisionViewSet, NotificacionViewSet,
-    LocationLookupView, TarjetaCreditoViewSet, CustomTokenObtainPairView
+    LocationLookupView, TarjetaCreditoViewSet, CustomTokenObtainPairView,
+    MatrizPermisoRolViewSet, AuditoriaGlobalViewSet, AuditoriaConsolidadaView,
+    PolizaTransferenciaViewSet
 )
 
 router = DefaultRouter()
@@ -38,6 +40,9 @@ router.register(r'contratos', ContratoViewSet)
 router.register(r'reportes_comision', ReporteComisionViewSet)
 router.register(r'notificaciones', NotificacionViewSet, basename='notificacion')
 router.register(r'tarjetas_credito', TarjetaCreditoViewSet)
+router.register(r'matriz-permisos', MatrizPermisoRolViewSet, basename='matriz-permisos')
+router.register(r'auditoria-global', AuditoriaGlobalViewSet, basename='auditoria-global')
+router.register(r'transferencias-poliza', PolizaTransferenciaViewSet, basename='transferencias-poliza')
 
 urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),
@@ -49,6 +54,7 @@ urlpatterns = [
     path('locations/lookup/', LocationLookupView.as_view(), name='location-lookup'),
     path('reportes/agentes-facturacion/', ReporteAgentesView.as_view(), name='reporte-agentes'),
     path('reportes/intentos-fallidos/', ReporteIntentosFallidosView.as_view(), name='reporte-intentos-fallidos'),
+    path('reportes/auditoria-consolidada/', AuditoriaConsolidadaView.as_view(), name='auditoria-consolidada'),
     path('dashboard/stats/', DashboardStatsView.as_view(), name='dashboard-stats'),
     path('', include(router.urls)),
 ]

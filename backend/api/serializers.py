@@ -6,7 +6,7 @@ from .models import (
     EstadoPoliza, Poliza, PolizaCliente, Licencia, Nota, HistorialPoliza,
     Etiqueta, Documento, Tarea, UserProfile,
     InfoPago, TarjetaCredito, CuentaBancaria, PolizaViewer, Cita, Medico, Medicamento, Recordatorio,
-    Contrato, ReporteComision, Notificacion
+    Contrato, ReporteComision, Notificacion, PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal
 )
 
 def can_view_sensitive_data(request_user):
@@ -341,6 +341,29 @@ class HistorialPolizaSerializer(serializers.ModelSerializer):
         model = HistorialPoliza
         fields = '__all__'
 
+class PolizaTransferenciaSerializer(serializers.ModelSerializer):
+    de_usuario_username = serializers.ReadOnlyField(source='de_usuario.username')
+    a_usuario_username = serializers.ReadOnlyField(source='a_usuario.username')
+
+    class Meta:
+        model = PolizaTransferencia
+        fields = '__all__'
+
+class MatrizPermisoRolSerializer(serializers.ModelSerializer):
+    actualizado_por_username = serializers.ReadOnlyField(source='actualizado_por.username')
+
+    class Meta:
+        model = MatrizPermisoRol
+        fields = '__all__'
+        read_only_fields = ('actualizado_por', 'fecha_actualizacion')
+
+class AuditoriaGlobalSerializer(serializers.ModelSerializer):
+    usuario_username = serializers.ReadOnlyField(source='usuario.username')
+
+    class Meta:
+        model = AuditoriaGlobal
+        fields = '__all__'
+
 class RecordatorioSerializer(serializers.ModelSerializer):
     usuario_notificar_username = serializers.ReadOnlyField(source='usuario_notificar.username')
 
@@ -377,13 +400,14 @@ class PolizaSerializer(serializers.ModelSerializer):
     medicamentos = MedicamentoSerializer(many=True, read_only=True)
     historial = HistorialPolizaSerializer(many=True, read_only=True)
     recordatorios = RecordatorioSerializer(many=True, read_only=True)
+    transferencias = PolizaTransferenciaSerializer(many=True, read_only=True)
 
     class Meta:
         model = Poliza
         fields = [
             'id', 'id_mercado', 'id_miembro', 'costo_poliza', 'subsidio', 'prima_mensual',
             'total_ahorros', 'plan_era',
-            'fecha_efectiva', 'estado', 'estado_nombre', 'fecha_envio', 'fecha_cancelacion',
+            'fecha_efectiva', 'estado', 'estado_nombre', 'flujo_etapa', 'fecha_envio', 'fecha_cancelacion',
             'id_interno', 'agente', 'agente_nombre', 'plan', 'plan_nombre',
             'clientes_info', 'clientes_data', 'colaboradores', 'colaboradores_details',
             'ffm_mercado', 'npn_mercado', 'tipo_inscripcion', 'razon_inscripcion_especial', 'fecha_inscripcion_especial',
@@ -392,7 +416,7 @@ class PolizaSerializer(serializers.ModelSerializer):
             'direccion_postal', 'direccion_postal_details',
             'direccion_facturacion', 'direccion_facturacion_details',
             'info_pago', 'tarjetas_credito', 'cuentas_bancarias', 
-            'otras_polizas', 'notas', 'documentos', 'citas', 'medicamentos', 'historial', 'recordatorios',
+            'otras_polizas', 'notas', 'documentos', 'citas', 'medicamentos', 'historial', 'recordatorios', 'transferencias',
             'active_viewers',
             'ultima_actualizacion', 'es_duplicado', 'ultimo_duplicado'
         ]

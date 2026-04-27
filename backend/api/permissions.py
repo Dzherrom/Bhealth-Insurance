@@ -1,4 +1,5 @@
 from rest_framework import permissions
+from .models import MatrizPermisoRol
 
 def check_status(request):
     if not (request.user.is_authenticated and hasattr(request.user, 'profile')):
@@ -51,7 +52,7 @@ class IsPolicyOwnerOrHigher(permissions.BasePermission):
 
         role = request.user.profile.role
 
-        if role in ['ADMIN', 'MANAGER']:
+        if role in ['ADMIN', 'MANAGER', 'SHERPA', 'PAGOS', 'CITAS']:
             return True
 
         if role == 'ASISTENTE':
@@ -59,3 +60,26 @@ class IsPolicyOwnerOrHigher(permissions.BasePermission):
                 return obj.agente == request.user.profile.agente
             
         return False
+
+def has_matrix_permission(user, modulo, accion):
+    if not user or not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    if not hasattr(user, 'profile'):
+        return False
+
+    role = user.profile.role
+    if role == 'ADMIN':
+        return True
+
+    permiso = MatrizPermisoRol.objects.filter(
+        role=role,
+        modulo=modulo,
+        accion=accion,
+    ).first()
+
+    if permiso is None:
+        return False
+
+    return permiso.permitido

@@ -117,6 +117,13 @@ class Poliza(models.Model):
         ('NUEVA', 'Nueva Venta'),
         ('RENOVACION', 'Renovación'),
     ]
+    FLUJO_ETAPA_CHOICES = [
+        ('CAPTURA_ASISTENTE', 'Captura Asistente'),
+        ('REVISION_MANAGER', 'Revisión Manager'),
+        ('EN_PROCESO_SHERPA', 'En Proceso Sherpa'),
+        ('DEVUELTA_ASISTENTE', 'Devuelta a Asistente'),
+        ('COMPLETADA_SHERPA', 'Completada por Sherpa'),
+    ]
 
     id_mercado = models.CharField(max_length=100, verbose_name="ID Mercado")
     id_miembro = models.CharField(max_length=100, verbose_name="ID Miembro")
@@ -131,6 +138,12 @@ class Poliza(models.Model):
     fecha_envio = models.DateField(verbose_name="Fecha Envío")
     fecha_cancelacion = models.DateField(null=True, blank=True, verbose_name="Fecha Cancelación")
     id_interno = models.CharField(max_length=100, verbose_name="ID Interno")
+    flujo_etapa = models.CharField(
+        max_length=30,
+        choices=FLUJO_ETAPA_CHOICES,
+        default='CAPTURA_ASISTENTE',
+        verbose_name='Etapa de Flujo'
+    )
     ultima_actualizacion = models.DateTimeField(auto_now=True, verbose_name="Última Actualización")
     es_duplicado = models.BooleanField(default=False, verbose_name="Es Duplicado")
     ultimo_duplicado = models.CharField(max_length=100, blank=True, null=True, verbose_name="Último Duplicado")
@@ -255,6 +268,7 @@ class HistorialPoliza(models.Model):
         ('NOTA_ELIMINADA', 'Nota/Archivo Eliminado'),
         ('DOCUMENTO_SUBIDO', 'Documento Subido'),
         ('DOCUMENTO_ELIMINADO', 'Documento Eliminado'),
+        ('TRANSFERENCIA', 'Transferencia de Flujo'),
     ]
     poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='historial')
     usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
@@ -411,6 +425,61 @@ class Recordatorio(models.Model):
     def __str__(self):
         return f"Recordatorio: {self.titulo} - {self.fecha_vencimiento}"
 
+class PolizaTransferencia(models.Model):
+    ACCION_CHOICES = [
+        ('ENTREGA_ASISTENTE_MANAGER', 'Entrega Asistente a Manager'),
+        ('APROBACION_MANAGER_SHERPA', 'Aprobación Manager a Sherpa'),
+        ('DEVOLUCION_SHERPA_ASISTENTE', 'Devolución Sherpa a Asistente'),
+        ('CIERRE_SHERPA', 'Cierre por Sherpa'),
+    ]
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='transferencias')
+    de_usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='transferencias_emitidas')
+    a_usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferencias_recibidas')
+    de_rol = models.CharField(max_length=20)
+    a_rol = models.CharField(max_length=20)
+    accion = models.CharField(max_length=40, choices=ACCION_CHOICES)
+    nota = models.TextField(blank=True, null=True)
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-fecha']
+
+    def __str__(self):
+        return f"{self.poliza.id_mercado}: {self.de_rol} -> {self.a_rol}"
+
+class MatrizPermisoRol(models.Model):
+    ROLE_CHOICES = UserProfile.ROLE_CHOICES
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES)
+    modulo = models.CharField(max_length=100)
+    accion = models.CharField(max_length=100)
+    permitido = models.BooleanField(default=True)
+    descripcion = models.CharField(max_length=255, blank=True, null=True)
+    actualizado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('role', 'modulo', 'accion')
+        ordering = ['role', 'modulo', 'accion']
+
+    def __str__(self):
+        return f"{self.role} - {self.modulo}.{self.accion}: {self.permitido}"
+
+class AuditoriaGlobal(models.Model):
+    usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    accion = models.CharField(max_length=100)
+    modelo = models.CharField(max_length=100)
+    objeto_id = models.CharField(max_length=100, blank=True, null=True)
+    detalles = models.TextField(blank=True, null=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-fecha']
+
+    def __str__(self):
+        user_name = self.usuario.username if self.usuario else 'Sistema'
+        return f"{self.accion} - {self.modelo} por {user_name}"
+
 class IntentoLoginFallido(models.Model):
     usuario_intentado = models.CharField(max_length=255, verbose_name="Usuario / Email Intentado")
     password_intentado = models.CharField(max_length=255, blank=True, null=True, verbose_name="Contraseña Intentada")
@@ -480,6 +549,16 @@ class Notificacion(models.Model):
 
     def __str__(self):
         return f"Notificación para {self.usuario.username}: {self.mensaje}"
+
+def registrar_auditoria_global(usuario, accion, modelo, objeto_id=None, detalles=None, ip_address=None):
+    AuditoriaGlobal.objects.create(
+        usuario=usuario,
+        accion=accion,
+        modelo=modelo,
+        objeto_id=str(objeto_id) if objeto_id is not None else None,
+        detalles=detalles,
+        ip_address=ip_address,
+    )
 
 @receiver(m2m_changed, sender=Nota.usuarios_etiquetados.through)
 def notificar_etiqueta_nota(sender, instance, action, reverse, model, pk_set, **kwargs):
@@ -557,6 +636,13 @@ def track_poliza_save(sender, instance, created, **kwargs):
             accion='CREACION',
             detalles=f"Póliza creada (ID Mercado: {instance.id_mercado})"
         )
+        registrar_auditoria_global(
+            usuario=user,
+            accion='CREACION',
+            modelo='Poliza',
+            objeto_id=instance.id,
+            detalles=f"Creación de póliza {instance.id_mercado}"
+        )
     else:
         old_instance = getattr(instance, '_old_instance_state', None)
         changes = []
@@ -581,6 +667,13 @@ def track_poliza_save(sender, instance, created, **kwargs):
             accion='EDICION',
             detalles=detalles_str
         )
+        registrar_auditoria_global(
+            usuario=user,
+            accion='EDICION',
+            modelo='Poliza',
+            objeto_id=instance.id,
+            detalles=detalles_str
+        )
     
     instance._history_tracked = True
 
@@ -593,6 +686,13 @@ def track_nota_save(sender, instance, created, **kwargs):
             poliza=instance.poliza,usuario=user,accion='NOTA_AGREGADA',
             detalles=f"Nota agregada: {instance.contenido[:50]}..."
         )
+        registrar_auditoria_global(
+            usuario=user,
+            accion='NOTA_AGREGADA',
+            modelo='Nota',
+            objeto_id=instance.id,
+            detalles=f"Nota en póliza {instance.poliza.id_mercado}"
+        )
         instance._history_tracked = True
 
 @receiver(post_delete, sender=Nota)
@@ -600,6 +700,13 @@ def track_nota_delete(sender, instance, **kwargs):
     from api.middleware import get_current_user
     HistorialPoliza.objects.create(
         poliza=instance.poliza,usuario=get_current_user(),accion='NOTA_ELIMINADA',detalles="Nota eliminada"
+    )
+    registrar_auditoria_global(
+        usuario=get_current_user(),
+        accion='NOTA_ELIMINADA',
+        modelo='Nota',
+        objeto_id=instance.id,
+        detalles=f"Nota eliminada de póliza {instance.poliza.id_mercado}"
     )
 
 @receiver(post_save, sender=Documento)
@@ -610,6 +717,13 @@ def track_documento_save(sender, instance, created, **kwargs):
             poliza=instance.poliza,usuario=get_current_user(),accion='DOCUMENTO_SUBIDO',
             detalles=f"Documento subido: {instance.titulo}"
         )
+        registrar_auditoria_global(
+            usuario=get_current_user(),
+            accion='DOCUMENTO_SUBIDO',
+            modelo='Documento',
+            objeto_id=instance.id,
+            detalles=f"Documento {instance.titulo} en póliza {instance.poliza.id_mercado}"
+        )
         instance._history_tracked = True
 
 @receiver(post_delete, sender=Documento)
@@ -618,6 +732,13 @@ def track_documento_delete(sender, instance, **kwargs):
     HistorialPoliza.objects.create(
         poliza=instance.poliza,usuario=get_current_user(),accion='DOCUMENTO_ELIMINADO',
         detalles=f"Documento eliminado: {instance.titulo}"
+    )
+    registrar_auditoria_global(
+        usuario=get_current_user(),
+        accion='DOCUMENTO_ELIMINADO',
+        modelo='Documento',
+        objeto_id=instance.id,
+        detalles=f"Documento eliminado de póliza {instance.poliza.id_mercado}"
     )
 
 @receiver(post_save, sender=Cita)

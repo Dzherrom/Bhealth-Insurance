@@ -18,7 +18,8 @@ from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
     EstadoPoliza, Poliza, Nota, HistorialPoliza, Etiqueta, Documento, Tarea,
     PolizaViewer, Cita, Medico, Recordatorio, IntentoLoginFallido,
-    Contrato, ReporteComision, Notificacion, TarjetaCredito
+    Contrato, ReporteComision, Notificacion, TarjetaCredito,
+    PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal, registrar_auditoria_global
 )
 
 class DashboardStatsView(APIView):
@@ -163,10 +164,11 @@ from .serializers import (
     EtiquetaSerializer, DocumentoSerializer, TareaSerializer,
     UserManagementSerializer, CitaSerializer, MedicoSerializer, RecordatorioSerializer,
     ContratoSerializer, ReporteComisionSerializer, NotificacionSerializer,
-    ZipCodeSerializer, TarjetaCreditoSerializer, CustomTokenObtainPairSerializer
+    ZipCodeSerializer, TarjetaCreditoSerializer, CustomTokenObtainPairSerializer,
+    PolizaTransferenciaSerializer, MatrizPermisoRolSerializer, AuditoriaGlobalSerializer
 )
 from .utils import fetch_location_from_zip, send_activity_webhook
-from .permissions import IsAsistenteRole, IsPolicyOwnerOrHigher, IsAdminRole
+from .permissions import IsPolicyOwnerOrHigher, IsAdminRole, has_matrix_permission
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
@@ -235,7 +237,7 @@ class EstadoPolizaViewSet(viewsets.ModelViewSet):
 
 class PolizaViewSet(viewsets.ModelViewSet):
     serializer_class = PolizaSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAsistenteRole, IsPolicyOwnerOrHigher]
+    permission_classes = [permissions.IsAuthenticated, IsPolicyOwnerOrHigher]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['estado', 'agente', 'plan', 'id_mercado', 'fecha_efectiva']
     search_fields = ['id_mercado', 'clientes__primer_nombre', 'clientes__apellido_paterno', 'agente__nombre_completo', 'id_miembro']
@@ -262,10 +264,173 @@ class PolizaViewSet(viewsets.ModelViewSet):
             poliza = serializer.save(agente=user.profile.agente)
         else:
             poliza = serializer.save()
+        registrar_auditoria_global(
+            usuario=user,
+            accion='CREACION_POLIZA',
+            modelo='Poliza',
+            objeto_id=poliza.id,
+            detalles=f"Póliza {poliza.id_mercado} creada"
+        )
             
 
     def perform_update(self, serializer):
-        serializer.save()
+        poliza = serializer.save()
+        registrar_auditoria_global(
+            usuario=self.request.user,
+            accion='EDICION_POLIZA',
+            modelo='Poliza',
+            objeto_id=poliza.id,
+            detalles=f"Póliza {poliza.id_mercado} actualizada"
+        )
+
+    def _require_role(self, request, allowed_roles):
+        if not hasattr(request.user, 'profile'):
+            return Response({"detail": "Usuario sin perfil."}, status=status.HTTP_403_FORBIDDEN)
+        if request.user.profile.role not in allowed_roles:
+            return Response({"detail": "No tienes permisos para esta acción."}, status=status.HTTP_403_FORBIDDEN)
+        return None
+
+    def _require_matrix_permission(self, request, accion):
+        if not hasattr(request.user, 'profile'):
+            return Response({"detail": "Usuario sin perfil."}, status=status.HTTP_403_FORBIDDEN)
+        role = request.user.profile.role
+        if role == 'ADMIN':
+            return None
+        if not has_matrix_permission(request.user, 'POLIZA_FLUJO', accion):
+            return Response({"detail": "Permiso denegado por matriz de permisos."}, status=status.HTTP_403_FORBIDDEN)
+        return None
+
+    def _registrar_transferencia(self, poliza, de_rol, a_rol, accion, nota="", a_usuario=None):
+        transferencia = PolizaTransferencia.objects.create(
+            poliza=poliza,
+            de_usuario=self.request.user,
+            a_usuario=a_usuario,
+            de_rol=de_rol,
+            a_rol=a_rol,
+            accion=accion,
+            nota=nota,
+        )
+        HistorialPoliza.objects.create(
+            poliza=poliza,
+            usuario=self.request.user,
+            accion='TRANSFERENCIA',
+            detalles=f"{accion}: {de_rol} -> {a_rol}. Nota: {nota or 'Sin nota'}"
+        )
+        registrar_auditoria_global(
+            usuario=self.request.user,
+            accion='TRANSFERENCIA_POLIZA',
+            modelo='PolizaTransferencia',
+            objeto_id=transferencia.id,
+            detalles=f"Póliza {poliza.id_mercado}: {de_rol} -> {a_rol}. Acción: {accion}"
+        )
+        return transferencia
+
+    @action(detail=True, methods=['post'])
+    def pase_a_manager(self, request, pk=None):
+        permiso_error = self._require_role(request, ['ASISTENTE', 'ADMIN', 'MANAGER'])
+        if permiso_error:
+            return permiso_error
+        matrix_error = self._require_matrix_permission(request, 'PASE_A_MANAGER')
+        if matrix_error:
+            return matrix_error
+
+        poliza = self.get_object()
+        if poliza.flujo_etapa not in ['CAPTURA_ASISTENTE', 'DEVUELTA_ASISTENTE']:
+            return Response({"detail": "La póliza no está en etapa válida para pase a manager."}, status=status.HTTP_400_BAD_REQUEST)
+
+        nota = request.data.get('nota', '')
+        poliza.flujo_etapa = 'REVISION_MANAGER'
+        poliza.save(update_fields=['flujo_etapa', 'ultima_actualizacion'])
+
+        transferencia = self._registrar_transferencia(
+            poliza=poliza,
+            de_rol='ASISTENTE',
+            a_rol='MANAGER',
+            accion='ENTREGA_ASISTENTE_MANAGER',
+            nota=nota,
+        )
+        return Response(PolizaTransferenciaSerializer(transferencia).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'])
+    def pase_a_sherpa(self, request, pk=None):
+        permiso_error = self._require_role(request, ['MANAGER', 'ADMIN'])
+        if permiso_error:
+            return permiso_error
+        matrix_error = self._require_matrix_permission(request, 'PASE_A_SHERPA')
+        if matrix_error:
+            return matrix_error
+
+        poliza = self.get_object()
+        if poliza.flujo_etapa != 'REVISION_MANAGER':
+            return Response({"detail": "La póliza no está en revisión de manager."}, status=status.HTTP_400_BAD_REQUEST)
+
+        nota = request.data.get('nota', '')
+        poliza.flujo_etapa = 'EN_PROCESO_SHERPA'
+        poliza.save(update_fields=['flujo_etapa', 'ultima_actualizacion'])
+
+        transferencia = self._registrar_transferencia(
+            poliza=poliza,
+            de_rol='MANAGER',
+            a_rol='SHERPA',
+            accion='APROBACION_MANAGER_SHERPA',
+            nota=nota,
+        )
+        return Response(PolizaTransferenciaSerializer(transferencia).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'])
+    def devolver_a_asistente(self, request, pk=None):
+        permiso_error = self._require_role(request, ['SHERPA', 'ADMIN', 'MANAGER'])
+        if permiso_error:
+            return permiso_error
+        matrix_error = self._require_matrix_permission(request, 'DEVOLVER_A_ASISTENTE')
+        if matrix_error:
+            return matrix_error
+
+        poliza = self.get_object()
+        if poliza.flujo_etapa != 'EN_PROCESO_SHERPA':
+            return Response({"detail": "Solo se puede devolver una póliza en proceso de sherpa."}, status=status.HTTP_400_BAD_REQUEST)
+
+        nota = request.data.get('nota', '')
+        if not nota:
+            return Response({"detail": "La nota es obligatoria para devolución."}, status=status.HTTP_400_BAD_REQUEST)
+
+        poliza.flujo_etapa = 'DEVUELTA_ASISTENTE'
+        poliza.save(update_fields=['flujo_etapa', 'ultima_actualizacion'])
+
+        transferencia = self._registrar_transferencia(
+            poliza=poliza,
+            de_rol='SHERPA',
+            a_rol='ASISTENTE',
+            accion='DEVOLUCION_SHERPA_ASISTENTE',
+            nota=nota,
+        )
+        return Response(PolizaTransferenciaSerializer(transferencia).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'])
+    def cerrar_en_sherpa(self, request, pk=None):
+        permiso_error = self._require_role(request, ['SHERPA', 'ADMIN'])
+        if permiso_error:
+            return permiso_error
+        matrix_error = self._require_matrix_permission(request, 'CERRAR_EN_SHERPA')
+        if matrix_error:
+            return matrix_error
+
+        poliza = self.get_object()
+        if poliza.flujo_etapa != 'EN_PROCESO_SHERPA':
+            return Response({"detail": "Solo se puede cerrar una póliza en proceso de sherpa."}, status=status.HTTP_400_BAD_REQUEST)
+
+        nota = request.data.get('nota', '')
+        poliza.flujo_etapa = 'COMPLETADA_SHERPA'
+        poliza.save(update_fields=['flujo_etapa', 'ultima_actualizacion'])
+
+        transferencia = self._registrar_transferencia(
+            poliza=poliza,
+            de_rol='SHERPA',
+            a_rol='SHERPA',
+            accion='CIERRE_SHERPA',
+            nota=nota,
+        )
+        return Response(PolizaTransferenciaSerializer(transferencia).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'])
     def heartbeat(self, request, pk=None):
@@ -640,6 +805,117 @@ class LocationLookupView(APIView):
                 return Response({"error": "External service unavailable"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class MatrizPermisoRolViewSet(viewsets.ModelViewSet):
+    queryset = MatrizPermisoRol.objects.all()
+    serializer_class = MatrizPermisoRolSerializer
+    permission_classes = [permissions.IsAuthenticated, IsAdminRole]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['role', 'modulo', 'accion', 'permitido']
+    search_fields = ['role', 'modulo', 'accion', 'descripcion']
+    ordering_fields = ['role', 'modulo', 'accion', 'fecha_actualizacion']
+
+    def perform_create(self, serializer):
+        permiso = serializer.save(actualizado_por=self.request.user)
+        registrar_auditoria_global(
+            usuario=self.request.user,
+            accion='CREACION_MATRIZ_PERMISO',
+            modelo='MatrizPermisoRol',
+            objeto_id=permiso.id,
+            detalles=f"{permiso.role} {permiso.modulo}.{permiso.accion}={permiso.permitido}"
+        )
+
+    def perform_update(self, serializer):
+        permiso = serializer.save(actualizado_por=self.request.user)
+        registrar_auditoria_global(
+            usuario=self.request.user,
+            accion='EDICION_MATRIZ_PERMISO',
+            modelo='MatrizPermisoRol',
+            objeto_id=permiso.id,
+            detalles=f"{permiso.role} {permiso.modulo}.{permiso.accion}={permiso.permitido}"
+        )
+
+    @action(detail=False, methods=['post'])
+    def validar(self, request):
+        role = request.data.get('role')
+        modulo = request.data.get('modulo')
+        accion = request.data.get('accion')
+
+        if not role or not modulo or not accion:
+            return Response({"detail": "role, modulo y accion son obligatorios."}, status=status.HTTP_400_BAD_REQUEST)
+
+        permitido = MatrizPermisoRol.objects.filter(
+            role=role,
+            modulo=modulo,
+            accion=accion,
+            permitido=True,
+        ).exists()
+        return Response({"role": role, "modulo": modulo, "accion": accion, "permitido": permitido})
+
+class PolizaTransferenciaViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = PolizaTransferencia.objects.select_related('poliza', 'de_usuario', 'a_usuario').all()
+    serializer_class = PolizaTransferenciaSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['poliza', 'accion', 'de_rol', 'a_rol']
+    ordering_fields = ['fecha']
+
+class AuditoriaGlobalViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = AuditoriaGlobal.objects.select_related('usuario').all()
+    serializer_class = AuditoriaGlobalSerializer
+    permission_classes = [permissions.IsAuthenticated, IsAdminRole]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['accion', 'modelo', 'usuario']
+    search_fields = ['accion', 'modelo', 'detalles', 'usuario__username']
+    ordering_fields = ['fecha']
+
+class AuditoriaConsolidadaView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsAdminRole]
+
+    def get(self, request):
+        limit = int(request.query_params.get('limit', 200))
+        if limit > 1000:
+            limit = 1000
+
+        auditoria = AuditoriaGlobal.objects.select_related('usuario').all()[:limit]
+        historial = HistorialPoliza.objects.select_related('usuario', 'poliza').all()[:limit]
+        intentos = IntentoLoginFallido.objects.all()[:limit]
+
+        eventos = []
+
+        for item in auditoria:
+            eventos.append({
+                'fuente': 'auditoria_global',
+                'fecha': item.fecha,
+                'accion': item.accion,
+                'modelo': item.modelo,
+                'usuario': item.usuario.username if item.usuario else None,
+                'detalles': item.detalles,
+            })
+
+        for item in historial:
+            eventos.append({
+                'fuente': 'historial_poliza',
+                'fecha': item.fecha,
+                'accion': item.accion,
+                'modelo': 'Poliza',
+                'usuario': item.usuario.username if item.usuario else None,
+                'detalles': item.detalles,
+                'poliza_id_mercado': item.poliza.id_mercado,
+            })
+
+        for item in intentos:
+            eventos.append({
+                'fuente': 'intento_login_fallido',
+                'fecha': item.fecha_intento,
+                'accion': 'LOGIN_FALLIDO',
+                'modelo': 'Auth',
+                'usuario': item.usuario_intentado,
+                'detalles': f"IP: {item.ip_address or 'N/A'}",
+            })
+
+        eventos = sorted(eventos, key=lambda x: x['fecha'], reverse=True)[:limit]
+        return Response(eventos)
 
 
 
