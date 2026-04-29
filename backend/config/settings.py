@@ -99,7 +99,7 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
+'''
 DATABASES = {
     'default': dj_database_url.config(
         default=config('DATABASE_URL', default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
@@ -122,7 +122,7 @@ DATABASES = {
         }
     }
 }
-'''
+
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
@@ -185,3 +185,12 @@ SIMPLE_JWT = {
 }
 
 ACTIVITY_WEBHOOK_URL = 'http://localhost:3000/webhooks/activity'
+
+# ==============================================================================
+# CONSENT (ELECTRONIC SIGNATURE) SETTINGS
+# ==============================================================================
+CONSENT_BASE_URL = config('CONSENT_BASE_URL', default='https://api.example-consent.com')
+CONSENT_API_KEY = config('CONSENT_API_KEY', default='dummy_api_key_for_local_dev')
+CONSENT_WEBHOOK_SECRET = config('CONSENT_WEBHOOK_SECRET', default='my_super_secret_webhook_key')
+CONSENT_TIMEOUT_SECONDS = config('CONSENT_TIMEOUT_SECONDS', default=10, cast=int)
+# CONSENT_CALLBACK_URL = config('CONSENT_CALLBACK_URL', default='https://b-health-test.netlify.app/consent-callback')

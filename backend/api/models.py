@@ -524,6 +524,52 @@ class ReporteComision(models.Model):
     def __str__(self):
         return f"Comision {self.poliza} - {self.monto}"
 
+class ConsentRequest(models.Model):
+    STATUS_CHOICES = [
+        ('BORRADOR', 'Borrador'),
+        ('ENVIADO', 'Enviado'),
+        ('ABIERTO', 'Abierto'),
+        ('FIRMADO', 'Firmado'),
+        ('RECHAZADO', 'Rechazado'),
+        ('EXPIRADO', 'Expirado'),
+        ('ERROR', 'Error'),
+    ]
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='consent_requests')
+    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='consent_requests')
+    documento_generado = models.ForeignKey('Documento', on_delete=models.SET_NULL, null=True, blank=True, related_name='consent_results')
+    
+    provider_envelope_id = models.CharField(max_length=255, unique=True, null=True, blank=True)
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='BORRADOR')
+    
+    signer_email = models.EmailField()
+    signer_name = models.CharField(max_length=255)
+    signing_url = models.URLField(max_length=1000, blank=True, null=True)
+    
+    sent_at = models.DateTimeField(null=True, blank=True)
+    signed_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    
+    last_error = models.TextField(blank=True, null=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='consents_created')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Consent {self.id} - {self.poliza.id_mercado} ({self.status})"
+
+class ConsentEvent(models.Model):
+    consent_request = models.ForeignKey(ConsentRequest, on_delete=models.CASCADE, related_name='events', null=True, blank=True)
+    event_id = models.CharField(max_length=255, unique=True)
+    event_type = models.CharField(max_length=100)
+    payload = models.JSONField()
+    processed_at = models.DateTimeField(auto_now_add=True)
+    signature_valid = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Event {self.event_id} ({self.event_type})"
+
 # End of models
 
 class Notificacion(models.Model):

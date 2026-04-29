@@ -17,6 +17,7 @@ from .views import (
     MatrizPermisoRolViewSet, AuditoriaGlobalViewSet, AuditoriaConsolidadaView,
     PolizaTransferenciaViewSet
 )
+from .views_consent import ConsentRequestViewSet
 
 router = DefaultRouter()
 router.register(r'users', UserManagementViewSet)
@@ -43,6 +44,7 @@ router.register(r'tarjetas_credito', TarjetaCreditoViewSet)
 router.register(r'matriz-permisos', MatrizPermisoRolViewSet, basename='matriz-permisos')
 router.register(r'auditoria-global', AuditoriaGlobalViewSet, basename='auditoria-global')
 router.register(r'transferencias-poliza', PolizaTransferenciaViewSet, basename='transferencias-poliza')
+router.register(r'consent-requests', ConsentRequestViewSet, basename='consent-requests')
 
 urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),
