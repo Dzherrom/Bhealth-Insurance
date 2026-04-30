@@ -755,6 +755,61 @@ class ContratoViewSet(viewsets.ModelViewSet):
     search_fields = ['titulo', 'agente__nombre_completo']
     ordering_fields = ['fecha_inicio', 'fecha_fin']
 
+    @action(detail=True, methods=['post'], url_path='send-to-zohosign')
+    def send_to_zohosign(self, request, pk=None):
+        """
+        Envia el contrato a Zoho Sign para su firma electronica por parte del Agente.
+        """
+        contrato = self.get_object()
+
+        if not contrato.archivo:
+            return Response({"error": "El contrato no tiene un archivo adjunto."}, status=status.HTTP_400_BAD_REQUEST)
+
+        agente = contrato.agente
+        
+        # Intentar obtener el email del Agente desde su UserProfile, si no, pedir que se asigne.
+        email = None
+        if hasattr(agente, 'user_profile') and agente.user_profile and agente.user_profile.user:
+            email = agente.user_profile.user.email
+        
+        if not email:
+            # Fallback en caso de que lo mandemos por request
+            email = request.data.get('email')
+            if not email:
+                return Response({"error": "El Agente no tiene un email de usuario asociado. Por favor provee 'email' en el body."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            from services.zohosign_client import ZohoSignClient
+            zohosign_client = ZohoSignClient()
+            
+            # Nombre de la peticion
+            request_name = f"Firma de Contrato - {contrato.titulo}"
+            
+            # Llamamos al servicio para subir el documento
+            response_data = zohosign_client.create_request_from_file(
+                request_name=request_name,
+                file_path=contrato.archivo.path,
+                recipient_name=agente.nombre_completo,
+                recipient_email=email
+            )
+            
+            # Guardamos el 'requests_id' de Zoho en el modelo Contrato.
+            zoho_request = response_data.get("requests", {})
+            if zoho_request and "request_id" in zoho_request:
+                contrato.zoho_request_id = zoho_request.get("request_id")
+                contrato.zoho_status = zoho_request.get("request_status", "IN-PROGRESS")
+                contrato.save()
+
+            return Response({
+                "message": "Contrato enviado a Zoho Sign exitosamente.",
+                "zoho_response": response_data
+            }, status=status.HTTP_200_OK)
+            
+        except FileNotFoundError as e:
+            return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": f"Error al comunicar con Zoho Sign: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 class ReporteComisionViewSet(viewsets.ModelViewSet):
     queryset = ReporteComision.objects.all()
     serializer_class = ReporteComisionSerializer
@@ -918,6 +973,61 @@ class AuditoriaConsolidadaView(APIView):
 
         eventos = sorted(eventos, key=lambda x: x['fecha'], reverse=True)[:limit]
         return Response(eventos)
+
+class ZohoSignWebhookView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        """
+        Webhook para recibir notificaciones desde Zoho Sign.
+        Se configura en Zoho Sign para recibir 'requests_completed', etc.
+        """
+        # Zoho Sign puede enviar la data en body raw (JSON) o en una variable de form multipart.
+        # Generalmente, cuando usas webhooks en Zoho Sign, mandan un payload JSON.
+        
+        try:
+            data = request.data
+            
+            # Zoho Sign a veces anida los datos del webhook bajo una key 'requests' o lo manda directo.
+            requests_data = data.get('requests', data)
+            
+            request_id = requests_data.get('request_id')
+            request_status = requests_data.get('request_status')
+            
+            if not request_id:
+                return Response({"message": "No request_id found"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Buscar el contrato en base de datos
+            try:
+                contrato = Contrato.objects.get(zoho_request_id=request_id)
+            except Contrato.DoesNotExist:
+                return Response({"message": f"Contrato con zoho_request_id {request_id} no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+            
+            # Actualizar el status en nuestra base local
+            if request_status:
+                contrato.zoho_status = request_status
+            
+            # Si fue completado (firmado por todos), lo actualizamos y descargamos el PDF
+            if request_status == "COMPLETED" or request_status == "completed":
+                from services.zohosign_client import ZohoSignClient
+                from django.core.files.base import ContentFile
+                
+                zohosign_client = ZohoSignClient()
+                pdf_bytes = zohosign_client.download_signed_document(request_id)
+                
+                if pdf_bytes:
+                    print(f"Descargando contrato firmado para request {request_id}")
+                    # Guardamos el archivo sobrescribiendo o guardando uno nuevo
+                    new_file_name = f"firmado_{contrato.archivo.name.split('/')[-1]}"
+                    contrato.archivo.save(new_file_name, ContentFile(pdf_bytes), save=False)
+            
+            contrato.save()
+            return Response({"status": "success"}, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 

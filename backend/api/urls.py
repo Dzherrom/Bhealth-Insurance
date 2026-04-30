@@ -15,7 +15,7 @@ from .views import (
     ContratoViewSet, ReporteComisionViewSet, NotificacionViewSet,
     LocationLookupView, TarjetaCreditoViewSet, CustomTokenObtainPairView,
     MatrizPermisoRolViewSet, AuditoriaGlobalViewSet, AuditoriaConsolidadaView,
-    PolizaTransferenciaViewSet
+    PolizaTransferenciaViewSet, ZohoSignWebhookView
 )
 from .views_consent import ConsentRequestViewSet
 
@@ -58,6 +58,7 @@ urlpatterns = [
     path('reportes/intentos-fallidos/', ReporteIntentosFallidosView.as_view(), name='reporte-intentos-fallidos'),
     path('reportes/auditoria-consolidada/', AuditoriaConsolidadaView.as_view(), name='auditoria-consolidada'),
     path('dashboard/stats/', DashboardStatsView.as_view(), name='dashboard-stats'),
+    path('webhooks/zohosign/', ZohoSignWebhookView.as_view(), name='webhook-zohosign'),
     path('', include(router.urls)),
 ]
 

@@ -499,6 +499,9 @@ class Contrato(models.Model):
     activo = models.BooleanField(default=True, verbose_name="Activo")
     descripcion = models.TextField(blank=True, null=True, verbose_name="Descripción")
     
+    zoho_request_id = models.CharField(max_length=255, blank=True, null=True, verbose_name="Zoho Request ID")
+    zoho_status = models.CharField(max_length=50, blank=True, null=True, verbose_name="Zoho Status")
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
