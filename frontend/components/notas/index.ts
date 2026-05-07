@@ -1,0 +1,1 @@
+export { NotasChat } from './NotasChat';

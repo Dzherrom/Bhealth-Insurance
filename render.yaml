@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: bhealth-backend
+    env: python
+    buildCommand: "./build.sh"
+    startCommand: "./start.sh"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.5
+      - key: SECRET_KEY
+        generateValue: true
+      - key: WEB_CONCURRENCY
+        value: 4
+      - key: DATABASE_URL
+        value: postgresql://bhealth_insurance_db_user:zjOEnlt6sYyEike3nvM86UTKBtOStdA6@dpg-d5i5ta8gjchc73ajfo0g-a.virginia-postgres.render.com/bhealth_insurance_db
+      - key: DEBUG
+        value: 'False'

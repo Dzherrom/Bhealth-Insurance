@@ -1,0 +1,2061 @@
+# API CRUD Documentation - Bhealth Insurance
+
+Este documento proporciona ejemplos detallados de todos los endpoints CRUD del sistema, incluyendo todos los campos disponibles para cada recurso.
+
+**Base URL:** `/api/`
+
+**Autenticación:** JWT Token (Bearer Token)
+
+## Tabla de Contenidos
+
+1. [Autenticación](#autenticación)
+2. [Agencias](#agencias)
+3. [Direcciones](#direcciones)
+4. [Agentes](#agentes)
+5. [Clientes](#clientes)
+6. [Aseguradoras](#aseguradoras)
+7. [Planes](#planes)
+8. [Pólizas](#pólizas)
+9. [Notas](#notas)
+10. [Tareas](#tareas)
+11. [Citas](#citas)
+12. [Documentos](#documentos)
+13. [Recordatorios](#recordatorios)
+14. [Notificaciones](#notificaciones)
+15. [Tarjetas de Crédito](#tarjetas-de-crédito)
+16. [Flujo Departamental de Pólizas](#flujo-departamental-de-pólizas)
+17. [Matriz de Permisos por Rol](#matriz-de-permisos-por-rol)
+18. [Auditoría Global](#auditoría-global)
+19. [Utilidades y Búsqueda](#utilidades-y-búsqueda)
+20. [Actividad del Sistema](#actividad-del-sistema)
+21. [Dashboard](#dashboard)
+22. [Contratos y Zoho Sign](#contratos-y-zoho-sign)
+23. [Importación Masiva (CSV)](#importación-masiva-csv)
+24. [Estadísticas de Usuario](#estadísticas-de-usuario)
+
+---
+
+## Autenticación
+
+### Registro de Usuario
+```
+POST /api/register/
+```
+
+**Request Body:**
+```json
+{
+  "username": "usuario123",
+  "email": "usuario@ejemplo.com",
+  "password": "contraseña_segura",
+  "first_name": "Juan",
+  "last_name": "Pérez"
+}
+```
+
+### Login
+```
+POST /api/login/
+```
+
+**Request Body:**
+```json
+{
+  "username": "usuario123",
+  "password": "contraseña_segura"
+}
+```
+
+**Response:**
+```json
+{
+  "access": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+  "refresh": "eyJ0eXAiOiJKV1QiLCJhbGc..."
+}
+```
+
+### Usar el Token
+En todos los requests subsiguientes, incluir el header:
+```
+Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGc...
+```
+
+---
+
+## Agencias
+
+**Endpoint Base:** `/api/agencias/`
+
+### Listar Agencias
+```
+GET /api/agencias/
+```
+
+### Obtener Una Agencia
+```
+GET /api/agencias/{id}/
+```
+
+### Crear Agencia
+
+```
+POST /api/agencias/
+Content-Type: application/json
+```
+
+**Request Body Completo (todos los campos disponibles):**
+```json
+{
+  "nombre": "Agencia Salud Plus",
+  "codigo_postal": "90001",
+  "cliente_desde": "2024-01-15",
+  "nombre_legal": "Agencia Salud Plus LLC",
+  "dba": "Salud Plus",
+  "telefono": "+1-555-123-4567",
+  "email": "contacto@saludplus.com",
+  "direccion_negocio": 1,
+  "titulo_portal": "Portal de Clientes - Salud Plus",
+  "pie_email": "Gracias por confiar en nosotros.\n\nAgencia Salud Plus\nTel: +1-555-123-4567\nEmail: contacto@saludplus.com"
+}
+```
+
+**Notas sobre campos:**
+- `nombre` (requerido): Nombre de la agencia
+- `codigo_postal`: Código postal de la agencia
+- `cliente_desde`: Fecha desde cuando es cliente (formato: YYYY-MM-DD)
+- `nombre_legal`: Nombre legal/oficial de la empresa
+- `dba`: "Doing Business As" - Nombre comercial
+- `telefono`: Número de teléfono
+- `email`: Correo electrónico
+- `direccion_negocio`: ID de una Dirección previamente creada (opcional)
+- `logo_light`: Logo para tema claro (archivo, usar multipart/form-data)
+- `logo_dark`: Logo para tema oscuro (archivo, usar multipart/form-data)
+- `favicon`: Icono favicon (archivo, usar multipart/form-data)
+- `titulo_portal`: Título del portal web de la agencia
+- `pie_email`: Firma/pie de página para correos electrónicos
+
+**Para subir archivos (logos, favicon), usar multipart/form-data:**
+```
+POST /api/agencias/
+Content-Type: multipart/form-data
+
+nombre=Agencia Salud Plus
+codigo_postal=90001
+cliente_desde=2024-01-15
+nombre_legal=Agencia Salud Plus LLC
+dba=Salud Plus
+telefono=+1-555-123-4567
+email=contacto@saludplus.com
+direccion_negocio=1
+titulo_portal=Portal de Clientes - Salud Plus
+pie_email=Gracias por confiar en nosotros...
+logo_light=@/path/to/logo_light.png
+logo_dark=@/path/to/logo_dark.png
+favicon=@/path/to/favicon.ico
+```
+
+### Actualizar Agencia
+```
+PUT /api/agencias/{id}/
+PATCH /api/agencias/{id}/
+```
+
+**Request Body (ejemplo parcial con PATCH):**
+```json
+{
+  "telefono": "+1-555-999-8888",
+  "email": "nuevo@saludplus.com",
+  "pie_email": "Texto actualizado del pie de email"
+}
+```
+
+### Eliminar Agencia
+```
+DELETE /api/agencias/{id}/
+```
+
+---
+
+## Direcciones
+
+**Endpoint Base:** `/api/direcciones/`
+
+### Listar Direcciones
+```
+GET /api/direcciones/
+```
+
+### Obtener Una Dirección
+```
+GET /api/direcciones/{id}/
+```
+
+### Crear Dirección
+
+```
+POST /api/direcciones/
+Content-Type: application/json
+```
+
+**Request Body Completo:**
+```json
+{
+  "linea1": "123 Main Street",
+  "linea2": "Apt 4B",
+  "ciudad": "Los Angeles",
+  "estado": "California",
+  "zip_code": "90001",
+  "condado": "Los Angeles County"
+}
+```
+
+**Notas sobre campos:**
+- `linea1` (requerido): Primera línea de dirección
+- `linea2`: Segunda línea (opcional, ej: apartamento, suite)
+- `ciudad` (requerido): Ciudad
+- `estado` (requerido): Estado
+- `zip_code` (requerido): Código postal
+- `condado` (requerido): Condado
+
+### Actualizar Dirección
+```
+PUT /api/direcciones/{id}/
+PATCH /api/direcciones/{id}/
+```
+
+### Eliminar Dirección
+```
+DELETE /api/direcciones/{id}/
+```
+
+---
+
+## Agentes
+
+**Endpoint Base:** `/api/agentes/`
+
+### Listar Agentes
+```
+GET /api/agentes/
+```
+
+### Obtener Un Agente
+```
+GET /api/agentes/{id}/
+```
+
+### Crear Agente
+
+```
+POST /api/agentes/
+Content-Type: application/json
+```
+
+**Request Body Completo:**
+```json
+{
+  "npn": "12345678",
+  "nombre_completo": "María González López",
+  "agencia": 1
+}
+```
+
+**Notas sobre campos:**
+- `npn` (requerido, único): Número Nacional de Productor
+- `nombre_completo` (requerido): Nombre completo del agente
+- `agencia` (requerido): ID de la Agencia a la que pertenece
+
+### Actualizar Agente
+```
+PUT /api/agentes/{id}/
+PATCH /api/agentes/{id}/
+```
+
+### Eliminar Agente
+```
+DELETE /api/agentes/{id}/
+```
+
+---
+
+## Clientes
+
+**Endpoint Base:** `/api/clientes/`
+
+### Listar Clientes
+```
+GET /api/clientes/
+```
+
+### Obtener Un Cliente
+```
+GET /api/clientes/{id}/
+```
+
+### Crear Cliente
+
+```
+POST /api/clientes/
+Content-Type: application/json
+```
+
+**Request Body Completo:**
+```json
+{
+  "primer_nombre": "Carlos",
+  "segundo_nombre": "Alberto",
+  "apellido_paterno": "Rodríguez",
+  "apellido_materno": "García",
+  "genero": "Masculino",
+  "fecha_nacimiento": "1985-06-15",
+  "ssn": "123-45-6789",
+  "email": "carlos.rodriguez@email.com",
+  "telefono": "+1-555-234-5678",
+  "ingreso_anual": "45000.00",
+  "estado_civil": "Casado",
+  "pais_nacimiento": "México",
+  "estado_inmigracion": "Residente Permanente",
+  "categoria_inmigracion": "Green Card Holder",
+  "marketplace_user": "usuario_mercado",
+  "marketplace_password": "password_mercado_123",
+  "marketplace_url": "https://www.healthcare.gov/login",
+  "portal_user": "usuario_portal",
+  "portal_password": "password_portal_123",
+  "portal_url": "https://provider.bcbs.com/login"
+}
+```
+
+**Notas sobre campos:**
+- `primer_nombre` (requerido): Primer nombre
+- `segundo_nombre`: Segundo nombre (opcional)
+- `apellido_paterno` (requerido): Apellido paterno
+- `apellido_materno`: Apellido materno (opcional)
+- `genero` (requerido): Género del cliente
+- `fecha_nacimiento` (requerido): Fecha de nacimiento (YYYY-MM-DD)
+- `ssn` (requerido, único): Número de Seguro Social
+- `email` (requerido): Correo electrónico
+- `telefono` (requerido): Número de teléfono
+- `ingreso_anual` (requerido): Ingreso anual (decimal)
+- `estado_civil` (requerido): Estado civil
+- `pais_nacimiento` (requerido): País de nacimiento
+- `estado_inmigracion` (requerido): Estado de inmigración
+- `categoria_inmigracion`: Categoría de inmigración (opcional)
+- `marketplace_user`: Usuario para el Mercado de Salud (opcional)
+- `marketplace_password`: Contraseña para el Mercado (se guarda encriptada) (opcional)
+- `marketplace_url`: Link de acceso al Mercado (opcional)
+- `portal_user`: Usuario para el Portal de la Aseguradora (opcional)
+- `portal_password`: Contraseña para el Portal (se guarda encriptada) (opcional)
+- `portal_url`: Link de acceso al Portal (opcional)
+
+### Actualizar Cliente
+```
+PUT /api/clientes/{id}/
+PATCH /api/clientes/{id}/
+```
+
+**Request Body (ejemplo parcial):**
+```json
+{
+  "telefono": "+1-555-999-0000",
+  "email": "nuevo_email@email.com",
+  "ingreso_anual": "50000.00"
+}
+```
+
+### Eliminar Cliente
+```
+DELETE /api/clientes/{id}/
+```
+
+---
+
+## Aseguradoras
+
+**Endpoint Base:** `/api/aseguradoras/`
+
+### Listar Aseguradoras
+```
+GET /api/aseguradoras/
+```
+
+### Obtener Una Aseguradora
+```
+GET /api/aseguradoras/{id}/
+```
+
+### Crear Aseguradora
+
+```
+POST /api/aseguradoras/
+Content-Type: application/json
+```
+
+**Request Body Completo:**
+```json
+{
+  "nombre": "Blue Cross Blue Shield"
+}
+```
+
+**Notas sobre campos:**
+- `nombre` (requerido): Nombre de la aseguradora
+
+### Actualizar Aseguradora
+```
+PUT /api/aseguradoras/{id}/
+PATCH /api/aseguradoras/{id}/
+```
+
+### Eliminar Aseguradora
+```
+DELETE /api/aseguradoras/{id}/
+```
+
+---
+
+## Planes
+
+**Endpoint Base:** `/api/planes/`
+
+### Listar Planes
+```
+GET /api/planes/
+```
+
+### Obtener Un Plan
+```
+GET /api/planes/{id}/
+```
+
+### Crear Plan
+
+```
+POST /api/planes/
+Content-Type: application/json
+```
+
+**Request Body Completo:**
+```json
+{
+  "id_plan_aseguradora": "BCBS-GOLD-2024",
+  "nombre": "Blue Cross Gold Plan 2024",
+  "aseguradora": 1
+}
+```
+
+**Notas sobre campos:**
+- `id_plan_aseguradora` (requerido): ID del plan según la aseguradora
+- `nombre` (requerido): Nombre del plan
+- `aseguradora` (requerido): ID de la Aseguradora
+
+### Actualizar Plan
+```
+PUT /api/planes/{id}/
+PATCH /api/planes/{id}/
+```
+
+### Eliminar Plan
+```
+DELETE /api/planes/{id}/
+```
+
+---
+
+## Pólizas
+
+**Endpoint Base:** `/api/polizas/`
+
+### Listar Pólizas
+```
+GET /api/polizas/
+```
+
+### Obtener Una Póliza
+```
+GET /api/polizas/{id}/
+```
+
+### Crear Póliza
+
+```
+POST /api/polizas/
+Content-Type: application/json
+```
+
+**Request Body Completo (con todos los campos disponibles):**
+```json
+{
+  "id_mercado": "MKT-2024-001234",
+  "id_miembro": "MBR-2024-567890",
+  "costo_poliza": "450.00",
+  "subsidio": "150.00",
+  "prima_mensual": "300.00",
+  "total_ahorros": "1800.00",
+  "plan_era": "Silver Plan 2023",
+  "fecha_efectiva": "2024-02-01",
+  "estado": 1,
+  "flujo_etapa": "CAPTURA_ASISTENTE",
+  "fecha_envio": "2024-01-15",
+  "fecha_cancelacion": null,
+  "id_interno": "INT-001234",
+  "es_duplicado": false,
+  "ultimo_duplicado": null,
+  "ffm_mercado": "FFM-12345",
+  "npn_mercado": "87654321",
+  "tipo_inscripcion": "NUEVA",
+  "razon_inscripcion_especial": "Pérdida de cobertura laboral",
+  "fecha_inscripcion_especial": "2024-01-10",
+  "total_miembros": 3,
+  "total_aplicantes": 2,
+  "total_dependientes": 1,
+  "direccion_fisica": 1,
+  "direccion_postal": 2,
+  "direccion_facturacion": 1,
+  "agente": 1,
+  "plan": 1,
+  "colaboradores": [1, 2],
+  "clientes_data": [
+    {
+      "cliente": 1,
+      "es_solicitante_principal": true,
+      "relacion": "Titular",
+      "direccion_residencia": 1,
+      "direccion_postal": 2
+    },
+    {
+      "cliente": 2,
+      "es_solicitante_principal": false,
+      "relacion": "Cónyuge",
+      "direccion_residencia": 1,
+      "direccion_postal": 2
+    },
+    {
+      "cliente": 3,
+      "es_solicitante_principal": false,
+      "relacion": "Hijo/a",
+      "direccion_residencia": 1,
+      "direccion_postal": 2
+    }
+  ]
+}
+```
+
+**Notas sobre campos:**
+
+**Campos Básicos:**
+- `id_mercado` (requerido): ID del mercado
+- `id_miembro` (requerido): ID del miembro
+- `costo_poliza` (requerido): Costo total de la póliza
+- `subsidio` (requerido): Subsidio aplicado
+- `prima_mensual` (requerido): Prima mensual a pagar
+- `total_ahorros`: Total de ahorros (default: 0)
+- `plan_era`: El plan anterior (campo calculado, opcional)
+
+**Fechas:**
+- `fecha_efectiva` (requerido): Fecha de inicio de vigencia (YYYY-MM-DD)
+- `fecha_envio` (requerido): Fecha de envío (YYYY-MM-DD)
+- `fecha_cancelacion`: Fecha de cancelación (opcional)
+
+**Referencias:**
+- `estado`: ID del Estado de Póliza
+- `agente`: ID del Agente responsable
+- `plan` (requerido): ID del Plan
+
+**Flujo Departamental:**
+- `flujo_etapa`: Etapa actual del expediente en el flujo operativo (default: `CAPTURA_ASISTENTE`)
+
+**Consentimiento (Gestión Manual):**
+- `estado_consentimiento`: Estado del documento (valores: `NO_ENVIADO`, `ENVIADO`, `FIRMADO`. Default: `NO_ENVIADO`).
+- `archivo_consentimiento`: Archivo adjunto firmado por el cliente. Solo se usa `multipart/form-data` en la petición cuando se sube el archivo.
+
+**Contexto del Usuario Autenticado en Respuesta:**
+- `request_user_role`: Rol del usuario autenticado que está consumiendo el endpoint. Este campo viene en el payload JSON de pólizas para facilitar decisiones de UI del frontend sin depender únicamente del token.
+
+**Ejemplo de Respuesta de Póliza:**
+```json
+{
+  "id": 25,
+  "id_mercado": "MKT-2024-001234",
+  "estado": 1,
+  "flujo_etapa": "REVISION_MANAGER",
+  "request_user_role": "MANAGER"
+}
+```
+
+**IDs y Control:**
+- `id_interno` (requerido): ID interno del sistema
+- `es_duplicado`: Indica si es duplicado (default: false)
+- `ultimo_duplicado`: ID del último duplicado (opcional)
+
+**Información de Mercado:**
+- `ffm_mercado`: FFM usado en mercado (opcional)
+- `npn_mercado`: NPN usado en mercado (opcional)
+- `tipo_inscripcion`: Tipo de inscripción ("NUEVA" o "RENOVACION")
+- `razon_inscripcion_especial`: Razón de inscripción especial (opcional)
+- `fecha_inscripcion_especial`: Fecha de inscripción especial (opcional)
+
+**Totales:**
+- `total_miembros`: Total de miembros (default: 0)
+- `total_aplicantes`: Total de aplicantes (default: 0)
+- `total_dependientes`: Total de dependientes (default: 0)
+
+**Direcciones (IDs de Direcciones previamente creadas):**
+- `direccion_fisica`: ID de dirección física
+- `direccion_postal`: ID de dirección postal
+- `direccion_facturacion`: ID de dirección de facturación
+
+**Colaboradores:**
+- `colaboradores`: Array de IDs de usuarios colaboradores
+
+**Clientes (Estructura Anidada - clientes_data):**
+Esta es la parte crítica para asociar clientes a la póliza:
+```json
+"clientes_data": [
+  {
+    "cliente": 1,                        // ID del Cliente
+    "es_solicitante_principal": true,    // Si es el solicitante principal
+    "relacion": "Titular",               // Relación con el titular
+    "direccion_residencia": 1,           // ID de dirección de residencia (opcional)
+    "direccion_postal": 2                // ID de dirección postal (opcional)
+  }
+]
+```
+
+**Valores comunes para `tipo_inscripcion`:**
+- `NUEVA`: Nueva Venta
+- `RENOVACION`: Renovación
+
+**Valores comunes para `relacion`:**
+- "Titular"
+- "Cónyuge"
+- "Hijo/a"
+- "Padre/Madre"
+- "Otro Dependiente"
+
+### Actualizar Póliza
+```
+PUT /api/polizas/{id}/
+PATCH /api/polizas/{id}/
+```
+
+**Request Body (ejemplo parcial - actualizar solo algunos campos):**
+```json
+{
+  "prima_mensual": "325.00",
+  "estado": 2,
+  "total_miembros": 4,
+  "clientes_data": [
+    {
+      "cliente": 1,
+      "es_solicitante_principal": true,
+      "relacion": "Titular",
+      "direccion_residencia": 1,
+      "direccion_postal": 2
+    },
+    {
+      "cliente": 2,
+      "es_solicitante_principal": false,
+      "relacion": "Cónyuge",
+      "direccion_residencia": 1,
+      "direccion_postal": 2
+    }
+  ]
+}
+```
+
+### Eliminar Póliza
+```
+DELETE /api/polizas/{id}/
+```
+
+---
+
+## Notas
+
+**Endpoint Base:** `/api/notas/`
+
+Las notas se asocian a pólizas y permiten mencionar usuarios con @username.
+
+### Listar Notas
+```
+GET /api/notas/
+```
+
+### Obtener Una Nota
+```
+GET /api/notas/{id}/
+```
+
+### Crear Nota
+
+```
+POST /api/notas/
+Content-Type: application/json
+```
+
+**Request Body Completo:**
+```json
+{
+  "poliza": 1,
+  "contenido": "Cliente solicitó cambio de plan. @usuario1 por favor revisar opciones disponibles.",
+  "archivo": null
+}
+```
+
+**Con archivo adjunto (usar multipart/form-data):**
+```
+POST /api/notas/
+Content-Type: multipart/form-data
+
+poliza=1
+contenido=Adjunto documento de solicitud. @usuario2 por favor procesar.
+archivo=@/path/to/documento.pdf
+```
+
+**Notas sobre campos:**
+- `poliza` (requerido): ID de la Póliza
+- `contenido` (requerido): Contenido de la nota
+- `archivo`: Archivo adjunto (opcional, usar multipart/form-data)
+- `autor`: Se establece automáticamente con el usuario autenticado
+- El sistema detecta menciones (@username) automáticamente
+
+### Actualizar Nota
+```
+PUT /api/notas/{id}/
+PATCH /api/notas/{id}/
+```
+
+### Eliminar Nota
+```
+DELETE /api/notas/{id}/
+```
+
+---
+
+## Tareas
+
+**Endpoint Base:** `/api/tareas/`
+
+### Listar Tareas
+```
+GET /api/tareas/
+```
+
+### Obtener Una Tarea
+```
+GET /api/tareas/{id}/
+```
+
+### Crear Tarea
+
+```
+POST /api/tareas/
+Content-Type: application/json
+```
+
+**Request Body Completo:**
+```json
+{
+  "poliza": 1,
+  "asignado_a": 2,
+  "titulo": "Verificar documentación del cliente",
+  "descripcion": "Revisar y validar todos los documentos de identificación y estatus migratorio antes del 15 de febrero.",
+  "fecha_limite": "2024-02-15T17:00:00Z",
+  "completada": false
+}
+```
+
+**Notas sobre campos:**
+- `poliza` (requerido): ID de la Póliza
+- `asignado_a` (requerido): ID del Usuario asignado
+- `titulo` (requerido): Título de la tarea
+- `descripcion`: Descripción detallada (opcional)
+- `fecha_limite`: Fecha y hora límite (formato ISO 8601, opcional)
+- `completada`: Estado de completado (default: false)
+- `creado_por`: Se establece automáticamente con el usuario autenticado
+
+### Actualizar Tarea
+```
+PATCH /api/tareas/{id}/
+```
+
+**Request Body (marcar como completada):**
+```json
+{
+  "completada": true
+}
+```
+
+### Eliminar Tarea
+```
+DELETE /api/tareas/{id}/
+```
+
+---
+
+## Citas
+
+**Endpoint Base:** `/api/citas/`
+
+### Listar Citas
+```
+GET /api/citas/
+```
+
+### Obtener Una Cita
+```
+GET /api/citas/{id}/
+```
+
+### Crear Cita
+
+```
+POST /api/citas/
+Content-Type: application/json
+```
+
+**Request Body Completo:**
+```json
+{
+  "poliza": 1,
+  "cliente": 1,
+  "fecha_hora": "2024-02-20T10:30:00Z",
+  "proveedor": "Dr. Juan García",
+  "lugar": "Centro Médico Los Angeles, 456 Health St, Los Angeles, CA 90001",
+  "motivo": "Chequeo anual de rutina",
+  "estado": "PROGRAMADA",
+  "notas": "Paciente requiere ayuno de 8 horas antes de la cita.",
+  "medico_asignado": 1
+}
+```
+
+**Notas sobre campos:**
+- `poliza` (requerido): ID de la Póliza
+- `cliente`: ID del Cliente/Paciente (opcional)
+- `fecha_hora` (requerido): Fecha y hora de la cita (formato ISO 8601)
+- `proveedor` (requerido): Nombre del proveedor/doctor
+- `lugar` (requerido): Lugar/dirección de la cita
+- `motivo`: Motivo de la cita (opcional)
+- `estado`: Estado de la cita (default: "PROGRAMADA")
+- `notas`: Notas adicionales (opcional)
+- `medico_asignado`: ID del Médico asignado (opcional)
+- `creado_por`: Se establece automáticamente con el usuario autenticado
+
+**Valores para `estado`:**
+- `PROGRAMADA`: Programada
+- `COMPLETADA`: Completada
+- `CANCELADA`: Cancelada
+- `NO_ASISTIO`: No Asistió
+
+### Actualizar Cita
+```
+PATCH /api/citas/{id}/
+```
+
+**Request Body (ejemplo - cambiar estado):**
+```json
+{
+  "estado": "COMPLETADA",
+  "notas": "Cita completada exitosamente. Paciente en buen estado de salud."
+}
+```
+
+### Eliminar Cita
+```
+DELETE /api/citas/{id}/
+```
+
+---
+
+## Documentos
+
+**Endpoint Base:** `/api/documentos/`
+
+### Listar Documentos
+```
+GET /api/documentos/
+```
+
+### Obtener Un Documento
+```
+GET /api/documentos/{id}/
+```
+
+### Crear Documento
+
+```
+POST /api/documentos/
+Content-Type: multipart/form-data
+```
+
+**Request Body (multipart/form-data):**
+```
+poliza=1
+cliente=1
+archivo=@/path/to/documento.pdf
+titulo=Identificación - Licencia de Conducir
+fecha_vencimiento=2028-06-15
+categoria=IDENTIFICACION
+etiquetas_ids=[1, 2, 3]
+```
+
+**Formato JSON equivalente (para referencia):**
+```json
+{
+  "poliza": 1,
+  "cliente": 1,
+  "archivo": "archivo_binario",
+  "titulo": "Identificación - Licencia de Conducir",
+  "fecha_vencimiento": "2028-06-15",
+  "categoria": "IDENTIFICACION",
+  "etiquetas_ids": [1, 2, 3]
+}
+```
+
+**Notas sobre campos:**
+- `poliza` (requerido): ID de la Póliza
+- `cliente`: ID del Cliente relacionado (opcional)
+- `archivo` (requerido): Archivo a subir
+- `titulo` (requerido): Título del documento
+- `fecha_vencimiento`: Fecha de vencimiento (opcional, YYYY-MM-DD)
+- `categoria`: Categoría del documento (default: "OTRO")
+- `etiquetas_ids`: Array de IDs de etiquetas (opcional, write-only)
+- `subido_por`: Se establece automáticamente con el usuario autenticado
+
+**Valores para `categoria`:**
+- `CARTA_MERCADO`: Carta de Mercado
+- `ASEGURANZA`: Aseguranza
+- `CITAS_MEDICAS`: Citas Médicas
+- `BILLS`: Bills
+- `IDENTIFICACION`: Identificación
+- `ESTATUS_MIGRATORIO`: Estatus Migratorio
+- `CONSENTIMIENTO`: Consentimiento
+- `OTRO`: Otro
+
+### Actualizar Documento
+```
+PATCH /api/documentos/{id}/
+```
+
+**Request Body:**
+```json
+{
+  "titulo": "Identificación Actualizada",
+  "fecha_vencimiento": "2029-06-15"
+}
+```
+
+### Eliminar Documento
+```
+DELETE /api/documentos/{id}/
+```
+
+---
+
+## Recordatorios
+
+**Endpoint Base:** `/api/recordatorios/`
+
+### Listar Recordatorios
+```
+GET /api/recordatorios/
+```
+
+### Obtener Un Recordatorio
+```
+GET /api/recordatorios/{id}/
+```
+
+### Crear Recordatorio
+
+```
+POST /api/recordatorios/
+Content-Type: application/json
+```
+
+**Request Body Completo:**
+```json
+{
+  "poliza": 1,
+  "titulo": "Renovación de Póliza",
+  "fecha_vencimiento": "2024-12-31",
+  "hora_vencimiento": "09:00:00",
+  "zona_horaria": "America/Los_Angeles",
+  "establecer_recordatorio": true,
+  "usuario_notificar": 2,
+  "descripcion": "Contactar al cliente para renovación anual de póliza. Revisar cambios en cobertura y precios."
+}
+```
+
+**Notas sobre campos:**
+- `poliza` (requerido): ID de la Póliza
+- `titulo` (requerido): Título del recordatorio
+- `fecha_vencimiento` (requerido): Fecha de vencimiento (YYYY-MM-DD)
+- `hora_vencimiento` (requerido): Hora de vencimiento (HH:MM:SS)
+- `zona_horaria`: Zona horaria (default: "UTC")
+- `establecer_recordatorio`: Si se debe establecer el recordatorio (default: true)
+- `usuario_notificar` (requerido): ID del Usuario a notificar
+- `descripcion`: Descripción o comentarios adicionales (opcional)
+
+**Zonas horarias comunes:**
+- `America/Los_Angeles`: Hora del Pacífico
+- `America/Denver`: Hora de Montaña
+- `America/Chicago`: Hora Central
+- `America/New_York`: Hora del Este
+- `UTC`: Tiempo Universal Coordinado
+
+### Actualizar Recordatorio
+```
+PATCH /api/recordatorios/{id}/
+```
+
+**Request Body:**
+```json
+{
+  "fecha_vencimiento": "2025-01-15",
+  "descripcion": "Descripción actualizada del recordatorio."
+}
+```
+
+### Eliminar Recordatorio
+```
+DELETE /api/recordatorios/{id}/
+```
+
+---
+
+## Notificaciones
+
+**Nota importante:** A diferencia de los recordatorios (que son creados manualmente por el usuario), las notificaciones se generan automáticamente por eventos del sistema (ej. login fallido, asignación a póliza, mención en nota).
+
+**Endpoint Base:** `/api/notificaciones/` (Solo lista las del usuario autenticado)
+
+### Listar Notificaciones
+```
+GET /api/notificaciones/
+```
+
+**Ejemplo de Respuesta:**
+```json
+[
+  {
+    "id": 15,
+    "usuario": 2,
+    "mensaje": "Has sido etiquetado en una nota de la póliza MKT-2024-001",
+    "tipo": "TAG",
+    "leida": false,
+    "fecha_creacion": "2024-02-15T10:30:00Z",
+    "content_type": 12, // ID interno del modelo (ej. Nota)
+    "object_id": 45     // ID del objeto específico (ID de la Nota)
+  },
+  {
+    "id": 14,
+    "usuario": 2,
+    "mensaje": "Se detectó un intento de inicio de sesión fallido en tu cuenta",
+    "tipo": "SEGURIDAD",
+    "leida": true,
+    "fecha_creacion": "2024-02-14T08:15:00Z"
+  }
+]
+```
+
+### Marcar Una Notificación como Leída
+
+```
+POST /api/notificaciones/{id}/marcar_leida/
+```
+
+**Respuesta Esperada (200 OK):**
+```json
+{
+  "status": "notificacion marcada como leida"
+}
+```
+
+### Marcar TODAS las Notificaciones como Leídas
+
+```
+POST /api/notificaciones/marcar_todas_leidas/
+```
+
+**Respuesta Esperada (200 OK):**
+```json
+{
+  "status": "todas marcadas como leidas"
+}
+```
+
+**Tipos de Notificaciones (`tipo`):**
+- `TAG`: Mención/etiquetado en nota o comentario.
+- `ASIGNACION`: Asignado a póliza o recurso.
+- `SEGURIDAD`: Alertas de seguridad (ej. login fallido).
+- `SISTEMA`: Notificaciones generales del sistema.
+
+---
+
+## Tarjetas de Crédito
+
+**Endpoint Base:** `/api/tarjetas_credito/`
+
+Las tarjetas de crédito se almacenan de forma **encriptada**. El acceso a los datos sensibles (`numero` y `cvv`) está restringido:
+- **Admin / Agente Dueño / Colaborador:** Reciben datos desencriptados.
+- **Otros Usuarios:** Reciben datos enmascarados (ej: `************4444`).
+
+### Listar Tarjetas
+```
+GET /api/tarjetas_credito/
+```
+
+### Crear Tarjeta
+
+```
+POST /api/tarjetas_credito/
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "poliza": 1,
+  "tipo_tarjeta": "Visa",
+  "numero": "4111222233334444",
+  "nombre_titular": "Juan Perez",
+  "cvv": "123",
+  "fecha_vencimiento": "12/28"
+}
+```
+*El backend encriptará automáticamente el número y CVV antes de guardarlo. El campo `numero` ahora soporta hasta 500 caracteres para almacenar el hash cifrado.*
+
+---
+
+## Flujo Departamental de Pólizas
+
+El sistema ahora incluye un flujo formal de expediente entre Asistente, Manager y Sherpa.
+
+**Endpoint Base:** `/api/polizas/{id}/`
+
+### Campo Nuevo en Póliza: `flujo_etapa`
+
+La póliza incluye el campo `flujo_etapa` tanto en listados como en detalle.
+
+**Valores disponibles de `flujo_etapa`:**
+- `CAPTURA_ASISTENTE`: expediente en captura del asistente.
+- `REVISION_MANAGER`: expediente entregado para revisión de manager.
+- `EN_PROCESO_SHERPA`: expediente aprobado y en proceso técnico con sherpa.
+- `DEVUELTA_ASISTENTE`: expediente rechazado y devuelto al asistente.
+- `COMPLETADA_SHERPA`: expediente completado por sherpa.
+
+### 1) Pase del Asistente al Manager
+```
+POST /api/polizas/{id}/pase_a_manager/
+Content-Type: application/json
+```
+
+**Request Body (opcional):**
+```json
+{
+  "nota": "Expediente listo para revisión"
+}
+```
+
+**Regla de estado:**
+- Solo permite pase cuando la póliza está en `CAPTURA_ASISTENTE` o `DEVUELTA_ASISTENTE`.
+
+**Respuesta Esperada (201 Created):**
+```json
+{
+  "id": 12,
+  "poliza": 25,
+  "de_usuario": 7,
+  "a_usuario": null,
+  "de_rol": "ASISTENTE",
+  "a_rol": "MANAGER",
+  "accion": "ENTREGA_ASISTENTE_MANAGER",
+  "nota": "Expediente listo para revisión",
+  "fecha": "2026-04-26T23:10:00Z",
+  "request_user_role": "ASISTENTE"
+}
+```
+
+### 2) Pase del Manager al Sherpa
+```
+POST /api/polizas/{id}/pase_a_sherpa/
+Content-Type: application/json
+```
+
+**Request Body (opcional):**
+```json
+{
+  "nota": "Validado por manager, procede sometimiento"
+}
+```
+
+**Regla de estado:**
+- Solo permite pase cuando la póliza está en `REVISION_MANAGER`.
+
+**Respuesta Esperada (201 Created):**
+```json
+{
+  "id": 13,
+  "poliza": 25,
+  "de_rol": "MANAGER",
+  "a_rol": "SHERPA",
+  "accion": "APROBACION_MANAGER_SHERPA",
+  "nota": "Validado por manager, procede sometimiento",
+  "request_user_role": "MANAGER"
+}
+```
+
+### 3) Devolución del Sherpa al Asistente
+```
+POST /api/polizas/{id}/devolver_a_asistente/
+Content-Type: application/json
+```
+
+**Request Body (requerido):**
+```json
+{
+  "nota": "Documento borroso, favor re-subir identificación"
+}
+```
+
+**Regla de estado:**
+- Solo permite devolución cuando la póliza está en `EN_PROCESO_SHERPA`.
+- La `nota` es obligatoria.
+
+**Respuesta Esperada (201 Created):**
+```json
+{
+  "id": 14,
+  "poliza": 25,
+  "de_rol": "SHERPA",
+  "a_rol": "ASISTENTE",
+  "accion": "DEVOLUCION_SHERPA_ASISTENTE",
+  "nota": "Documento borroso, favor re-subir identificación",
+  "request_user_role": "SHERPA"
+}
+```
+
+### 4) Cierre Técnico por Sherpa
+```
+POST /api/polizas/{id}/cerrar_en_sherpa/
+Content-Type: application/json
+```
+
+**Request Body (opcional):**
+```json
+{
+  "nota": "Sometimiento finalizado correctamente"
+}
+```
+
+**Regla de estado:**
+- Solo permite cierre cuando la póliza está en `EN_PROCESO_SHERPA`.
+
+**Respuesta Esperada (201 Created):**
+```json
+{
+  "id": 15,
+  "poliza": 25,
+  "de_rol": "SHERPA",
+  "a_rol": "SHERPA",
+  "accion": "CIERRE_SHERPA",
+  "nota": "Sometimiento finalizado correctamente",
+  "request_user_role": "SHERPA"
+}
+```
+
+### Historial de Transferencias de Flujo
+
+**Endpoint Base:** `/api/transferencias-poliza/`
+
+### Listar Transferencias
+```
+GET /api/transferencias-poliza/
+```
+
+### Obtener Una Transferencia
+```
+GET /api/transferencias-poliza/{id}/
+```
+
+**Campos relevantes de transferencia:**
+- `poliza`: ID de la póliza
+- `de_usuario`, `a_usuario`
+- `de_rol`, `a_rol`
+- `accion`
+- `nota`
+- `fecha`
+- `request_user_role`: Rol del usuario autenticado que consulta la transferencia
+
+**Valores de `accion`:**
+- `ENTREGA_ASISTENTE_MANAGER`
+- `APROBACION_MANAGER_SHERPA`
+- `DEVOLUCION_SHERPA_ASISTENTE`
+- `CIERRE_SHERPA`
+
+---
+
+## Matriz de Permisos por Rol
+
+Módulo administrativo para permisos granulares dinámicos por rol.
+
+**Endpoint Base:** `/api/matriz-permisos/`
+
+**Acceso:** Solo `ADMIN`.
+
+### Listar Reglas de Matriz
+```
+GET /api/matriz-permisos/
+```
+
+### Obtener Una Regla
+```
+GET /api/matriz-permisos/{id}/
+```
+
+### Crear Regla de Permiso
+```
+POST /api/matriz-permisos/
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "role": "MANAGER",
+  "modulo": "POLIZA_FLUJO",
+  "accion": "PASE_A_SHERPA",
+  "permitido": true,
+  "descripcion": "Permite aprobar expedientes hacia sherpa"
+}
+```
+
+### Actualizar Regla
+```
+PUT /api/matriz-permisos/{id}/
+PATCH /api/matriz-permisos/{id}/
+```
+
+### Eliminar Regla
+```
+DELETE /api/matriz-permisos/{id}/
+```
+
+### Validar Regla (Endpoint Auxiliar)
+```
+POST /api/matriz-permisos/validar/
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "role": "SHERPA",
+  "modulo": "POLIZA_FLUJO",
+  "accion": "DEVOLVER_A_ASISTENTE"
+}
+```
+
+**Response:**
+```json
+{
+  "role": "SHERPA",
+  "modulo": "POLIZA_FLUJO",
+  "accion": "DEVOLVER_A_ASISTENTE",
+  "permitido": true
+}
+```
+
+---
+
+## Auditoría Global
+
+Registro consolidado de eventos críticos del sistema y de flujo departamental.
+
+### Bitácora CRUD de Auditoría Global
+
+**Endpoint Base:** `/api/auditoria-global/`
+
+**Acceso:** Solo `ADMIN`.
+
+### Listar Eventos
+```
+GET /api/auditoria-global/
+```
+
+### Obtener Evento
+```
+GET /api/auditoria-global/{id}/
+```
+
+**Campos relevantes:**
+- `usuario`
+- `accion`
+- `modelo`
+- `objeto_id`
+- `detalles`
+- `ip_address`
+- `fecha`
+
+### Reporte Consolidado de Auditoría
+
+Este endpoint combina en una sola respuesta:
+- Auditoría global
+- Historial de pólizas
+- Intentos de login fallido
+
+```
+GET /api/reportes/auditoria-consolidada/
+```
+
+**Parámetros opcionales:**
+- `limit` (máximo 1000)
+
+**Ejemplo:**
+```
+GET /api/reportes/auditoria-consolidada/?limit=200
+```
+
+**Response (ejemplo):**
+```json
+[
+  {
+    "fuente": "auditoria_global",
+    "fecha": "2026-04-26T22:00:00Z",
+    "accion": "TRANSFERENCIA_POLIZA",
+    "modelo": "PolizaTransferencia",
+    "usuario": "manager_1",
+    "detalles": "Póliza MKT-2024-001: MANAGER -> SHERPA. Acción: APROBACION_MANAGER_SHERPA"
+  },
+  {
+    "fuente": "historial_poliza",
+    "fecha": "2026-04-26T21:55:00Z",
+    "accion": "TRANSFERENCIA",
+    "modelo": "Poliza",
+    "usuario": "asistente_1",
+    "detalles": "ENTREGA_ASISTENTE_MANAGER: ASISTENTE -> MANAGER. Nota: Expediente listo",
+    "poliza_id_mercado": "MKT-2024-001"
+  },
+  {
+    "fuente": "intento_login_fallido",
+    "fecha": "2026-04-26T21:45:00Z",
+    "accion": "LOGIN_FALLIDO",
+    "modelo": "Auth",
+    "usuario": "usuario@correo.com",
+    "detalles": "IP: 127.0.0.1"
+  }
+]
+```
+
+---
+
+## Utilidades y Búsqueda
+
+### Búsqueda de Ubicación (Zip Code)
+
+Permite autocompletar formularios de dirección obteniendo ciudad y estado desde un código postal.
+
+**Endpoint:** `/api/locations/lookup/`
+
+```
+POST /api/locations/lookup/
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "zip_code": "90210",
+  "country_code": "us" // Opcional, default "us"
+}
+```
+
+**Respuesta (200 OK):**
+```json
+{
+  "city": "Beverly Hills",
+  "state": "California",
+  "state_abbr": "CA",
+  "latitude": "34.0901",
+  "longitude": "-118.4065",
+  "country": "United States",
+  "country_code": "US",
+  "zip_code": "90210"
+}
+```
+
+---
+
+## Actividad del Sistema
+
+### Historial de Pólizas (Diff Log)
+Al actualizar una póliza (`PATCH/PUT /api/polizas/{id}/`), el sistema genera automáticamente un **registro de diferencias** en el historial.
+
+**Ejemplo de entrada en historial:**
+`Póliza actualizada. Cambios: prima_mensual: '300.00' -> '325.00'; estado: 'Pendiente' -> 'Activa'`
+
+No se requiere acción adicional por parte del usuario; esto es automático.
+
+### Monitoreo en Tiempo Real (Webhooks)
+Para evitar sobrecarga en la base de datos, la actividad de "quién está viendo una póliza" usa un sistema de Webhooks asíncronos.
+
+**Enviar Heartbeat (Presencia):**
+El frontend debe llamar a este endpoint periódicamente (ej. cada 30 segundos) mientras el usuario tiene abierta una póliza.
+
+```
+POST /api/polizas/{id}/heartbeat/
+```
+
+**Respuesta:**
+```json
+{
+  "status": "ok",
+  "mode": "webhook",
+  "request_user_role": "ASISTENTE"
+}
+```
+*El sistema enviará el evento a la URL configurada en `ACTIVITY_WEBHOOK_URL`.*
+
+---
+
+## Dashboard
+
+**Endpoint Base:** `/api/dashboard/`
+
+### Obtener Estadísticas del Dashboard
+```
+GET /api/dashboard/stats/
+```
+
+**Respuesta:**
+```json
+{
+  "total_aplicantes": 1250,
+  "aseguradoras_stats": [
+    {
+      "nombre": "Blue Cross",
+      "monto_total": 50000.00,
+      "total_aplicantes": 500,
+      "total_polizas": 200,
+      "porcentaje_aplicantes": 40.0
+    }
+  ],
+  "failed_logins_count": 5,
+  "top_agentes": [],
+  "earnings_chart": [],
+  "new_prospects_chart": [],
+  "effective_policies_chart": [],
+  "policies_by_status_chart": [],
+  "tags_usage_chart": []
+}
+```
+
+**Notas:**
+- `total_aplicantes`: El número total de aplicantes activos en el sistema (suma global).
+
+---
+
+## Contratos y Zoho Sign
+
+El sistema de contratos permite la gestión de acuerdos y automatiza el flujo de firma electrónica de los Agentes a través de una integración con **Zoho Sign**.
+
+**Endpoint Base para Contratos:** `/api/contratos/`
+
+### Listar Contratos
+```
+GET /api/contratos/
+```
+
+### Obtener Un Contrato
+```
+GET /api/contratos/{id}/
+```
+
+### Crear Contrato
+
+```
+POST /api/contratos/
+Content-Type: multipart/form-data
+```
+
+**Request Body (multipart/form-data):**
+```
+titulo=Contrato de Agente 2026
+agente=1
+archivo=@/path/to/contrato.pdf
+fecha_inicio=2026-01-01
+fecha_fin=2026-12-31
+activo=true
+descripcion=Contrato estándar anual
+```
+
+**Notas sobre campos de Contrato:**
+- `titulo` (requerido): Título del contrato
+- `agente` (requerido): ID del Agente asociado al que se le vincula el contrato
+- `archivo` (requerido): Documento PDF del contrato subido desde local (multipart/form-data)
+- `fecha_inicio` (requerido): Fecha de inicio de validez del contrato
+- `fecha_fin`: Fecha de término (opcional)
+- `activo`: Activar/Desactivar el contrato (default: true)
+- `zoho_request_id`: ID devuelto por la API de Zoho Sign (solo lectura, se asigna automáticamente al enviar a firmar)
+- `zoho_status`: Estado actual de la firma en Zoho Sign (solo lectura, se actualiza automáticamente). Ej: `IN-PROGRESS`, `COMPLETED`
+
+### Enviar Contrato para Firma Electrónica con Zoho Sign
+
+El sistema permite enviar un contrato (ya creado en la BD y con un PDF adjunto) a Zoho Sign para que el Agente reciba un correo y proceda a firmarlo digitalmente.
+
+```
+POST /api/contratos/{id}/send-to-zohosign/
+Content-Type: application/json
+```
+
+**Request Body (Opcional - Correo Fallback):**
+El backend intentará extraer el email del Agente desde su `UserProfile` conectado automáticamente. Si el Agente no tiene un correo asignado en tu base de datos, tú puedes (y debes) pasarle un correo alternativo por el `body`:
+```json
+{
+  "email": "correo.del.agente@domain.com"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "message": "Contrato enviado a Zoho Sign exitosamente.",
+  "zoho_response": {
+     "requests": {
+         "request_id": "3000xxxxxxxxxxx001",
+         "request_status": "IN-PROGRESS",
+         "action": [ ... ]
+     }
+  }
+}
+```
+*Al ejecutar esto, el backend guarda automáticamente el `zoho_request_id` devuelto y coloca el `zoho_status` en "IN-PROGRESS" en el modelo del Contrato.*
+
+---
+
+### Webhook de Zoho Sign (Automatización de Estados)
+
+Este no es un recurso frontend, pero debes conocer su comportamiento: el backend ahora expone un **Webhook** que funciona de forma autónoma.
+
+**Endpoint:** `POST /api/webhooks/zohosign/` (Sin Autenticación - Configurado en el portal de developers de Zoho)
+
+**Funcionamiento asíncrono para el frontend:**
+1. Cuando el Agente reciba el email y firme el contrato de Zoho Sign, su portal de developers hará un llamado al Webhook de Django.
+2. El Webhook buscará el ID del documento, pasará el valor de `zoho_status` a `"COMPLETED"`.
+3. A continuación (y sin requerir que mandes peticiones adicionales), el Webhook descargará automáticamente el Contrato **con la firma digital y sellos de auditoría de Zoho** inyectada en el documento PDF en binario.
+4. Sobreescribirá el PDF original de la BD con el documento que incluye las firmas de los agentes dándole el prefijo `firmado_`.
+
+---
+
+## Importación Masiva (CSV)
+
+El sistema permite cargar cientos de registros simultáneamente usando archivos `.csv` en codificación UTF-8. El backend incluye una lógica profunda de prevención de duplicados.
+
+**Endpoint Base para Clientes:** `/api/clientes/import-csv/`
+
+```
+POST /api/clientes/import-csv/
+Content-Type: multipart/form-data
+```
+
+**Request Body (multipart/form-data):**
+- `archivo`: El archivo `.csv` (Requerido).
+
+**Comportamiento de Prevención de Duplicados (Clientes):**
+El sistema leerá el `ssn` y el `email`. Si encuentra un cliente en la base de datos que coincida, **saltará** ese registro en la subida para evitar basura.
+
+**Response:**
+```json
+{
+  "mensaje": "Proceso completado",
+  "resultados": {
+    "nuevos_clientes_creados": 20,
+    "clientes_ya_existentes_saltados": 5,
+    "errores": []
+  }
+}
+```
+
+---
+
+**Endpoint Base para Pólizas:** `/api/polizas/import-csv/`
+
+```
+POST /api/polizas/import-csv/
+Content-Type: multipart/form-data
+```
+
+**Request Body (multipart/form-data):**
+- `archivo`: El archivo `.csv` (Requerido).
+- `agente_id`: El ID del agente al que se le aplicarán estas pólizas (Opcional, default: 1).
+- `plan_id`: El ID del plan genérico (Opcional, default: 1).
+
+**Comportamiento de Prevención de Duplicados (Pólizas):**
+El sistema buscará el `id_mercado`. Las pólizas que contengan un ID que ya pertenece al sistema serán omitidas automáticamente sumándolas al contador de duplicados.
+
+---
+
+## Estadísticas de Usuario
+
+Permite a un administrador o al mismo agente consultar su volumen de trabajo y desempeño desglosado en contadores específicos. El sistema busca todas las pólizas donde este usuario sea el Agente oficial, o donde fue añadido como Colaborador.
+
+**Endpoint:** `/api/users/{user_id}/stats/`
+
+```
+GET /api/users/2/stats/
+```
+
+**Respuesta Exitosa (200 OK):**
+```json
+{
+  "usuario": {
+    "id": 2,
+    "nombre": "Maria Fernandez"
+  },
+  "estadisticas": {
+    "total_polizas": 331,
+    "por_estado_de_la_poliza": {
+      "Cancelada": 25,
+      "Activa": 240,
+      "Pendiente de Pago": 66
+    },
+    "por_flujo_departamental": {
+      "EN_PROCESO_SHERPA": 33,
+      "COMPLETADA_SHERPA": 200,
+      "CAPTURA_ASISTENTE": 98
+    },
+    "por_estado_consentimiento": {
+      "NO_ENVIADO": 200,
+      "ENVIADO": 31,
+      "FIRMADO": 100
+    }
+  }
+}
+```
+
+---
+
+## Recursos Adicionales
+
+### Estados de Póliza
+**Endpoint:** `/api/estados-poliza/`
+
+Listar estados disponibles:
+```
+GET /api/estados-poliza/
+```
+
+### Etiquetas
+**Endpoint:** `/api/etiquetas/`
+
+Crear etiqueta:
+```json
+{
+  "nombre": "Urgente",
+  "color": "#FF0000"
+}
+```
+
+### Médicos
+**Endpoint:** `/api/medicos/`
+
+Crear médico:
+```json
+{
+  "nombre": "Dr. Juan García López",
+  "hospital": "Centro Médico Los Angeles",
+  "especializacion": "Medicina General"
+}
+```
+
+---
+
+## Notas Importantes
+
+### Formatos de Fecha y Hora
+- **Fecha:** `YYYY-MM-DD` (ej: `2024-02-15`)
+- **Fecha y Hora:** ISO 8601 `YYYY-MM-DDTHH:MM:SSZ` (ej: `2024-02-15T14:30:00Z`)
+- **Hora:** `HH:MM:SS` (ej: `14:30:00`)
+
+### Paginación
+Los endpoints de listado soportan paginación:
+```
+GET /api/polizas/?page=2
+```
+
+### Filtros
+Muchos endpoints soportan filtros mediante query parameters:
+```
+GET /api/polizas/?estado=1
+GET /api/clientes/?search=Rodriguez
+GET /api/tareas/?completada=false
+```
+
+### Campos de Solo Lectura
+Algunos campos son de solo lectura y se generan automáticamente:
+- `id`: ID del registro
+- `fecha_creacion`: Fecha de creación
+- `ultima_actualizacion`: Última actualización
+- `autor`, `creado_por`, `subido_por`: Usuario que realizó la acción
+
+### Subida de Archivos
+Para endpoints que requieren archivos (logos, documentos, avatares):
+- Usar `Content-Type: multipart/form-data`
+- En ThunderClient/Postman: seleccionar "Form" y tipo "File" para el campo
+- Ejemplo: `archivo=@/path/to/file.pdf`
+
+### Relaciones Many-to-Many
+Para campos que aceptan múltiples IDs (colaboradores, etiquetas):
+```json
+{
+  "colaboradores": [1, 2, 3],
+  "etiquetas_ids": [1, 2]
+}
+```
+
+---
+
+## Ejemplos de Flujos Completos
+
+### Flujo 1: Crear una Póliza Nueva Completa
+
+**Paso 1:** Crear las direcciones necesarias
+```json
+POST /api/direcciones/
+{
+  "linea1": "123 Main St",
+  "ciudad": "Los Angeles",
+  "estado": "California",
+  "zip_code": "90001",
+  "condado": "Los Angeles County"
+}
+// Respuesta: {"id": 1, ...}
+```
+
+**Paso 2:** Crear o verificar que existan los clientes
+```json
+POST /api/clientes/
+{
+  "primer_nombre": "Carlos",
+  "apellido_paterno": "Rodríguez",
+  "genero": "Masculino",
+  "fecha_nacimiento": "1985-06-15",
+  "ssn": "123-45-6789",
+  "email": "carlos@email.com",
+  "telefono": "+1-555-234-5678",
+  "ingreso_anual": "45000.00",
+  "estado_civil": "Casado",
+  "pais_nacimiento": "México",
+  "estado_inmigracion": "Residente Permanente"
+}
+// Respuesta: {"id": 1, ...}
+```
+
+**Paso 3:** Crear la póliza con todos los datos
+```json
+POST /api/polizas/
+{
+  "id_mercado": "MKT-2024-001234",
+  "id_miembro": "MBR-2024-567890",
+  "costo_poliza": "450.00",
+  "subsidio": "150.00",
+  "prima_mensual": "300.00",
+  "fecha_efectiva": "2024-02-01",
+  "estado": 1,
+  "fecha_envio": "2024-01-15",
+  "id_interno": "INT-001234",
+  "total_miembros": 1,
+  "total_aplicantes": 1,
+  "total_dependientes": 0,
+  "direccion_fisica": 1,
+  "direccion_postal": 1,
+  "direccion_facturacion": 1,
+  "agente": 1,
+  "plan": 1,
+  "clientes_data": [
+    {
+      "cliente": 1,
+      "es_solicitante_principal": true,
+      "relacion": "Titular",
+      "direccion_residencia": 1,
+      "direccion_postal": 1
+    }
+  ]
+}
+```
+
+### Flujo 2: Agregar Documentos a una Póliza
+
+```
+POST /api/documentos/
+Content-Type: multipart/form-data
+
+poliza=1
+cliente=1
+archivo=@/path/to/licencia.pdf
+titulo=Licencia de Conducir
+categoria=IDENTIFICACION
+fecha_vencimiento=2028-06-15
+```
+
+### Flujo 3: Crear Tarea y Nota para Seguimiento
+
+**Crear Tarea:**
+```json
+POST /api/tareas/
+{
+  "poliza": 1,
+  "asignado_a": 2,
+  "titulo": "Revisar documentación",
+  "descripcion": "Validar documentos subidos",
+  "fecha_limite": "2024-02-15T17:00:00Z"
+}
+```
+
+**Crear Nota:**
+```json
+POST /api/notas/
+{
+  "poliza": 1,
+  "contenido": "Documentación recibida. @usuario2 favor de revisar antes del viernes."
+}
+```
+
+### Flujo 4: Actualización Manual de Consentimiento
+
+El sistema permite ahora que los usuarios manejen el estatus de su consentimiento por su propio lado de forma manual para una póliza.
+
+**Paso 1: Cambiar el Estatus al Enviarlo al Cliente**
+Cuando un agente imprime o manda por un correo ajeno al sistema el documento:
+```json
+PATCH /api/polizas/1/
+{
+  "estado_consentimiento": "ENVIADO"
+}
+```
+
+**Paso 2: Subir el Documento Cuando el Cliente Lo Devuelve Firmado**
+Como se requiere subir el documento escaneado/fotografiado, se usa `multipart/form-data`:
+```http
+PATCH /api/polizas/1/
+Content-Type: multipart/form-data
+
+estado_consentimiento=FIRMADO
+archivo_consentimiento=@/ruta/al/documento_firmado.pdf
+```
+
+---
+
+## Códigos de Respuesta HTTP
+
+- `200 OK`: Solicitud exitosa (GET, PUT, PATCH)
+- `201 Created`: Recurso creado exitosamente (POST)
+- `204 No Content`: Eliminación exitosa (DELETE)
+- `400 Bad Request`: Error en los datos enviados
+- `401 Unauthorized`: No autenticado (falta token o es inválido)
+- `403 Forbidden`: No tiene permisos para esta acción
+- `404 Not Found`: Recurso no encontrado
+- `500 Internal Server Error`: Error del servidor
+
+---
+
+## Estadísticas de Usuario y Cargas Masivas
+
+### 1. Obtener Estadísticas por Empleado
+Permite listar las estadísticas, separadas en Resumen, Estatus de las pólizas y Alertas. Solo accesible para `ADMIN` o `MANAGER`.
+
+```http
+GET /api/users/{user_id}/stats/
+```
+
+**Respuesta de Ejemplo:**
+```json
+{
+  "usuario": {
+    "id": 4,
+    "nombre": "Agente Demo"
+  },
+  "estadisticas": {
+    "resumen": {
+      "total_polizas": {"count": 100, "percentage": "100%"},
+      "desincronizados": {"count": 5, "percentage": "5.0%"}
+    },
+    "estatus_de_las_polizas": {},
+    "alertas": {}
+  }
+}
+```
+
+### 2. Detalles de Subcategoría Estadística
+Desglose detallado tabular de las pólizas correspondientes a una de las categorías anteriores. 
+
+```http
+GET /api/users/{user_id}/stats/{categoria}/
+```
+Categorías aceptadas: `total_polizas`, `desincronizados`, `activos`, `por_efectuar`, `en_peligro`, `cancelados`, `robados`, `docs_pendientes`, `pagos_pendientes`, `consentimiento`, `duplicados`.
+
+**Respuesta de Ejemplo:**
+```json
+{
+  "usuario": { "id": 4, "nombre": "Agente Demo" },
+  "categoria": "docs_pendientes",
+  "total_items": 1,
+  "polizas": [
+    {
+      "id": 12,
+      "id_mercado": "MKT-12345",
+      "cliente": "Juan Perez",
+      "estado_y_compania": "Pending Document - Ambetter",
+      "agente": "Agente Demo",
+      "estatus": "CAPTURA_ASISTENTE",
+      "documentos": "Enviado / Pendiente de Firma",
+      "pagos": "Al Día",
+      "fecha_inicio": "2024-01-01",
+      "fecha_expiracion": "2025-01-01"
+    }
+  ]
+}
+```
+
+### 3. Importación Masiva de Excel
+Importa pólizas desde un archivo `.xls` o `.xlsx` y las ata directamente a un Agente o Colaborador. Crea un *lote/batch*.
+
+```http
+POST /api/polizas/import-excel/
+Content-Type: multipart/form-data
+
+file=@/ruta/al/archivo.xlsx
+empleado_id=4
+```
+
+**Respuesta de Ejemplo:**
+```json
+{
+  "mensaje": "Importación completada.",
+  "batch_id": "a1b2c3d4-e5f6-7890-a1b2-c3d4e5f67890",
+  "polizas_creadas": 45,
+  "empleado_id": 4
+}
+```
+
+### 4. Deshacer Importación (Undo)
+Elimina masivamente todas las pólizas creadas mediante el archivo de importación anterior.
+
+```http
+POST /api/polizas/import-excel/undo/
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "batch_id": "a1b2c3d4-e5f6-7890-a1b2-c3d4e5f67890"
+}
+```
+
+---
+
+**Última actualización:** Mayo 2026
+
+Para más información o soporte, contactar al equipo de desarrollo.

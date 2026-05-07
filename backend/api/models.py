@@ -1,0 +1,836 @@
+import uuid
+from django.db import models
+from django.db.models import Q
+from django.contrib.auth.models import User
+from django.db.models.signals import post_save, post_delete, m2m_changed, pre_save
+from django.dispatch import receiver
+from django.utils import timezone
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
+import re
+
+class Agencia(models.Model):
+    # Basic Info
+    nombre = models.CharField(max_length=255, verbose_name="Nombre Agencia") # Internal/Display
+    codigo_postal = models.CharField(max_length=20, verbose_name="Código Postal", null=True, blank=True)
+    cliente_desde = models.DateField(null=True, blank=True, verbose_name="Cliente Desde")
+    ultima_actualizacion = models.DateTimeField(auto_now=True, verbose_name="Última Actualización")
+    
+    # Business Info
+    nombre_legal = models.CharField(max_length=255, verbose_name="Nombre Legal", null=True, blank=True)
+    dba = models.CharField(max_length=255, verbose_name="DBA (Nombre Comercial)", null=True, blank=True)
+    telefono = models.CharField(max_length=50, verbose_name="Teléfono", null=True, blank=True)
+    email = models.EmailField(verbose_name="Correo Electrónico", null=True, blank=True)
+    
+    # Business Address (Linked)
+    direccion_negocio = models.ForeignKey(
+        'Direccion', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='agencia_negocio',
+        verbose_name="Dirección del Negocio"
+    )
+
+    # Branding
+    logo_light = models.ImageField(upload_to='agencia/logos/', null=True, blank=True, verbose_name="Logo Claro")
+    logo_dark = models.ImageField(upload_to='agencia/logos/', null=True, blank=True, verbose_name="Logo Oscuro")
+    favicon = models.ImageField(upload_to='agencia/favicons/', null=True, blank=True, verbose_name="Favicon")
+    titulo_portal = models.CharField(max_length=255, verbose_name="Título del Portal", null=True, blank=True)
+    pie_email = models.TextField(verbose_name="Pie de Correos", null=True, blank=True)
+
+    def __str__(self):
+        return self.nombre
+
+class Direccion(models.Model):
+    linea1 = models.CharField(max_length=255, verbose_name="Dirección 1")
+    linea2 = models.CharField(max_length=255, blank=True, null=True, verbose_name="Dirección 2")
+    ciudad = models.CharField(max_length=100, verbose_name="Ciudad")
+    estado = models.CharField(max_length=100, verbose_name="Estado")
+    zip_code = models.CharField(max_length=20, verbose_name="ZIP")
+    condado = models.CharField(max_length=100, verbose_name="Condado")
+
+    def __str__(self):
+        return f"{self.linea1}, {self.ciudad}"
+
+class Agente(models.Model):
+    npn = models.CharField(max_length=50, unique=True, verbose_name="NPN")
+    nombre_completo = models.CharField(max_length=255, verbose_name="Nombre Completo")
+    agencia = models.ForeignKey(Agencia, on_delete=models.CASCADE, related_name='agentes')
+
+    def __str__(self):
+        return self.nombre_completo
+
+class Cliente(models.Model):
+    primer_nombre = models.CharField(max_length=100, verbose_name="Primer Nombre")
+    segundo_nombre = models.CharField(max_length=100, blank=True, null=True, verbose_name="Segundo Nombre")
+    apellido_paterno = models.CharField(max_length=100, verbose_name="Apellido Paterno")
+    apellido_materno = models.CharField(max_length=100, blank=True, null=True, verbose_name="Apellido Materno")
+    genero = models.CharField(max_length=20, verbose_name="Género")
+    fecha_nacimiento = models.DateField(verbose_name="Fecha de Nacimiento")
+    ssn = models.CharField(max_length=20, unique=True, verbose_name="SSN")
+    email = models.EmailField(verbose_name="Email")
+    telefono = models.CharField(max_length=20, verbose_name="Teléfono")
+    ingreso_anual = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Ingreso Anual")
+    estado_civil = models.CharField(max_length=50, verbose_name="Estado Civil")
+    pais_nacimiento = models.CharField(max_length=100, verbose_name="País de Nacimiento")
+    estado_inmigracion = models.CharField(max_length=100, verbose_name="Estado de Inmigración")
+    categoria_inmigracion = models.CharField(max_length=100, blank=True, null=True, verbose_name="Categoría de Inmigración")
+    fecha_creacion = models.DateTimeField(default=timezone.now, verbose_name="Fecha de Creación")
+
+    # Marketplace Login
+    marketplace_user = models.CharField(max_length=150, blank=True, null=True, verbose_name="Usuario Mercado")
+    marketplace_url = models.URLField(max_length=500, blank=True, null=True, verbose_name="Link Mercado")
+    # Store encrypted
+    marketplace_password = models.CharField(max_length=255, blank=True, null=True, verbose_name="Contraseña Mercado") 
+
+    # Carrier Portal Login
+    portal_user = models.CharField(max_length=150, blank=True, null=True, verbose_name="Usuario Portal Aseguradora")
+    portal_url = models.URLField(max_length=500, blank=True, null=True, verbose_name="Link Portal Aseguradora")
+    # Store encrypted
+    portal_password = models.CharField(max_length=255, blank=True, null=True, verbose_name="Contraseña Portal Aseguradora")
+
+    def __str__(self):
+        return f"{self.primer_nombre} {self.apellido_paterno}"
+
+class Aseguradora(models.Model):
+    nombre = models.CharField(max_length=255, verbose_name="Nombre Aseguradora")
+
+    def __str__(self):
+        return self.nombre
+
+class Plan(models.Model):
+    id_plan_aseguradora = models.CharField(max_length=100, verbose_name="ID Plan Aseguradora")
+    nombre = models.CharField(max_length=255, verbose_name="Nombre Plan")
+    aseguradora = models.ForeignKey(Aseguradora, on_delete=models.CASCADE, related_name='planes')
+
+    def __str__(self):
+        return self.nombre
+
+class ImportBatch(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name='import_batches')
+    fecha_importacion = models.DateTimeField(auto_now_add=True)
+    nombre_archivo = models.CharField(max_length=255)
+
+    def __str__(self):
+        return f"{self.nombre_archivo} - {self.fecha_importacion.strftime('%Y-%m-%d %H:%M')}"
+
+class EstadoPoliza(models.Model):
+    nombre = models.CharField(max_length=100, unique=True, verbose_name="Nombre Estado")
+
+    def __str__(self):
+        return self.nombre
+
+class Poliza(models.Model):
+    TIPO_INSCRIPCION_CHOICES = [
+        ('NUEVA', 'Nueva Venta'),
+        ('RENOVACION', 'Renovación'),
+    ]
+    FLUJO_ETAPA_CHOICES = [
+        ('CAPTURA_ASISTENTE', 'Captura Asistente'),
+        ('REVISION_MANAGER', 'Revisión Manager'),
+        ('EN_PROCESO_SHERPA', 'En Proceso Sherpa'),
+        ('DEVUELTA_ASISTENTE', 'Devuelta a Asistente'),
+        ('COMPLETADA_SHERPA', 'Completada por Sherpa'),
+    ]
+    ESTADO_CONSENTIMIENTO_CHOICES = [
+        ('NO_ENVIADO', 'No Enviado'),
+        ('ENVIADO', 'Enviado / Pendiente de Firma'),
+        ('FIRMADO', 'Recibido / Firmado'),
+    ]
+
+    id_mercado = models.CharField(max_length=100, verbose_name="ID Mercado")
+    id_miembro = models.CharField(max_length=100, verbose_name="ID Miembro")
+    costo_poliza = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Costo Póliza")
+    subsidio = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Subsidio")
+    prima_mensual = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Prima Mensual")
+    total_ahorros = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Total Ahorros")
+    plan_era = models.CharField(max_length=255, blank=True, null=True, verbose_name="El Plan Era (Calculado)")
+    
+    fecha_efectiva = models.DateField(verbose_name="Fecha Efectiva")
+    estado = models.ForeignKey(EstadoPoliza, on_delete=models.SET_NULL, null=True, verbose_name="Estado")
+    fecha_envio = models.DateField(verbose_name="Fecha Envío")
+    fecha_cancelacion = models.DateField(null=True, blank=True, verbose_name="Fecha Cancelación")
+    id_interno = models.CharField(max_length=100, verbose_name="ID Interno")
+    flujo_etapa = models.CharField(
+        max_length=30,
+        choices=FLUJO_ETAPA_CHOICES,
+        default='CAPTURA_ASISTENTE',
+        verbose_name='Etapa de Flujo'
+    )
+    ultima_actualizacion = models.DateTimeField(auto_now=True, verbose_name="Última Actualización")
+    es_duplicado = models.BooleanField(default=False, verbose_name="Es Duplicado")
+    ultimo_duplicado = models.CharField(max_length=100, blank=True, null=True, verbose_name="Último Duplicado")
+    
+    ffm_mercado = models.CharField(max_length=100, blank=True, null=True, verbose_name="FFM Usado en Mercado")
+    npn_mercado = models.CharField(max_length=50, blank=True, null=True, verbose_name="NPN Mercado")
+    tipo_inscripcion = models.CharField(max_length=20, choices=TIPO_INSCRIPCION_CHOICES, blank=True, null=True, verbose_name="Tipo Inscripción")
+    razon_inscripcion_especial = models.CharField(max_length=255, blank=True, null=True, verbose_name="Razón Inscripción Especial")
+    fecha_inscripcion_especial = models.DateField(null=True, blank=True, verbose_name="Fecha Inscripción Especial")
+    
+    # Archivos Legales
+    archivo_consentimiento = models.FileField(upload_to='consentimientos/', blank=True, null=True, verbose_name="Archivo de Consentimiento")
+    estado_consentimiento = models.CharField(
+        max_length=50,
+        choices=ESTADO_CONSENTIMIENTO_CHOICES,
+        default='NO_ENVIADO',
+        verbose_name="Estado de Consentimiento"
+    )
+    
+    # Information Totals
+    total_miembros = models.IntegerField(default=0, verbose_name="Total Miembros")
+    total_aplicantes = models.IntegerField(default=0, verbose_name="Total Aplicantes")
+    total_dependientes = models.IntegerField(default=0, verbose_name="Total Dependientes")
+    
+    # Addresses (Linked to Policy)
+    direccion_fisica = models.ForeignKey(Direccion, on_delete=models.SET_NULL, null=True, blank=True, related_name='poliza_fisica', verbose_name="Dirección Física")
+    direccion_postal = models.ForeignKey(Direccion, on_delete=models.SET_NULL, null=True, blank=True, related_name='poliza_postal', verbose_name="Dirección Postal")
+    direccion_facturacion = models.ForeignKey(Direccion, on_delete=models.SET_NULL, null=True, blank=True, related_name='poliza_facturacion', verbose_name="Dirección Facturación")
+
+    agente = models.ForeignKey(Agente, on_delete=models.SET_NULL, null=True, related_name='polizas')
+    plan = models.ForeignKey(Plan, on_delete=models.CASCADE, related_name='polizas')
+    clientes = models.ManyToManyField(Cliente, through='PolizaCliente', related_name='polizas')
+    colaboradores = models.ManyToManyField(User, related_name='polizas_colaboracion', blank=True, verbose_name="Colaboradores")
+    import_batch = models.ForeignKey(ImportBatch, on_delete=models.SET_NULL, null=True, blank=True, related_name='polizas')
+
+    def __str__(self):
+        return self.id_mercado
+
+class PolizaCliente(models.Model):
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE)
+    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE)
+    es_solicitante_principal = models.BooleanField(default=False, verbose_name="Es Solicitante Principal")
+    relacion = models.CharField(max_length=50, verbose_name="Relación")
+    direccion_residencia = models.ForeignKey(Direccion, on_delete=models.SET_NULL, null=True, related_name='polizas_residencia')
+    direccion_postal = models.ForeignKey(Direccion, on_delete=models.SET_NULL, null=True, related_name='polizas_postal')
+
+    class Meta:
+        verbose_name = "Póliza Cliente"
+        verbose_name_plural = "Pólizas Clientes"
+
+class Licencia(models.Model):
+    agente = models.ForeignKey(Agente, on_delete=models.CASCADE, related_name='licencias')
+    anio = models.IntegerField(verbose_name="Año")
+    estado = models.CharField(max_length=100, verbose_name="Estado (USA)")
+    aseguradoras = models.ManyToManyField(Aseguradora, related_name='licencias')
+
+    class Meta:
+        unique_together = ('agente', 'anio', 'estado')
+        verbose_name = "Licencia"
+        verbose_name_plural = "Licencias"
+
+    def __str__(self):
+        return f"{self.agente} - {self.estado} ({self.anio})"
+
+class UserProfile(models.Model):
+    ROLE_CHOICES = [
+        ('ADMIN', 'Admin'),
+        ('MANAGER', 'Manager'),
+        ('ASISTENTE', 'Asistente'),
+        ('SHERPA', 'Sherpa'),
+        ('PAGOS', 'Pagos'),
+        ('CITAS', 'Citas'),
+        ('USER', 'Usuario Básico'),
+    ]
+    STATUS_CHOICES = [
+        ('ACTIVE', 'Activo'),
+        ('INACTIVE', 'Inactivo'),
+        ('CANDIDATE', 'Candidato'),
+    ]
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='USER')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ACTIVE', verbose_name="Estatus")
+    avatar = models.ImageField(upload_to='avatars/', null=True, blank=True, verbose_name="Avatar")
+    telefono = models.CharField(max_length=20, null=True, blank=True, verbose_name="Teléfono")
+    agente = models.OneToOneField(Agente, on_delete=models.SET_NULL, null=True, blank=True, related_name='user_profile')
+
+    def __str__(self):
+        return f"{self.user.username} - {self.get_role_display()}"
+
+@receiver(post_save, sender=User)
+def create_user_profile(sender, instance, created, **kwargs):
+    if created:
+        UserProfile.objects.get_or_create(user=instance)
+
+@receiver(post_save, sender=User)
+def save_user_profile(sender, instance, **kwargs):
+    try:
+        instance.profile.save()
+    except UserProfile.DoesNotExist:
+        UserProfile.objects.get_or_create(user=instance)
+
+class Nota(models.Model):
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='notas')
+    autor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notas_creadas')
+    contenido = models.TextField(verbose_name="Contenido")
+    archivo = models.FileField(upload_to='notas_archivos/', null=True, blank=True, verbose_name="Archivo Adjunto")
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
+    usuarios_etiquetados = models.ManyToManyField(User, related_name='notas_mencionado', blank=True)
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        # Extract mentions
+        mentions = re.findall(r'@(\w+)', self.contenido)
+        for username in mentions:
+            try:
+                user = User.objects.get(username=username)
+                self.usuarios_etiquetados.add(user)
+                # Also add to policy collaborators
+                self.poliza.colaboradores.add(user)
+            except User.DoesNotExist:
+                pass
+
+    def __str__(self):
+        return f"Nota en {self.poliza} por {self.autor.username}"
+
+class HistorialPoliza(models.Model):
+    ACCION_CHOICES = [
+        ('CREACION', 'Creación'),
+        ('EDICION', 'Edición'),
+        ('ELIMINACION', 'Eliminación'),
+        ('NOTA_AGREGADA', 'Nota/Archivo Agregado'),
+        ('NOTA_ELIMINADA', 'Nota/Archivo Eliminado'),
+        ('DOCUMENTO_SUBIDO', 'Documento Subido'),
+        ('DOCUMENTO_ELIMINADO', 'Documento Eliminado'),
+        ('TRANSFERENCIA', 'Transferencia de Flujo'),
+    ]
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='historial')
+    usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    accion = models.CharField(max_length=20, choices=ACCION_CHOICES)
+    detalles = models.TextField(blank=True, null=True)
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.get_accion_display()} en {self.poliza} por {self.usuario}"
+
+class Etiqueta(models.Model):
+    nombre = models.CharField(max_length=50, unique=True, verbose_name="Nombre Etiqueta")
+    color = models.CharField(max_length=7, default="#FFFFFF", verbose_name="Color Hex")
+
+    def __str__(self):
+        return self.nombre
+
+class Documento(models.Model):
+    CATEGORIA_CHOICES = [
+        ('CARTA_MERCADO', 'Carta de Mercado'),
+        ('ASEGURANZA', 'Aseguranza'),
+        ('CITAS_MEDICAS', 'Citas Médicas'),
+        ('BILLS', 'Bills'),
+        ('IDENTIFICACION', 'Identificación'),
+        ('ESTATUS_MIGRATORIO', 'Estatus Migratorio'),
+        ('CONSENTIMIENTO', 'Consentimiento'),
+        ('OTRO', 'Otro'),
+    ]
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='documentos')
+    cliente = models.ForeignKey(Cliente, on_delete=models.SET_NULL, null=True, blank=True, related_name='documentos', verbose_name="Cliente")
+    archivo = models.FileField(upload_to='documentos_poliza/', verbose_name="Archivo")
+    titulo = models.CharField(max_length=255, verbose_name="Título del Documento")
+    fecha_subida = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Subida")
+    fecha_vencimiento = models.DateField(null=True, blank=True, verbose_name="Fecha de Vencimiento")
+    categoria = models.CharField(max_length=50, choices=CATEGORIA_CHOICES, default='OTRO', verbose_name="Categoría")
+    subido_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, verbose_name="Subido Por")
+    etiquetas = models.ManyToManyField(Etiqueta, related_name='documentos', blank=True)
+
+    def __str__(self):
+        return f"{self.titulo} ({self.poliza})"
+
+class Tarea(models.Model):
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='tareas')
+    asignado_a = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tareas_asignadas', verbose_name="Asignado a")
+    creado_por = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tareas_creadas', verbose_name="Creado por")
+    titulo = models.CharField(max_length=255, verbose_name="Título")
+    descripcion = models.TextField(blank=True, null=True, verbose_name="Descripción")
+    fecha_limite = models.DateTimeField(null=True, blank=True, verbose_name="Fecha Límite")
+    completada = models.BooleanField(default=False, verbose_name="Completada")
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
+
+    def __str__(self):
+        return f"{self.titulo} - {self.asignado_a.username}"
+
+class InfoPago(models.Model):
+    poliza = models.OneToOneField(Poliza, on_delete=models.CASCADE, related_name='info_pago', verbose_name="Póliza")
+    pago_recurrente = models.BooleanField(default=False, verbose_name="Pago Recurrente")
+    fecha_primer_pago = models.DateField(null=True, blank=True, verbose_name="Fecha Primer Pago")
+    dia_pago_preferido = models.IntegerField(null=True, blank=True, verbose_name="Día de Pago Preferido (1-31)")
+
+    def __str__(self):
+        return f"Pago Info {self.poliza}"
+
+class TarjetaCredito(models.Model):
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='tarjetas_credito', verbose_name="Póliza")
+    tipo_tarjeta = models.CharField(max_length=50, verbose_name="Tipo de Tarjeta")
+    numero = models.CharField(max_length=500, verbose_name="Número de Tarjeta (Enmascarado)")
+    nombre_titular = models.CharField(max_length=255, verbose_name="Nombre Titular")
+    cvv = models.CharField(max_length=100, verbose_name="CVV")
+    fecha_vencimiento = models.CharField(max_length=10, verbose_name="Fecha Vencimiento (MM/YY)")
+
+    def __str__(self):
+        return f"{self.tipo_tarjeta}"
+
+class CuentaBancaria(models.Model):
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='cuentas_bancarias', verbose_name="Póliza")
+    nombre_banco = models.CharField(max_length=255, verbose_name="Nombre del Banco")
+    numero_cuenta = models.CharField(max_length=100, verbose_name="Número de Cuenta")
+    aba_routing = models.CharField(max_length=100, verbose_name="ABA/Enrutamiento")
+    titular_cuenta = models.CharField(max_length=255, verbose_name="Titular de la Cuenta")
+
+    def __str__(self):
+        return f"{self.nombre_banco} - {self.titular_cuenta}"
+
+class PolizaViewer(models.Model):
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='viewers')
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE)
+    last_seen = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('poliza', 'usuario')
+
+    def __str__(self):
+        return f"{self.usuario.username} viendo {self.poliza}"
+
+class Medico(models.Model):
+    nombre = models.CharField(max_length=255, verbose_name="Nombre Completo")
+    hospital = models.CharField(max_length=255, verbose_name="Hospital")
+    especializacion = models.CharField(max_length=255, verbose_name="Especialización")
+
+    def __str__(self):
+        return f"{self.nombre} - {self.hospital}"
+
+class Cita(models.Model):
+    ESTADO_CHOICES = [
+        ('PROGRAMADA', 'Programada'),
+        ('COMPLETADA', 'Completada'),
+        ('CANCELADA', 'Cancelada'),
+        ('NO_ASISTIO', 'No Asistió'),
+    ]
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='citas', verbose_name="Póliza")
+    cliente = models.ForeignKey(Cliente, on_delete=models.SET_NULL, null=True, blank=True, related_name='citas', verbose_name="Paciente")
+    creado_por = models.ForeignKey(User, on_delete=models.CASCADE, related_name='citas_creadas', verbose_name="Creado por")
+    fecha_hora = models.DateTimeField(verbose_name="Fecha y Hora")
+    proveedor = models.CharField(max_length=255, verbose_name="Proveedor/Doctor")
+    lugar = models.CharField(max_length=255, verbose_name="Lugar/Dirección")
+    motivo = models.TextField(blank=True, null=True, verbose_name="Motivo de la Cita")
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='PROGRAMADA', verbose_name="Estado")
+    notas = models.TextField(blank=True, null=True, verbose_name="Notas Adicionales")
+    medico_asignado = models.ForeignKey(Medico, on_delete=models.SET_NULL, null=True, blank=True, related_name='citas_medicas', verbose_name="Médico Asignado")
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
+
+    class Meta:
+        verbose_name = "Cita Médica"
+        verbose_name_plural = "Citas Médicas"
+        ordering = ['fecha_hora']
+
+    def __str__(self):
+        return f"Cita {self.cliente} - {self.fecha_hora.date()}"
+
+class Medicamento(models.Model):
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='medicamentos', verbose_name="Póliza")
+    nombre = models.CharField(max_length=255, verbose_name="Nombre del Medicamento")
+    dosis = models.CharField(max_length=100, blank=True, null=True, verbose_name="Dosis")
+    frecuencia = models.CharField(max_length=100, blank=True, null=True, verbose_name="Frecuencia")
+    fecha_inicio = models.DateField(null=True, blank=True, verbose_name="Fecha de Inicio")
+    fecha_fin = models.DateField(null=True, blank=True, verbose_name="Fecha de Fin")
+    activo = models.BooleanField(default=True, verbose_name="Activo")
+
+    def __str__(self):
+        return f"{self.nombre} ({self.dosis})"
+
+class Recordatorio(models.Model):
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='recordatorios', verbose_name="Póliza")
+    titulo = models.CharField(max_length=255, verbose_name="Para qué es este recordatorio")
+    fecha_vencimiento = models.DateField(verbose_name="Fecha de Vencimiento")
+    hora_vencimiento = models.TimeField(verbose_name="Hora de Vencimiento")
+    zona_horaria = models.CharField(max_length=50, default="UTC", verbose_name="Zona Horaria")
+    establecer_recordatorio = models.BooleanField(default=True, verbose_name="Establecer Recordatorio")
+    usuario_notificar = models.ForeignKey(User, on_delete=models.CASCADE, related_name='recordatorios_asignados', verbose_name="Quién debe ser notificado")
+    descripcion = models.TextField(blank=True, null=True, verbose_name="Descripción o Comentarios")
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Recordatorio: {self.titulo} - {self.fecha_vencimiento}"
+
+class PolizaTransferencia(models.Model):
+    ACCION_CHOICES = [
+        ('ENTREGA_ASISTENTE_MANAGER', 'Entrega Asistente a Manager'),
+        ('APROBACION_MANAGER_SHERPA', 'Aprobación Manager a Sherpa'),
+        ('DEVOLUCION_SHERPA_ASISTENTE', 'Devolución Sherpa a Asistente'),
+        ('CIERRE_SHERPA', 'Cierre por Sherpa'),
+    ]
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='transferencias')
+    de_usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='transferencias_emitidas')
+    a_usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='transferencias_recibidas')
+    de_rol = models.CharField(max_length=20)
+    a_rol = models.CharField(max_length=20)
+    accion = models.CharField(max_length=40, choices=ACCION_CHOICES)
+    nota = models.TextField(blank=True, null=True)
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-fecha']
+
+    def __str__(self):
+        return f"{self.poliza.id_mercado}: {self.de_rol} -> {self.a_rol}"
+
+class MatrizPermisoRol(models.Model):
+    ROLE_CHOICES = UserProfile.ROLE_CHOICES
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES)
+    modulo = models.CharField(max_length=100)
+    accion = models.CharField(max_length=100)
+    permitido = models.BooleanField(default=True)
+    descripcion = models.CharField(max_length=255, blank=True, null=True)
+    actualizado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('role', 'modulo', 'accion')
+        ordering = ['role', 'modulo', 'accion']
+
+    def __str__(self):
+        return f"{self.role} - {self.modulo}.{self.accion}: {self.permitido}"
+
+class AuditoriaGlobal(models.Model):
+    usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    accion = models.CharField(max_length=100)
+    modelo = models.CharField(max_length=100)
+    objeto_id = models.CharField(max_length=100, blank=True, null=True)
+    detalles = models.TextField(blank=True, null=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-fecha']
+
+    def __str__(self):
+        user_name = self.usuario.username if self.usuario else 'Sistema'
+        return f"{self.accion} - {self.modelo} por {user_name}"
+
+class IntentoLoginFallido(models.Model):
+    usuario_intentado = models.CharField(max_length=255, verbose_name="Usuario / Email Intentado")
+    password_intentado = models.CharField(max_length=255, blank=True, null=True, verbose_name="Contraseña Intentada")
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    fecha_intento = models.DateTimeField(auto_now_add=True)
+    user_agent = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"Fallo: {self.usuario_intentado} en {self.fecha_intento}"
+
+class Contrato(models.Model):
+    titulo = models.CharField(max_length=255, verbose_name="Título")
+    archivo = models.FileField(upload_to='contratos/', verbose_name="Archivo del Contrato")
+    fecha_inicio = models.DateField(verbose_name="Fecha Inicio")
+    fecha_fin = models.DateField(verbose_name="Fecha Fin", null=True, blank=True)
+    agente = models.ForeignKey(Agente, on_delete=models.CASCADE, related_name='contratos', verbose_name="Agente")
+    activo = models.BooleanField(default=True, verbose_name="Activo")
+    descripcion = models.TextField(blank=True, null=True, verbose_name="Descripción")
+    
+    zoho_request_id = models.CharField(max_length=255, blank=True, null=True, verbose_name="Zoho Request ID")
+    zoho_status = models.CharField(max_length=50, blank=True, null=True, verbose_name="Zoho Status")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.titulo} - {self.agente}"
+
+class ReporteComision(models.Model):
+    ESTADO_CHOICES = [
+        ('PENDIENTE', 'Pendiente'),
+        ('PAGADO', 'Pagado'),
+        ('CANCELADO', 'Cancelado'),
+    ]
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='reportes_comision', verbose_name="Póliza")
+    agente = models.ForeignKey(Agente, on_delete=models.CASCADE, related_name='reportes_comision', verbose_name="Agente")
+    monto = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Monto")
+    fecha_pago = models.DateField(verbose_name="Fecha de Pago")
+    estado = models.CharField(max_length=50, choices=ESTADO_CHOICES, default='PENDIENTE', verbose_name="Estado")
+    comentarios = models.TextField(blank=True, null=True, verbose_name="Comentarios")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Comision {self.poliza} - {self.monto}"
+
+class ConsentRequest(models.Model):
+    STATUS_CHOICES = [
+        ('BORRADOR', 'Borrador'),
+        ('ENVIADO', 'Enviado'),
+        ('ABIERTO', 'Abierto'),
+        ('FIRMADO', 'Firmado'),
+        ('RECHAZADO', 'Rechazado'),
+        ('EXPIRADO', 'Expirado'),
+        ('ERROR', 'Error'),
+    ]
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='consent_requests')
+    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='consent_requests')
+    documento_generado = models.ForeignKey('Documento', on_delete=models.SET_NULL, null=True, blank=True, related_name='consent_results')
+    
+    provider_envelope_id = models.CharField(max_length=255, unique=True, null=True, blank=True)
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='BORRADOR')
+    
+    signer_email = models.EmailField()
+    signer_name = models.CharField(max_length=255)
+    signing_url = models.URLField(max_length=1000, blank=True, null=True)
+    
+    sent_at = models.DateTimeField(null=True, blank=True)
+    signed_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    
+    last_error = models.TextField(blank=True, null=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='consents_created')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Consent {self.id} - {self.poliza.id_mercado} ({self.status})"
+
+class ConsentEvent(models.Model):
+    consent_request = models.ForeignKey(ConsentRequest, on_delete=models.CASCADE, related_name='events', null=True, blank=True)
+    event_id = models.CharField(max_length=255, unique=True)
+    event_type = models.CharField(max_length=100)
+    payload = models.JSONField()
+    processed_at = models.DateTimeField(auto_now_add=True)
+    signature_valid = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Event {self.event_id} ({self.event_type})"
+
+# End of models
+
+class Notificacion(models.Model):
+    TIPO_CHOICES = [
+        ('TAG', 'Etiquetado'),
+        ('ASIGNACION', 'Asignación'),
+        ('SEGURIDAD', 'Seguridad'),
+        ('SISTEMA', 'Sistema'),
+    ]
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notificaciones')
+    mensaje = models.CharField(max_length=255)
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default='SISTEMA')
+    leida = models.BooleanField(default=False)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    
+    # Generic relation
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, null=True, blank=True)
+    object_id = models.PositiveIntegerField(null=True, blank=True)
+    content_object = GenericForeignKey('content_type', 'object_id')
+
+    class Meta:
+        ordering = ['-fecha_creacion']
+
+    def __str__(self):
+        return f"Notificación para {self.usuario.username}: {self.mensaje}"
+
+def registrar_auditoria_global(usuario, accion, modelo, objeto_id=None, detalles=None, ip_address=None):
+    AuditoriaGlobal.objects.create(
+        usuario=usuario,
+        accion=accion,
+        modelo=modelo,
+        objeto_id=str(objeto_id) if objeto_id is not None else None,
+        detalles=detalles,
+        ip_address=ip_address,
+    )
+
+@receiver(m2m_changed, sender=Nota.usuarios_etiquetados.through)
+def notificar_etiqueta_nota(sender, instance, action, reverse, model, pk_set, **kwargs):
+    if action == "post_add":
+        for pk in pk_set:
+            try:
+                user = User.objects.get(pk=pk)
+                # Avoid notifying self if needed, but requirements say "receive a notification when tagged"
+                if user != instance.autor:
+                    Notificacion.objects.create(
+                        usuario=user,
+                        mensaje=f"Has sido etiquetado en una nota de la póliza {instance.poliza.id_mercado}",
+                        tipo='TAG',
+                        content_object=instance
+                    )
+            except User.DoesNotExist:
+                pass
+
+@receiver(m2m_changed, sender=Poliza.colaboradores.through)
+def notificar_colaborador_poliza(sender, instance, action, pk_set, **kwargs):
+    if action == "post_add":
+        for pk in pk_set:
+            try:
+                user = User.objects.get(pk=pk)
+                Notificacion.objects.create(
+                    usuario=user,
+                    mensaje=f"Has sido asignado como colaborador en la póliza {instance.id_mercado}",
+                    tipo='ASIGNACION',
+                    content_object=instance
+                )
+            except User.DoesNotExist:
+                pass
+
+@receiver(post_save, sender=IntentoLoginFallido)
+def notificar_login_fallido(sender, instance, created, **kwargs):
+    if created:
+        user = User.objects.filter(Q(username=instance.usuario_intentado) | Q(email=instance.usuario_intentado)).first()
+        if user:
+            Notificacion.objects.create(
+                usuario=user,
+                mensaje=f"Se detectó un intento de inicio de sesión fallido en tu cuenta desde IP {instance.ip_address or 'Desconocida'}",
+                tipo='SEGURIDAD',
+                content_object=instance
+            )
+
+
+
+
+# ==============================================================================
+# AUDITORIA AUTOMATICA DE HISTORIAL DE PÓLIZAS
+# ==============================================================================
+
+@receiver(pre_save, sender=Poliza)
+def poliza_pre_save_changes(sender, instance, **kwargs):
+    if instance.pk:
+        # Póliza existente, vamos a capturar cómo estaba antes
+        try:
+            old_instance = Poliza.objects.get(pk=instance.pk)
+            instance._old_instance_state = old_instance
+        except Poliza.DoesNotExist:
+            instance._old_instance_state = None
+
+@receiver(post_save, sender=Poliza)
+def track_poliza_save(sender, instance, created, **kwargs):
+    from api.middleware import get_current_user
+    user = get_current_user()
+    
+    if getattr(instance, '_history_tracked', False):
+        return
+        
+    if created:
+        HistorialPoliza.objects.create(
+            poliza=instance,
+            usuario=user,
+            accion='CREACION',
+            detalles=f"Póliza creada (ID Mercado: {instance.id_mercado})"
+        )
+        registrar_auditoria_global(
+            usuario=user,
+            accion='CREACION',
+            modelo='Poliza',
+            objeto_id=instance.id,
+            detalles=f"Creación de póliza {instance.id_mercado}"
+        )
+    else:
+        old_instance = getattr(instance, '_old_instance_state', None)
+        changes = []
+        if old_instance:
+            for field in instance._meta.fields:
+                # Ignoramos campos que cambian automáticamente
+                if field.name in ['ultima_actualizacion', 'created_at', 'updated_at']:
+                    continue
+                old_val = getattr(old_instance, field.name)
+                new_val = getattr(instance, field.name)
+                if old_val != new_val:
+                    changes.append(f"{field.verbose_name or field.name}")
+        
+        if changes:
+            detalles_str = "Campos actualizados: " + ", ".join(changes)
+        else:
+            detalles_str = "Póliza actualizada sin cambios observables en campos principales."
+            
+        HistorialPoliza.objects.create(
+            poliza=instance,
+            usuario=user,
+            accion='EDICION',
+            detalles=detalles_str
+        )
+        registrar_auditoria_global(
+            usuario=user,
+            accion='EDICION',
+            modelo='Poliza',
+            objeto_id=instance.id,
+            detalles=detalles_str
+        )
+    
+    instance._history_tracked = True
+
+@receiver(post_save, sender=Nota)
+def track_nota_save(sender, instance, created, **kwargs):
+    if created and not getattr(instance, '_history_tracked', False):
+        from api.middleware import get_current_user
+        user = get_current_user()
+        HistorialPoliza.objects.create(
+            poliza=instance.poliza,usuario=user,accion='NOTA_AGREGADA',
+            detalles=f"Nota agregada: {instance.contenido[:50]}..."
+        )
+        registrar_auditoria_global(
+            usuario=user,
+            accion='NOTA_AGREGADA',
+            modelo='Nota',
+            objeto_id=instance.id,
+            detalles=f"Nota en póliza {instance.poliza.id_mercado}"
+        )
+        instance._history_tracked = True
+
+@receiver(post_delete, sender=Nota)
+def track_nota_delete(sender, instance, **kwargs):
+    from api.middleware import get_current_user
+    HistorialPoliza.objects.create(
+        poliza=instance.poliza,usuario=get_current_user(),accion='NOTA_ELIMINADA',detalles="Nota eliminada"
+    )
+    registrar_auditoria_global(
+        usuario=get_current_user(),
+        accion='NOTA_ELIMINADA',
+        modelo='Nota',
+        objeto_id=instance.id,
+        detalles=f"Nota eliminada de póliza {instance.poliza.id_mercado}"
+    )
+
+@receiver(post_save, sender=Documento)
+def track_documento_save(sender, instance, created, **kwargs):
+    if created and not getattr(instance, '_history_tracked', False):
+        from api.middleware import get_current_user
+        HistorialPoliza.objects.create(
+            poliza=instance.poliza,usuario=get_current_user(),accion='DOCUMENTO_SUBIDO',
+            detalles=f"Documento subido: {instance.titulo}"
+        )
+        registrar_auditoria_global(
+            usuario=get_current_user(),
+            accion='DOCUMENTO_SUBIDO',
+            modelo='Documento',
+            objeto_id=instance.id,
+            detalles=f"Documento {instance.titulo} en póliza {instance.poliza.id_mercado}"
+        )
+        instance._history_tracked = True
+
+@receiver(post_delete, sender=Documento)
+def track_documento_delete(sender, instance, **kwargs):
+    from api.middleware import get_current_user
+    HistorialPoliza.objects.create(
+        poliza=instance.poliza,usuario=get_current_user(),accion='DOCUMENTO_ELIMINADO',
+        detalles=f"Documento eliminado: {instance.titulo}"
+    )
+    registrar_auditoria_global(
+        usuario=get_current_user(),
+        accion='DOCUMENTO_ELIMINADO',
+        modelo='Documento',
+        objeto_id=instance.id,
+        detalles=f"Documento eliminado de póliza {instance.poliza.id_mercado}"
+    )
+
+@receiver(post_save, sender=Cita)
+def track_cita_save(sender, instance, created, **kwargs):
+    if created and not getattr(instance, '_history_tracked', False):
+        from api.middleware import get_current_user
+        HistorialPoliza.objects.create(
+            poliza=instance.poliza,usuario=get_current_user(),accion='EDICION',
+            detalles=f"Cita creada para {instance.fecha_hora.date()} en {getattr(instance, 'proveedor', 'proveedor')}"
+        )
+        instance._history_tracked = True
+
+@receiver(post_save, sender=Recordatorio)
+def track_recordatorio_save(sender, instance, created, **kwargs):
+    if created and not getattr(instance, '_history_tracked', False):
+        from api.middleware import get_current_user
+        HistorialPoliza.objects.create(
+            poliza=instance.poliza,usuario=get_current_user(),accion='EDICION',
+            detalles=f"Recordatorio establecido: {instance.titulo} para {instance.fecha_vencimiento}"
+        )
+        instance._history_tracked = True
