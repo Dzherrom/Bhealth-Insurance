@@ -1341,7 +1341,10 @@ class UserPolicyStatsDetailView(APIView):
             "polizas": data
         })
 
-import openpyxl
+try:
+    import openpyxl
+except ModuleNotFoundError:
+    openpyxl = None
 
 class ImportarPolizasExcelView(APIView):
     """
@@ -1354,6 +1357,12 @@ class ImportarPolizasExcelView(APIView):
 
     @transaction.atomic
     def post(self, request, *args, **kwargs):
+        if openpyxl is None:
+            return Response(
+                {"error": "La librería 'openpyxl' no está instalada en el servidor."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
         file_obj = request.FILES.get('file')
         empleado_id = request.data.get('empleado_id')
 
