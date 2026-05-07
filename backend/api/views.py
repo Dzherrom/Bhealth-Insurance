@@ -1,4 +1,5 @@
 from rest_framework import generics, permissions, status, viewsets, filters
+from .permissions import IsManagerRole, IsAdminRole
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -12,6 +13,9 @@ import datetime
 import zipfile
 import io
 import requests
+import csv
+from django.db import transaction
+from rest_framework.parsers import MultiPartParser
 from django.db.models import Sum, Count, F
 from django.db.models.functions import TruncMonth, TruncYear
 from .models import (
@@ -1028,6 +1032,433 @@ class ZohoSignWebhookView(APIView):
             import traceback
             traceback.print_exc()
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class ImportarClientesCSVView(APIView):
+    """
+    Importa masivamente Clientes desde un archivo CSV.
+    Previene duplicados en base al parametro 'ssn' o 'email'.
+    """
+    parser_classes = [MultiPartParser]
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request, *args, **kwargs):
+        file_obj = request.FILES.get('archivo')
+        
+        if not file_obj:
+            return Response({"error": "No se adjunto ningun archivo"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            decoded_file = file_obj.read().decode('utf-8-sig').splitlines()
+            reader = csv.DictReader(decoded_file)
+        except UnicodeDecodeError:
+            return Response({"error": "El archivo debe tener codificacion UTF-8"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        creados = 0
+        actualizados = 0
+        errores = []
+
+        with transaction.atomic():
+            for index, row in enumerate(reader):
+                try:
+                    ssn_val = row.get('ssn', '').strip()
+                    email_val = row.get('email', '').strip()
+                    
+                    if not ssn_val and not email_val:
+                        errores.append(f"Fila {index+1}: SSN y Email en blanco, no se puede identificar el cliente.")
+                        continue
+                    
+                    # Si tiene SSN lo buscamos por SSN, si no por correo
+                    filtro = {'ssn': ssn_val} if ssn_val else {'email': email_val}
+                    
+                    cliente, creado = Cliente.objects.get_or_create(
+                        **filtro,
+                        defaults={
+                            'primer_nombre': row.get('primer_nombre', '').strip(),
+                            'apellido_paterno': row.get('apellido_paterno', '').strip(),
+                            'genero': row.get('genero', 'Masculino').strip(),
+                            'fecha_nacimiento': row.get('fecha_nacimiento', '1900-01-01').strip() or '1900-01-01',
+                            'telefono': row.get('telefono', '').strip(),
+                            'email': email_val,
+                            'ingreso_anual': row.get('ingreso_anual', 0) or 0,
+                            'estado_civil': row.get('estado_civil', '').strip(),
+                            'pais_nacimiento': row.get('pais_nacimiento', '').strip(),
+                            'estado_inmigracion': row.get('estado_inmigracion', '').strip(),
+                        }
+                    )
+                    
+                    if creado:
+                        creados += 1
+                    else:
+                        actualizados += 1
+                        
+                except Exception as e:
+                    errores.append(f"Fila {index+1}: Error inesperado: {str(e)}")
+
+        return Response({
+            "mensaje": "Proceso completado",
+            "resultados": {
+                "nuevos_clientes_creados": creados,
+                "clientes_ya_existentes_saltados": actualizados,
+                "errores": errores
+            }
+        }, status=status.HTTP_200_OK)
+
+
+class ImportarPolizasCSVView(APIView):
+    """
+    Importa masivamente Polizas en bulk.
+    Evita la duplicidad asegurandose validando el id_mercado.
+    """
+    parser_classes = [MultiPartParser]
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request, *args, **kwargs):
+        file_obj = request.FILES.get('archivo')
+        if not file_obj:
+            return Response({"error": "No se adjunto archivo"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            decoded_file = file_obj.read().decode('utf-8-sig').splitlines()
+            reader = csv.DictReader(decoded_file)
+        except UnicodeDecodeError:
+            return Response({"error": "El archivo debe tener codificacion UTF-8"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        creados = 0
+        duplicados = 0
+        errores = []
+
+        with transaction.atomic():
+            for idx, row in enumerate(reader):
+                id_mk = row.get('id_mercado', '').strip()
+                
+                if not id_mk:
+                    errores.append(f"Fila {idx+1}: id_mercado faltante.")
+                    continue
+                
+                if Poliza.objects.filter(id_mercado=id_mk).exists():
+                    duplicados += 1
+                    continue
+                
+                try:
+                    agente_id = request.data.get('agente_id') or 1
+                    plan_id = request.data.get('plan_id') or 1
+                    
+                    Poliza.objects.create(
+                        id_mercado=id_mk,
+                        id_miembro=row.get('id_miembro', '').strip(),
+                        costo_poliza=row.get('costo_poliza', 0) or 0,
+                        subsidio=row.get('subsidio', 0) or 0,
+                        prima_mensual=row.get('prima_mensual', 0) or 0,
+                        fecha_efectiva=row.get('fecha_efectiva', datetime.date.today().strftime('%Y-%m-%d')).strip() or datetime.date.today().strftime('%Y-%m-%d'),
+                        fecha_envio=datetime.date.today().strftime('%Y-%m-%d'),
+                        id_interno=f"INT-IMPORT-{datetime.datetime.now().timestamp()}-{idx}",
+                        agente_id=agente_id,
+                        plan_id=plan_id
+                    )
+                    creados += 1
+                except Exception as e:
+                    errores.append(f"Fila {idx+1}: {str(e)}")
+
+        return Response({
+            "mensaje": "Proceso completado",
+            "resultados": {
+                "polizas_creadas": creados,
+                "fallos_por_duplicidad_omitidos": duplicados,
+                "errores": errores
+            }
+        }, status=status.HTTP_200_OK)
+
+
+class UserPolicyStatsView(APIView):
+    """
+    Endpoint para obtener estadisticas detalladas sobre polizas, 
+    estados y consentimientos manejados por un empleado.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsManagerRole]
+
+    def get(self, request, user_id, *args, **kwargs):
+        from .models import Poliza
+        from django.db.models import Count, Q
+        
+        try:
+            target_user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+
+        # 1. Traer todas las polizas ligadas a este usuario 
+        query = Q(colaboradores=target_user)
+        if hasattr(target_user, 'profile') and target_user.profile.agente:
+            query = query | Q(agente=target_user.profile.agente)
+            
+        polizas = Poliza.objects.filter(query).distinct()
+        
+        total = polizas.count()
+        def calc_perc(part, whole):
+            if whole == 0: return "0%"
+            return f"{round((part / whole) * 100, 1)}%"
+
+        # Estatus
+        # Definiciones aproximadas sugeridas por los nombres de estado generales. 
+        # Modificar si se requiere una logica de texto distinta.
+        cancelados_count = polizas.filter(estado__nombre__icontains='cancelado').count()
+        robados_count = polizas.filter(estado__nombre__icontains='robado').count()
+        por_efectuar_count = polizas.filter(Q(estado__nombre__icontains='pending') | Q(estado__nombre__icontains='espera') | Q(estado__nombre__icontains='waiting')).count()
+        en_peligro_count = polizas.filter(Q(estado__nombre__icontains='bill') | Q(estado__nombre__icontains='payment')).count()
+        
+        # Activos: Todos los que no sean ni cancelados, ni robados, ni por efectuar, ni en peligro (o bien definirlos como los 'completed' / 'renovada' etc.)
+        # Asumiremos todos menos los identificados como errores/peligro.
+        activos_count = total - (cancelados_count + robados_count + por_efectuar_count + en_peligro_count)
+        if activos_count < 0: activos_count = 0
+
+        # Alertas
+        docs_pendientes_count = polizas.filter(estado__nombre__icontains='document').count()
+        pagos_pendientes_count = en_peligro_count # se suele usar sinonimo
+        consentimiento_count = polizas.filter(estado_consentimiento__in=['NO_ENVIADO', 'ENVIADO']).count()
+        duplicados_count = polizas.filter(es_duplicado=True).count()
+        
+        # Resumen
+        desincronizados_count = polizas.filter(id_interno__isnull=True).count() # o alguna logica definida
+
+        stats = {
+            "resumen": {
+                "total_polizas": {"count": total, "percentage": "100%"},
+                "desincronizados": {"count": desincronizados_count, "percentage": calc_perc(desincronizados_count, total)},
+            },
+            "estatus_de_las_polizas": {
+                "activos": {"count": activos_count, "percentage": calc_perc(activos_count, total)},
+                "por_efectuar": {"count": por_efectuar_count, "percentage": calc_perc(por_efectuar_count, total)},
+                "en_peligro": {"count": en_peligro_count, "percentage": calc_perc(en_peligro_count, total)},
+                "cancelados": {"count": cancelados_count, "percentage": calc_perc(cancelados_count, total)},
+                "robados": {"count": robados_count, "percentage": calc_perc(robados_count, total)},
+            },
+            "alertas": {
+                "docs_pendientes": {"count": docs_pendientes_count, "percentage": calc_perc(docs_pendientes_count, total)},
+                "pagos_pendientes": {"count": pagos_pendientes_count, "percentage": calc_perc(pagos_pendientes_count, total)},
+                "consentimiento": {"count": consentimiento_count, "percentage": calc_perc(consentimiento_count, total)},
+                "duplicados": {"count": duplicados_count, "percentage": calc_perc(duplicados_count, total)},
+            }
+        }
+        
+        return Response({
+            "usuario": {
+                "id": target_user.id,
+                "nombre": target_user.get_full_name() or target_user.username,
+            },
+            "estadisticas": stats
+        })
+
+class UserPolicyStatsDetailView(APIView):
+    """
+    Endpoint para obtener el listado de las pólizas de una subcategoría de estadísticas específica.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsManagerRole]
+
+    def get(self, request, user_id, category, *args, **kwargs):
+        from .models import Poliza
+        from django.db.models import Q
+        
+        try:
+            target_user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+
+        query = Q(colaboradores=target_user)
+        if hasattr(target_user, 'profile') and target_user.profile.agente:
+            query = query | Q(agente=target_user.profile.agente)
+            
+        polizas = Poliza.objects.filter(query).distinct()
+        
+        category = category.lower()
+        
+        if category == 'total_polizas':
+            pass
+        elif category == 'desincronizados':
+            polizas = polizas.filter(id_interno__isnull=True)
+        elif category == 'activos':
+            polizas = polizas.exclude(estado__nombre__icontains='cancelado')\
+                             .exclude(estado__nombre__icontains='robado')\
+                             .exclude(Q(estado__nombre__icontains='pending') | Q(estado__nombre__icontains='espera') | Q(estado__nombre__icontains='waiting'))\
+                             .exclude(Q(estado__nombre__icontains='bill') | Q(estado__nombre__icontains='payment'))
+        elif category == 'por_efectuar':
+            polizas = polizas.filter(Q(estado__nombre__icontains='pending') | Q(estado__nombre__icontains='espera') | Q(estado__nombre__icontains='waiting'))
+        elif category == 'en_peligro':
+            polizas = polizas.filter(Q(estado__nombre__icontains='bill') | Q(estado__nombre__icontains='payment'))
+        elif category == 'cancelados':
+            polizas = polizas.filter(estado__nombre__icontains='cancelado')
+        elif category == 'robados':
+            polizas = polizas.filter(estado__nombre__icontains='robado')
+        elif category == 'docs_pendientes':
+            polizas = polizas.filter(estado__nombre__icontains='document')
+        elif category == 'pagos_pendientes':
+            polizas = polizas.filter(Q(estado__nombre__icontains='bill') | Q(estado__nombre__icontains='payment'))
+        elif category == 'consentimiento':
+            polizas = polizas.filter(estado_consentimiento__in=['NO_ENVIADO', 'ENVIADO'])
+        elif category == 'duplicados':
+            polizas = polizas.filter(es_duplicado=True)
+        else:
+            return Response({"error": "Categoría no válida."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Preparar data
+        data = []
+        for p in polizas.select_related('estado', 'plan__aseguradora', 'agente').prefetch_related('clientes'):
+            cliente_principal = p.clientes.first()
+            cliente_nombre = f"{cliente_principal.primer_nombre} {cliente_principal.apellido_paterno}" if cliente_principal else "Sin Cliente"
+            
+            estado_nombre = p.estado.nombre if p.estado else "N/A"
+            aseguradora_nombre = p.plan.aseguradora.nombre if p.plan and hasattr(p.plan, 'aseguradora') else "N/A"
+            
+            estado_pago = "Pendiente" if any(palabra in (estado_nombre or "").lower() for palabra in ['bill', 'payment']) else "Al Día"
+            
+            # Fecha expiración simulada (sumar un año a la fecha efectiva si no hay fecha cancelación)
+            fecha_expiracion = p.fecha_cancelacion
+            if not fecha_expiracion and p.fecha_efectiva:
+                import datetime
+                try:
+                    fecha_expiracion = p.fecha_efectiva.replace(year=p.fecha_efectiva.year + 1)
+                except ValueError: # leap year 29 feb
+                    fecha_expiracion = p.fecha_efectiva + datetime.timedelta(days=365)
+
+            data.append({
+                "id": p.id,
+                "id_mercado": p.id_mercado,
+                "cliente": cliente_nombre,
+                "estado_y_compania": f"{estado_nombre} - {aseguradora_nombre}",
+                "agente": p.agente.nombre_completo if p.agente else "No Asignado",
+                "estatus": p.flujo_etapa,
+                "documentos": dict(p.ESTADO_CONSENTIMIENTO_CHOICES).get(p.estado_consentimiento, "Desconocido"),
+                "pagos": estado_pago,
+                "fecha_inicio": p.fecha_efectiva,
+                "fecha_expiracion": fecha_expiracion
+            })
+
+        return Response({
+            "usuario": {
+                "id": target_user.id,
+                "nombre": target_user.get_full_name() or target_user.username,
+            },
+            "categoria": category,
+            "total_items": len(data),
+            "polizas": data
+        })
+
+import openpyxl
+
+class ImportarPolizasExcelView(APIView):
+    """
+    Importa pólizas desde un archivo Excel (xls/xlsx) y las asocia a un empleado.
+    Crea un lote (ImportBatch) para permitir deshacer la operación (Undo).
+    Solo accesible para ADMIN o MANAGER.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsManagerRole]
+    parser_classes = [MultiPartParser]
+
+    @transaction.atomic
+    def post(self, request, *args, **kwargs):
+        file_obj = request.FILES.get('file')
+        empleado_id = request.data.get('empleado_id')
+
+        if not file_obj or not empleado_id:
+            return Response({"error": "Debe proporcionar archivo Excel ('file') y 'empleado_id'."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            empleado = User.objects.get(id=empleado_id)
+        except User.DoesNotExist:
+            return Response({"error": "Empleado no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            wb = openpyxl.load_workbook(file_obj, data_only=True)
+            sheet = wb.active
+        except Exception as e:
+            return Response({"error": f"Error leyendo el archivo Excel: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        from .models import ImportBatch
+        # Crear Lote de importacion 
+        batch = ImportBatch.objects.create(
+            usuario=empleado,
+            nombre_archivo=file_obj.name
+        )
+
+        rows = list(sheet.iter_rows(values_only=True))
+        if not rows or len(rows) < 2:
+            return Response({"error": "El archivo está vacío o no tiene datos."}, status=status.HTTP_400_BAD_REQUEST)
+
+        headers = [str(h).lower().strip() for h in rows[0]]
+        
+        created_count = 0
+        from .models import Poliza, EstadoPoliza, Aseguradora, Plan
+        
+        for idx, row in enumerate(rows[1:], start=1):
+            row_data = dict(zip(headers, row))
+            
+            # Buscar columna id_mercado (puede venir como ID Mercado, id mercado, etc)
+            id_mercado = row_data.get('id_mercado') or row_data.get('id mercado')
+            if not id_mercado: 
+                continue # Saltar filas sin ID Mercado valido
+
+            # Evitar duplicados por id_mercado
+            if Poliza.objects.filter(id_mercado=id_mercado).exists():
+                continue
+                
+            estado_obj, _ = EstadoPoliza.objects.get_or_create(nombre='new')
+            aseguradora, _ = Aseguradora.objects.get_or_create(nombre="Aseguradora Automatica")
+            plan, _ = Plan.objects.get_or_create(id_plan_aseguradora="000", aseguradora=aseguradora, defaults={"nombre": "Plan Importado"})
+            
+            poliza = Poliza.objects.create(
+                id_mercado=id_mercado,
+                id_miembro=row_data.get('id_miembro', 'N/A'),
+                costo_poliza=0, subsidio=0, prima_mensual=0,
+                fecha_efectiva=timezone.now().date(),
+                fecha_envio=timezone.now().date(),
+                id_interno=f"IMP-{batch.id.hex[:8]}-{idx}",
+                estado=estado_obj,
+                plan=plan,
+                import_batch=batch, # LIGADO AL BATCH
+            )
+            created_count += 1
+            
+            # Asignar la poliza al empleado especificamente
+            if hasattr(empleado, 'profile') and empleado.profile.agente:
+                poliza.agente = empleado.profile.agente
+            else:
+                poliza.colaboradores.add(empleado)
+                
+            poliza.save()
+
+        return Response({
+            "mensaje": "Importación completada.",
+            "batch_id": batch.id,
+            "polizas_creadas": created_count,
+            "empleado_id": empleado.id
+        }, status=status.HTTP_201_CREATED)
+
+
+class UndoImportExcelView(APIView):
+    """
+    Revierte una importación (elimina las pólizas) basada en un batch_id.
+    Solo accesible para ADMIN o MANAGER.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsManagerRole]
+
+    def post(self, request, *args, **kwargs):
+        batch_id = request.data.get('batch_id')
+        if not batch_id:
+            return Response({"error": "Proporcione 'batch_id' para deshacer."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            from .models import ImportBatch
+            batch = ImportBatch.objects.get(id=batch_id)
+        except ImportBatch.DoesNotExist:
+            return Response({"error": "Lote no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+        count = batch.polizas.count()
+        batch.polizas.all().delete()
+        batch.delete()
+
+        return Response({
+            "mensaje": "Importacion revertida exitosamente.", 
+            "polizas_borradas": count
+        }, status=status.HTTP_200_OK)
+
 
 
 

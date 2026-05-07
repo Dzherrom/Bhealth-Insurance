@@ -15,7 +15,9 @@ from .views import (
     ContratoViewSet, ReporteComisionViewSet, NotificacionViewSet,
     LocationLookupView, TarjetaCreditoViewSet, CustomTokenObtainPairView,
     MatrizPermisoRolViewSet, AuditoriaGlobalViewSet, AuditoriaConsolidadaView,
-    PolizaTransferenciaViewSet, ZohoSignWebhookView
+    PolizaTransferenciaViewSet, ZohoSignWebhookView,
+    ImportarClientesCSVView, ImportarPolizasCSVView, UserPolicyStatsView,
+    ImportarPolizasExcelView, UndoImportExcelView, UserPolicyStatsDetailView
 )
 from .views_consent import ConsentRequestViewSet
 
@@ -59,6 +61,12 @@ urlpatterns = [
     path('reportes/auditoria-consolidada/', AuditoriaConsolidadaView.as_view(), name='auditoria-consolidada'),
     path('dashboard/stats/', DashboardStatsView.as_view(), name='dashboard-stats'),
     path('webhooks/zohosign/', ZohoSignWebhookView.as_view(), name='webhook-zohosign'),
+    path('clientes/import-csv/', ImportarClientesCSVView.as_view(), name='import-clientes-csv'),
+    path('polizas/import-csv/', ImportarPolizasCSVView.as_view(), name='import-polizas-csv'),
+    path('polizas/import-excel/', ImportarPolizasExcelView.as_view(), name='import-polizas-excel'),
+    path('polizas/import-excel/undo/', UndoImportExcelView.as_view(), name='undo-import-excel'),
+    path('users/<int:user_id>/stats/', UserPolicyStatsView.as_view(), name='user-policy-stats'),
+    path('users/<int:user_id>/stats/<str:category>/', UserPolicyStatsDetailView.as_view(), name='user-policy-stats-detail'),
     path('', include(router.urls)),
 ]
 

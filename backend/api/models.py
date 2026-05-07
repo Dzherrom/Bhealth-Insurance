@@ -1,3 +1,4 @@
+import uuid
 from django.db import models
 from django.db.models import Q
 from django.contrib.auth.models import User
@@ -106,6 +107,15 @@ class Plan(models.Model):
     def __str__(self):
         return self.nombre
 
+class ImportBatch(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name='import_batches')
+    fecha_importacion = models.DateTimeField(auto_now_add=True)
+    nombre_archivo = models.CharField(max_length=255)
+
+    def __str__(self):
+        return f"{self.nombre_archivo} - {self.fecha_importacion.strftime('%Y-%m-%d %H:%M')}"
+
 class EstadoPoliza(models.Model):
     nombre = models.CharField(max_length=100, unique=True, verbose_name="Nombre Estado")
 
@@ -123,6 +133,11 @@ class Poliza(models.Model):
         ('EN_PROCESO_SHERPA', 'En Proceso Sherpa'),
         ('DEVUELTA_ASISTENTE', 'Devuelta a Asistente'),
         ('COMPLETADA_SHERPA', 'Completada por Sherpa'),
+    ]
+    ESTADO_CONSENTIMIENTO_CHOICES = [
+        ('NO_ENVIADO', 'No Enviado'),
+        ('ENVIADO', 'Enviado / Pendiente de Firma'),
+        ('FIRMADO', 'Recibido / Firmado'),
     ]
 
     id_mercado = models.CharField(max_length=100, verbose_name="ID Mercado")
@@ -154,6 +169,15 @@ class Poliza(models.Model):
     razon_inscripcion_especial = models.CharField(max_length=255, blank=True, null=True, verbose_name="Razón Inscripción Especial")
     fecha_inscripcion_especial = models.DateField(null=True, blank=True, verbose_name="Fecha Inscripción Especial")
     
+    # Archivos Legales
+    archivo_consentimiento = models.FileField(upload_to='consentimientos/', blank=True, null=True, verbose_name="Archivo de Consentimiento")
+    estado_consentimiento = models.CharField(
+        max_length=50,
+        choices=ESTADO_CONSENTIMIENTO_CHOICES,
+        default='NO_ENVIADO',
+        verbose_name="Estado de Consentimiento"
+    )
+    
     # Information Totals
     total_miembros = models.IntegerField(default=0, verbose_name="Total Miembros")
     total_aplicantes = models.IntegerField(default=0, verbose_name="Total Aplicantes")
@@ -168,6 +192,7 @@ class Poliza(models.Model):
     plan = models.ForeignKey(Plan, on_delete=models.CASCADE, related_name='polizas')
     clientes = models.ManyToManyField(Cliente, through='PolizaCliente', related_name='polizas')
     colaboradores = models.ManyToManyField(User, related_name='polizas_colaboracion', blank=True, verbose_name="Colaboradores")
+    import_batch = models.ForeignKey(ImportBatch, on_delete=models.SET_NULL, null=True, blank=True, related_name='polizas')
 
     def __str__(self):
         return self.id_mercado

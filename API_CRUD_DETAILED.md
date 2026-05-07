@@ -23,9 +23,15 @@ Este documento proporciona ejemplos detallados de todos los endpoints CRUD del s
 13. [Recordatorios](#recordatorios)
 14. [Notificaciones](#notificaciones)
 15. [Tarjetas de Crédito](#tarjetas-de-crédito)
-16. [Utilidades y Búsqueda](#utilidades-y-búsqueda)
-17. [Actividad del Sistema](#actividad-del-sistema)
-18. [Dashboard](#dashboard)
+16. [Flujo Departamental de Pólizas](#flujo-departamental-de-pólizas)
+17. [Matriz de Permisos por Rol](#matriz-de-permisos-por-rol)
+18. [Auditoría Global](#auditoría-global)
+19. [Utilidades y Búsqueda](#utilidades-y-búsqueda)
+20. [Actividad del Sistema](#actividad-del-sistema)
+21. [Dashboard](#dashboard)
+22. [Contratos y Zoho Sign](#contratos-y-zoho-sign)
+23. [Importación Masiva (CSV)](#importación-masiva-csv)
+24. [Estadísticas de Usuario](#estadísticas-de-usuario)
 
 ---
 
@@ -488,6 +494,7 @@ Content-Type: application/json
   "plan_era": "Silver Plan 2023",
   "fecha_efectiva": "2024-02-01",
   "estado": 1,
+  "flujo_etapa": "CAPTURA_ASISTENTE",
   "fecha_envio": "2024-01-15",
   "fecha_cancelacion": null,
   "id_interno": "INT-001234",
@@ -553,6 +560,27 @@ Content-Type: application/json
 - `estado`: ID del Estado de Póliza
 - `agente`: ID del Agente responsable
 - `plan` (requerido): ID del Plan
+
+**Flujo Departamental:**
+- `flujo_etapa`: Etapa actual del expediente en el flujo operativo (default: `CAPTURA_ASISTENTE`)
+
+**Consentimiento (Gestión Manual):**
+- `estado_consentimiento`: Estado del documento (valores: `NO_ENVIADO`, `ENVIADO`, `FIRMADO`. Default: `NO_ENVIADO`).
+- `archivo_consentimiento`: Archivo adjunto firmado por el cliente. Solo se usa `multipart/form-data` en la petición cuando se sube el archivo.
+
+**Contexto del Usuario Autenticado en Respuesta:**
+- `request_user_role`: Rol del usuario autenticado que está consumiendo el endpoint. Este campo viene en el payload JSON de pólizas para facilitar decisiones de UI del frontend sin depender únicamente del token.
+
+**Ejemplo de Respuesta de Póliza:**
+```json
+{
+  "id": 25,
+  "id_mercado": "MKT-2024-001234",
+  "estado": 1,
+  "flujo_etapa": "REVISION_MANAGER",
+  "request_user_role": "MANAGER"
+}
+```
 
 **IDs y Control:**
 - `id_interno` (requerido): ID interno del sistema
@@ -1100,6 +1128,328 @@ Content-Type: application/json
 
 ---
 
+## Flujo Departamental de Pólizas
+
+El sistema ahora incluye un flujo formal de expediente entre Asistente, Manager y Sherpa.
+
+**Endpoint Base:** `/api/polizas/{id}/`
+
+### Campo Nuevo en Póliza: `flujo_etapa`
+
+La póliza incluye el campo `flujo_etapa` tanto en listados como en detalle.
+
+**Valores disponibles de `flujo_etapa`:**
+- `CAPTURA_ASISTENTE`: expediente en captura del asistente.
+- `REVISION_MANAGER`: expediente entregado para revisión de manager.
+- `EN_PROCESO_SHERPA`: expediente aprobado y en proceso técnico con sherpa.
+- `DEVUELTA_ASISTENTE`: expediente rechazado y devuelto al asistente.
+- `COMPLETADA_SHERPA`: expediente completado por sherpa.
+
+### 1) Pase del Asistente al Manager
+```
+POST /api/polizas/{id}/pase_a_manager/
+Content-Type: application/json
+```
+
+**Request Body (opcional):**
+```json
+{
+  "nota": "Expediente listo para revisión"
+}
+```
+
+**Regla de estado:**
+- Solo permite pase cuando la póliza está en `CAPTURA_ASISTENTE` o `DEVUELTA_ASISTENTE`.
+
+**Respuesta Esperada (201 Created):**
+```json
+{
+  "id": 12,
+  "poliza": 25,
+  "de_usuario": 7,
+  "a_usuario": null,
+  "de_rol": "ASISTENTE",
+  "a_rol": "MANAGER",
+  "accion": "ENTREGA_ASISTENTE_MANAGER",
+  "nota": "Expediente listo para revisión",
+  "fecha": "2026-04-26T23:10:00Z",
+  "request_user_role": "ASISTENTE"
+}
+```
+
+### 2) Pase del Manager al Sherpa
+```
+POST /api/polizas/{id}/pase_a_sherpa/
+Content-Type: application/json
+```
+
+**Request Body (opcional):**
+```json
+{
+  "nota": "Validado por manager, procede sometimiento"
+}
+```
+
+**Regla de estado:**
+- Solo permite pase cuando la póliza está en `REVISION_MANAGER`.
+
+**Respuesta Esperada (201 Created):**
+```json
+{
+  "id": 13,
+  "poliza": 25,
+  "de_rol": "MANAGER",
+  "a_rol": "SHERPA",
+  "accion": "APROBACION_MANAGER_SHERPA",
+  "nota": "Validado por manager, procede sometimiento",
+  "request_user_role": "MANAGER"
+}
+```
+
+### 3) Devolución del Sherpa al Asistente
+```
+POST /api/polizas/{id}/devolver_a_asistente/
+Content-Type: application/json
+```
+
+**Request Body (requerido):**
+```json
+{
+  "nota": "Documento borroso, favor re-subir identificación"
+}
+```
+
+**Regla de estado:**
+- Solo permite devolución cuando la póliza está en `EN_PROCESO_SHERPA`.
+- La `nota` es obligatoria.
+
+**Respuesta Esperada (201 Created):**
+```json
+{
+  "id": 14,
+  "poliza": 25,
+  "de_rol": "SHERPA",
+  "a_rol": "ASISTENTE",
+  "accion": "DEVOLUCION_SHERPA_ASISTENTE",
+  "nota": "Documento borroso, favor re-subir identificación",
+  "request_user_role": "SHERPA"
+}
+```
+
+### 4) Cierre Técnico por Sherpa
+```
+POST /api/polizas/{id}/cerrar_en_sherpa/
+Content-Type: application/json
+```
+
+**Request Body (opcional):**
+```json
+{
+  "nota": "Sometimiento finalizado correctamente"
+}
+```
+
+**Regla de estado:**
+- Solo permite cierre cuando la póliza está en `EN_PROCESO_SHERPA`.
+
+**Respuesta Esperada (201 Created):**
+```json
+{
+  "id": 15,
+  "poliza": 25,
+  "de_rol": "SHERPA",
+  "a_rol": "SHERPA",
+  "accion": "CIERRE_SHERPA",
+  "nota": "Sometimiento finalizado correctamente",
+  "request_user_role": "SHERPA"
+}
+```
+
+### Historial de Transferencias de Flujo
+
+**Endpoint Base:** `/api/transferencias-poliza/`
+
+### Listar Transferencias
+```
+GET /api/transferencias-poliza/
+```
+
+### Obtener Una Transferencia
+```
+GET /api/transferencias-poliza/{id}/
+```
+
+**Campos relevantes de transferencia:**
+- `poliza`: ID de la póliza
+- `de_usuario`, `a_usuario`
+- `de_rol`, `a_rol`
+- `accion`
+- `nota`
+- `fecha`
+- `request_user_role`: Rol del usuario autenticado que consulta la transferencia
+
+**Valores de `accion`:**
+- `ENTREGA_ASISTENTE_MANAGER`
+- `APROBACION_MANAGER_SHERPA`
+- `DEVOLUCION_SHERPA_ASISTENTE`
+- `CIERRE_SHERPA`
+
+---
+
+## Matriz de Permisos por Rol
+
+Módulo administrativo para permisos granulares dinámicos por rol.
+
+**Endpoint Base:** `/api/matriz-permisos/`
+
+**Acceso:** Solo `ADMIN`.
+
+### Listar Reglas de Matriz
+```
+GET /api/matriz-permisos/
+```
+
+### Obtener Una Regla
+```
+GET /api/matriz-permisos/{id}/
+```
+
+### Crear Regla de Permiso
+```
+POST /api/matriz-permisos/
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "role": "MANAGER",
+  "modulo": "POLIZA_FLUJO",
+  "accion": "PASE_A_SHERPA",
+  "permitido": true,
+  "descripcion": "Permite aprobar expedientes hacia sherpa"
+}
+```
+
+### Actualizar Regla
+```
+PUT /api/matriz-permisos/{id}/
+PATCH /api/matriz-permisos/{id}/
+```
+
+### Eliminar Regla
+```
+DELETE /api/matriz-permisos/{id}/
+```
+
+### Validar Regla (Endpoint Auxiliar)
+```
+POST /api/matriz-permisos/validar/
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "role": "SHERPA",
+  "modulo": "POLIZA_FLUJO",
+  "accion": "DEVOLVER_A_ASISTENTE"
+}
+```
+
+**Response:**
+```json
+{
+  "role": "SHERPA",
+  "modulo": "POLIZA_FLUJO",
+  "accion": "DEVOLVER_A_ASISTENTE",
+  "permitido": true
+}
+```
+
+---
+
+## Auditoría Global
+
+Registro consolidado de eventos críticos del sistema y de flujo departamental.
+
+### Bitácora CRUD de Auditoría Global
+
+**Endpoint Base:** `/api/auditoria-global/`
+
+**Acceso:** Solo `ADMIN`.
+
+### Listar Eventos
+```
+GET /api/auditoria-global/
+```
+
+### Obtener Evento
+```
+GET /api/auditoria-global/{id}/
+```
+
+**Campos relevantes:**
+- `usuario`
+- `accion`
+- `modelo`
+- `objeto_id`
+- `detalles`
+- `ip_address`
+- `fecha`
+
+### Reporte Consolidado de Auditoría
+
+Este endpoint combina en una sola respuesta:
+- Auditoría global
+- Historial de pólizas
+- Intentos de login fallido
+
+```
+GET /api/reportes/auditoria-consolidada/
+```
+
+**Parámetros opcionales:**
+- `limit` (máximo 1000)
+
+**Ejemplo:**
+```
+GET /api/reportes/auditoria-consolidada/?limit=200
+```
+
+**Response (ejemplo):**
+```json
+[
+  {
+    "fuente": "auditoria_global",
+    "fecha": "2026-04-26T22:00:00Z",
+    "accion": "TRANSFERENCIA_POLIZA",
+    "modelo": "PolizaTransferencia",
+    "usuario": "manager_1",
+    "detalles": "Póliza MKT-2024-001: MANAGER -> SHERPA. Acción: APROBACION_MANAGER_SHERPA"
+  },
+  {
+    "fuente": "historial_poliza",
+    "fecha": "2026-04-26T21:55:00Z",
+    "accion": "TRANSFERENCIA",
+    "modelo": "Poliza",
+    "usuario": "asistente_1",
+    "detalles": "ENTREGA_ASISTENTE_MANAGER: ASISTENTE -> MANAGER. Nota: Expediente listo",
+    "poliza_id_mercado": "MKT-2024-001"
+  },
+  {
+    "fuente": "intento_login_fallido",
+    "fecha": "2026-04-26T21:45:00Z",
+    "accion": "LOGIN_FALLIDO",
+    "modelo": "Auth",
+    "usuario": "usuario@correo.com",
+    "detalles": "IP: 127.0.0.1"
+  }
+]
+```
+
+---
+
 ## Utilidades y Búsqueda
 
 ### Búsqueda de Ubicación (Zip Code)
@@ -1161,7 +1511,8 @@ POST /api/polizas/{id}/heartbeat/
 ```json
 {
   "status": "ok",
-  "mode": "webhook"
+  "mode": "webhook",
+  "request_user_role": "ASISTENTE"
 }
 ```
 *El sistema enviará el evento a la URL configurada en `ACTIVITY_WEBHOOK_URL`.*
@@ -1202,6 +1553,186 @@ GET /api/dashboard/stats/
 
 **Notas:**
 - `total_aplicantes`: El número total de aplicantes activos en el sistema (suma global).
+
+---
+
+## Contratos y Zoho Sign
+
+El sistema de contratos permite la gestión de acuerdos y automatiza el flujo de firma electrónica de los Agentes a través de una integración con **Zoho Sign**.
+
+**Endpoint Base para Contratos:** `/api/contratos/`
+
+### Listar Contratos
+```
+GET /api/contratos/
+```
+
+### Obtener Un Contrato
+```
+GET /api/contratos/{id}/
+```
+
+### Crear Contrato
+
+```
+POST /api/contratos/
+Content-Type: multipart/form-data
+```
+
+**Request Body (multipart/form-data):**
+```
+titulo=Contrato de Agente 2026
+agente=1
+archivo=@/path/to/contrato.pdf
+fecha_inicio=2026-01-01
+fecha_fin=2026-12-31
+activo=true
+descripcion=Contrato estándar anual
+```
+
+**Notas sobre campos de Contrato:**
+- `titulo` (requerido): Título del contrato
+- `agente` (requerido): ID del Agente asociado al que se le vincula el contrato
+- `archivo` (requerido): Documento PDF del contrato subido desde local (multipart/form-data)
+- `fecha_inicio` (requerido): Fecha de inicio de validez del contrato
+- `fecha_fin`: Fecha de término (opcional)
+- `activo`: Activar/Desactivar el contrato (default: true)
+- `zoho_request_id`: ID devuelto por la API de Zoho Sign (solo lectura, se asigna automáticamente al enviar a firmar)
+- `zoho_status`: Estado actual de la firma en Zoho Sign (solo lectura, se actualiza automáticamente). Ej: `IN-PROGRESS`, `COMPLETED`
+
+### Enviar Contrato para Firma Electrónica con Zoho Sign
+
+El sistema permite enviar un contrato (ya creado en la BD y con un PDF adjunto) a Zoho Sign para que el Agente reciba un correo y proceda a firmarlo digitalmente.
+
+```
+POST /api/contratos/{id}/send-to-zohosign/
+Content-Type: application/json
+```
+
+**Request Body (Opcional - Correo Fallback):**
+El backend intentará extraer el email del Agente desde su `UserProfile` conectado automáticamente. Si el Agente no tiene un correo asignado en tu base de datos, tú puedes (y debes) pasarle un correo alternativo por el `body`:
+```json
+{
+  "email": "correo.del.agente@domain.com"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "message": "Contrato enviado a Zoho Sign exitosamente.",
+  "zoho_response": {
+     "requests": {
+         "request_id": "3000xxxxxxxxxxx001",
+         "request_status": "IN-PROGRESS",
+         "action": [ ... ]
+     }
+  }
+}
+```
+*Al ejecutar esto, el backend guarda automáticamente el `zoho_request_id` devuelto y coloca el `zoho_status` en "IN-PROGRESS" en el modelo del Contrato.*
+
+---
+
+### Webhook de Zoho Sign (Automatización de Estados)
+
+Este no es un recurso frontend, pero debes conocer su comportamiento: el backend ahora expone un **Webhook** que funciona de forma autónoma.
+
+**Endpoint:** `POST /api/webhooks/zohosign/` (Sin Autenticación - Configurado en el portal de developers de Zoho)
+
+**Funcionamiento asíncrono para el frontend:**
+1. Cuando el Agente reciba el email y firme el contrato de Zoho Sign, su portal de developers hará un llamado al Webhook de Django.
+2. El Webhook buscará el ID del documento, pasará el valor de `zoho_status` a `"COMPLETED"`.
+3. A continuación (y sin requerir que mandes peticiones adicionales), el Webhook descargará automáticamente el Contrato **con la firma digital y sellos de auditoría de Zoho** inyectada en el documento PDF en binario.
+4. Sobreescribirá el PDF original de la BD con el documento que incluye las firmas de los agentes dándole el prefijo `firmado_`.
+
+---
+
+## Importación Masiva (CSV)
+
+El sistema permite cargar cientos de registros simultáneamente usando archivos `.csv` en codificación UTF-8. El backend incluye una lógica profunda de prevención de duplicados.
+
+**Endpoint Base para Clientes:** `/api/clientes/import-csv/`
+
+```
+POST /api/clientes/import-csv/
+Content-Type: multipart/form-data
+```
+
+**Request Body (multipart/form-data):**
+- `archivo`: El archivo `.csv` (Requerido).
+
+**Comportamiento de Prevención de Duplicados (Clientes):**
+El sistema leerá el `ssn` y el `email`. Si encuentra un cliente en la base de datos que coincida, **saltará** ese registro en la subida para evitar basura.
+
+**Response:**
+```json
+{
+  "mensaje": "Proceso completado",
+  "resultados": {
+    "nuevos_clientes_creados": 20,
+    "clientes_ya_existentes_saltados": 5,
+    "errores": []
+  }
+}
+```
+
+---
+
+**Endpoint Base para Pólizas:** `/api/polizas/import-csv/`
+
+```
+POST /api/polizas/import-csv/
+Content-Type: multipart/form-data
+```
+
+**Request Body (multipart/form-data):**
+- `archivo`: El archivo `.csv` (Requerido).
+- `agente_id`: El ID del agente al que se le aplicarán estas pólizas (Opcional, default: 1).
+- `plan_id`: El ID del plan genérico (Opcional, default: 1).
+
+**Comportamiento de Prevención de Duplicados (Pólizas):**
+El sistema buscará el `id_mercado`. Las pólizas que contengan un ID que ya pertenece al sistema serán omitidas automáticamente sumándolas al contador de duplicados.
+
+---
+
+## Estadísticas de Usuario
+
+Permite a un administrador o al mismo agente consultar su volumen de trabajo y desempeño desglosado en contadores específicos. El sistema busca todas las pólizas donde este usuario sea el Agente oficial, o donde fue añadido como Colaborador.
+
+**Endpoint:** `/api/users/{user_id}/stats/`
+
+```
+GET /api/users/2/stats/
+```
+
+**Respuesta Exitosa (200 OK):**
+```json
+{
+  "usuario": {
+    "id": 2,
+    "nombre": "Maria Fernandez"
+  },
+  "estadisticas": {
+    "total_polizas": 331,
+    "por_estado_de_la_poliza": {
+      "Cancelada": 25,
+      "Activa": 240,
+      "Pendiente de Pago": 66
+    },
+    "por_flujo_departamental": {
+      "EN_PROCESO_SHERPA": 33,
+      "COMPLETADA_SHERPA": 200,
+      "CAPTURA_ASISTENTE": 98
+    },
+    "por_estado_consentimiento": {
+      "NO_ENVIADO": 200,
+      "ENVIADO": 31,
+      "FIRMADO": 100
+    }
+  }
+}
+```
 
 ---
 
@@ -1391,6 +1922,29 @@ POST /api/notas/
 }
 ```
 
+### Flujo 4: Actualización Manual de Consentimiento
+
+El sistema permite ahora que los usuarios manejen el estatus de su consentimiento por su propio lado de forma manual para una póliza.
+
+**Paso 1: Cambiar el Estatus al Enviarlo al Cliente**
+Cuando un agente imprime o manda por un correo ajeno al sistema el documento:
+```json
+PATCH /api/polizas/1/
+{
+  "estado_consentimiento": "ENVIADO"
+}
+```
+
+**Paso 2: Subir el Documento Cuando el Cliente Lo Devuelve Firmado**
+Como se requiere subir el documento escaneado/fotografiado, se usa `multipart/form-data`:
+```http
+PATCH /api/polizas/1/
+Content-Type: multipart/form-data
+
+estado_consentimiento=FIRMADO
+archivo_consentimiento=@/ruta/al/documento_firmado.pdf
+```
+
 ---
 
 ## Códigos de Respuesta HTTP
@@ -1406,6 +1960,102 @@ POST /api/notas/
 
 ---
 
-**Última actualización:** Enero 2024
+## Estadísticas de Usuario y Cargas Masivas
+
+### 1. Obtener Estadísticas por Empleado
+Permite listar las estadísticas, separadas en Resumen, Estatus de las pólizas y Alertas. Solo accesible para `ADMIN` o `MANAGER`.
+
+```http
+GET /api/users/{user_id}/stats/
+```
+
+**Respuesta de Ejemplo:**
+```json
+{
+  "usuario": {
+    "id": 4,
+    "nombre": "Agente Demo"
+  },
+  "estadisticas": {
+    "resumen": {
+      "total_polizas": {"count": 100, "percentage": "100%"},
+      "desincronizados": {"count": 5, "percentage": "5.0%"}
+    },
+    "estatus_de_las_polizas": {},
+    "alertas": {}
+  }
+}
+```
+
+### 2. Detalles de Subcategoría Estadística
+Desglose detallado tabular de las pólizas correspondientes a una de las categorías anteriores. 
+
+```http
+GET /api/users/{user_id}/stats/{categoria}/
+```
+Categorías aceptadas: `total_polizas`, `desincronizados`, `activos`, `por_efectuar`, `en_peligro`, `cancelados`, `robados`, `docs_pendientes`, `pagos_pendientes`, `consentimiento`, `duplicados`.
+
+**Respuesta de Ejemplo:**
+```json
+{
+  "usuario": { "id": 4, "nombre": "Agente Demo" },
+  "categoria": "docs_pendientes",
+  "total_items": 1,
+  "polizas": [
+    {
+      "id": 12,
+      "id_mercado": "MKT-12345",
+      "cliente": "Juan Perez",
+      "estado_y_compania": "Pending Document - Ambetter",
+      "agente": "Agente Demo",
+      "estatus": "CAPTURA_ASISTENTE",
+      "documentos": "Enviado / Pendiente de Firma",
+      "pagos": "Al Día",
+      "fecha_inicio": "2024-01-01",
+      "fecha_expiracion": "2025-01-01"
+    }
+  ]
+}
+```
+
+### 3. Importación Masiva de Excel
+Importa pólizas desde un archivo `.xls` o `.xlsx` y las ata directamente a un Agente o Colaborador. Crea un *lote/batch*.
+
+```http
+POST /api/polizas/import-excel/
+Content-Type: multipart/form-data
+
+file=@/ruta/al/archivo.xlsx
+empleado_id=4
+```
+
+**Respuesta de Ejemplo:**
+```json
+{
+  "mensaje": "Importación completada.",
+  "batch_id": "a1b2c3d4-e5f6-7890-a1b2-c3d4e5f67890",
+  "polizas_creadas": 45,
+  "empleado_id": 4
+}
+```
+
+### 4. Deshacer Importación (Undo)
+Elimina masivamente todas las pólizas creadas mediante el archivo de importación anterior.
+
+```http
+POST /api/polizas/import-excel/undo/
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "batch_id": "a1b2c3d4-e5f6-7890-a1b2-c3d4e5f67890"
+}
+```
+
+---
+
+**Última actualización:** Mayo 2026
 
 Para más información o soporte, contactar al equipo de desarrollo.
