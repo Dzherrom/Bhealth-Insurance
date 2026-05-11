@@ -1546,13 +1546,59 @@ GET /api/dashboard/stats/
   "earnings_chart": [],
   "new_prospects_chart": [],
   "effective_policies_chart": [],
-  "policies_by_status_chart": [],
-  "tags_usage_chart": []
+  "policies_by_status_chart": [
+    {
+      "status": "Activa",
+      "count": 150
+    }
+  ],
+  "tags_usage_chart": [],
+  "general_stats": {
+    "resumen": {
+      "total_polizas": {"count": 300, "percentage": "100%"},
+      "desincronizados": {"count": 10, "percentage": "3.3%"}
+    },
+    "estatus_de_las_polizas": {
+      "activos": {"count": 250, "percentage": "83.3%"},
+      "por_efectuar": {"count": 20, "percentage": "6.6%"},
+      "en_peligro": {"count": 15, "percentage": "5.0%"},
+      "cancelados": {"count": 10, "percentage": "3.3%"},
+      "robados": {"count": 5, "percentage": "1.6%"}
+    },
+    "alertas": {
+      "docs_pendientes": {"count": 30, "percentage": "10.0%"},
+      "pagos_pendientes": {"count": 15, "percentage": "5.0%"},
+      "consentimiento": {"count": 50, "percentage": "16.6%"},
+      "duplicados": {"count": 2, "percentage": "0.6%"}
+    }
+  },
+  "company_balance": {
+    "pagadas_monto": 125000.00,
+    "no_pagadas_monto": 15000.00,
+    "total_estimado": 140000.00
+  },
+  "policies_by_state_map": [
+    {
+      "state": "FLORIDA",
+      "count": 80
+    }
+  ],
+  "agents_current_period_chart": [
+    {
+      "nombre": "Juan Pérez",
+      "num_polizas": 12
+    }
+  ]
 }
 ```
 
 **Notas:**
 - `total_aplicantes`: El número total de aplicantes activos en el sistema (suma global).
+- `policies_by_status_chart`: Gráfico con las pólizas divididas en los diferentes estados (Activa, Cancelada, etc.).
+- `general_stats`: Información de estadísticas generales globales que mantiene la misma estructura del endpoint de empleado (incluye resumen, estatus y alertas con sus respectivos porcentajes).
+- `company_balance`: Balance de la empresa agrupado en el monto de pólizas pagadas (activas) y no pagadas (en periodo de gracia, por efectuar, etc.).
+- `policies_by_state_map`: Arreglo para ser mapeado en un mapa de EEUU. Agrupa pólizas por estado (ej. FLORIDA, TEXAS) y su conteo respectivo.
+- `agents_current_period_chart`: Estadísticas de rendimiento por agente con el conteo respectivo de pólizas registradas únicamente durante el mes y año actual.
 
 ---
 
