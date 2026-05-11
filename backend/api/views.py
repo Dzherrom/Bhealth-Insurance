@@ -159,6 +159,105 @@ class DashboardStatsView(APIView):
                 "percentage": round(usage_pct, 2)
             })
 
+        # --- NEW DASHBOARD STATS REQUESTED ---
+        
+        from django.db.models import Q
+        all_polizas = Poliza.objects.all()
+        total_all = all_polizas.count()
+        def calc_perc(part, whole):
+            if whole == 0: return "0%"
+            return f"{round((part / whole) * 100, 1)}%"
+
+        # 10. General Stats (like UserPolicyStatsView but global)
+        cancelados_qs = all_polizas.filter(estado__nombre__icontains='cancelado')
+        robados_qs = all_polizas.filter(estado__nombre__icontains='robado')
+        por_efectuar_qs = all_polizas.filter(Q(estado__nombre__icontains='pending') | Q(estado__nombre__icontains='espera') | Q(estado__nombre__icontains='waiting'))
+        en_peligro_qs = all_polizas.filter(Q(estado__nombre__icontains='bill') | Q(estado__nombre__icontains='payment'))
+        
+        cancelados_count = cancelados_qs.count()
+        robados_count = robados_qs.count()
+        por_efectuar_count = por_efectuar_qs.count()
+        en_peligro_count = en_peligro_qs.count()
+        
+        activos_count = total_all - (cancelados_count + robados_count + por_efectuar_count + en_peligro_count)
+        if activos_count < 0: activos_count = 0
+        
+        docs_pendientes_count = all_polizas.filter(estado__nombre__icontains='document').count()
+        pagos_pendientes_count = en_peligro_count
+        consentimiento_count = all_polizas.filter(estado_consentimiento__in=['NO_ENVIADO', 'ENVIADO']).count()
+        duplicados_count = all_polizas.filter(es_duplicado=True).count()
+        desincronizados_count = all_polizas.filter(id_interno__isnull=True).count()
+
+        stats['general_stats'] = {
+            "resumen": {
+                "total_polizas": {"count": total_all, "percentage": "100%"},
+                "desincronizados": {"count": desincronizados_count, "percentage": calc_perc(desincronizados_count, total_all)},
+            },
+            "estatus_de_las_polizas": {
+                "activos": {"count": activos_count, "percentage": calc_perc(activos_count, total_all)},
+                "por_efectuar": {"count": por_efectuar_count, "percentage": calc_perc(por_efectuar_count, total_all)},
+                "en_peligro": {"count": en_peligro_count, "percentage": calc_perc(en_peligro_count, total_all)},
+                "cancelados": {"count": cancelados_count, "percentage": calc_perc(cancelados_count, total_all)},
+                "robados": {"count": robados_count, "percentage": calc_perc(robados_count, total_all)},
+            },
+            "alertas": {
+                "docs_pendientes": {"count": docs_pendientes_count, "percentage": calc_perc(docs_pendientes_count, total_all)},
+                "pagos_pendientes": {"count": pagos_pendientes_count, "percentage": calc_perc(pagos_pendientes_count, total_all)},
+                "consentimiento": {"count": consentimiento_count, "percentage": calc_perc(consentimiento_count, total_all)},
+                "duplicados": {"count": duplicados_count, "percentage": calc_perc(duplicados_count, total_all)},
+            }
+        }
+
+        # 11. Balance de Empresa (Pólizas Pagadas vs No Pagadas)
+        # We assume Pagadas = activos, No Pagadas = por_efectuar + en_peligro
+        # Using prima_mensual to calculate balance.
+        # Ensure we don't crash if prima_mensual is null/empty.
+        
+        pagadas_monto = all_polizas.exclude(
+            id__in=cancelados_qs.values('id')
+        ).exclude(
+            id__in=robados_qs.values('id')
+        ).exclude(
+            id__in=por_efectuar_qs.values('id')
+        ).exclude(
+            id__in=en_peligro_qs.values('id')
+        ).aggregate(t=Sum('prima_mensual'))['t'] or 0
+        
+        no_pagadas_monto = (por_efectuar_qs | en_peligro_qs).aggregate(t=Sum('prima_mensual'))['t'] or 0
+        
+        stats['company_balance'] = {
+            "pagadas_monto": float(pagadas_monto),
+            "no_pagadas_monto": float(no_pagadas_monto),
+            "total_estimado": float(pagadas_monto + no_pagadas_monto)
+        }
+
+        # 12. Mapa de EEUU (Policies by State)
+        policies_by_state = Poliza.objects.exclude(
+            direccion_fisica__estado__isnull=True
+        ).values('direccion_fisica__estado').annotate(count=Count('id'))
+        
+        stats['policies_by_state_map'] = [
+            {
+                "state": p['direccion_fisica__estado'].upper() if p['direccion_fisica__estado'] else "UNKNOWN",
+                "count": p['count']
+            } for p in policies_by_state if p['direccion_fisica__estado']
+        ]
+
+        # 13. Tarjeta de agentes con pólizas en este periodo (Este mes)
+        agentes_periodo = Agente.objects.filter(
+            polizas__fecha_envio__month=now.month,
+            polizas__fecha_envio__year=now.year
+        ).annotate(
+            num_polizas=Count('polizas')
+        ).order_by('-num_polizas')[:10]
+        
+        stats['agents_current_period_chart'] = [
+            {
+                "nombre": ag.nombre_completo,
+                "num_polizas": ag.num_polizas
+            } for ag in agentes_periodo
+        ]
+
         return Response(stats)
 from .serializers import (
     UserSerializer, UserProfileSerializer, AgenciaSerializer,
@@ -1341,10 +1440,7 @@ class UserPolicyStatsDetailView(APIView):
             "polizas": data
         })
 
-try:
-    import openpyxl
-except ModuleNotFoundError:
-    openpyxl = None
+import openpyxl
 
 class ImportarPolizasExcelView(APIView):
     """
@@ -1357,12 +1453,6 @@ class ImportarPolizasExcelView(APIView):
 
     @transaction.atomic
     def post(self, request, *args, **kwargs):
-        if openpyxl is None:
-            return Response(
-                {"error": "La librería 'openpyxl' no está instalada en el servidor."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
         file_obj = request.FILES.get('file')
         empleado_id = request.data.get('empleado_id')
 
