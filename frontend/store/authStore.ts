@@ -1,13 +1,36 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import { authApi } from '@/lib/api';
-import type { User, LoginData, RegisterData } from '@/types';
+import { extractRoleFromToken, decodeJwtPayload } from '@/lib/jwt';
+import type { User, LoginData, RegisterData, UserRole } from '@/types';
+
+// -----------------------------------------------
+// Helpers de cookie para el middleware Edge
+// El middleware de Next.js solo puede leer cookies,
+// no localStorage, por eso sincronizamos ambos.
+// -----------------------------------------------
+
+function setAuthCookie(token: string): void {
+  if (typeof document === 'undefined') return;
+  const payload = decodeJwtPayload(token);
+  const expStr = payload?.exp
+    ? `; expires=${new Date(payload.exp * 1000).toUTCString()}`
+    : '';
+  document.cookie = `access_token=${token}${expStr}; path=/; SameSite=Strict`;
+}
+
+function clearAuthCookie(): void {
+  if (typeof document === 'undefined') return;
+  document.cookie = 'access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict';
+}
 
 export interface AuthState {
   // Estado
   user: User | null;
   accessToken: string | null;
   refreshToken: string | null;
+  /** Rol extraído del claim `role` del JWT access token */
+  role: UserRole | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
@@ -31,6 +54,7 @@ export const useAuthStore = create<AuthState>()(
         user: null,
         accessToken: null,
         refreshToken: null,
+        role: null,
         isAuthenticated: false,
         isLoading: false,
         error: null,
@@ -40,9 +64,12 @@ export const useAuthStore = create<AuthState>()(
           set({ isLoading: true, error: null });
           try {
             const tokens = await authApi.login(data);
+            const role = extractRoleFromToken(tokens.access);
+            setAuthCookie(tokens.access);
             set({
               accessToken: tokens.access,
               refreshToken: tokens.refresh,
+              role,
               isAuthenticated: true,
               isLoading: false,
             });
@@ -92,10 +119,12 @@ export const useAuthStore = create<AuthState>()(
           } catch (error) {
             console.error('Error al cerrar sesión:', error);
           } finally {
+            clearAuthCookie();
             set({
               user: null,
               accessToken: null,
               refreshToken: null,
+              role: null,
               isAuthenticated: false,
               error: null,
             });
@@ -106,8 +135,11 @@ export const useAuthStore = create<AuthState>()(
         refreshAccessToken: async () => {
           try {
             const result = await authApi.refreshToken();
+            const role = extractRoleFromToken(result.access);
+            setAuthCookie(result.access);
             set({
               accessToken: result.access,
+              role,
             });
           } catch (error) {
             console.error('Error al refrescar token:', error);
@@ -166,6 +198,7 @@ export const useAuthStore = create<AuthState>()(
           accessToken: state.accessToken,
           refreshToken: state.refreshToken,
           user: state.user,
+          role: state.role,
           isAuthenticated: state.isAuthenticated,
         }),
       }

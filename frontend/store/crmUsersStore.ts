@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
+import type { UserRole } from '@/types/auth';
 
-export type UserRole = 'admin' | 'agente' | 'cliente';
+export type { UserRole };
 export type UserStatus = 'activo' | 'inactivo' | 'pendiente';
 
 export interface CRMUser {
@@ -116,7 +117,7 @@ export const useCRMUsersStore = create<CRMUsersState>()(
               name: 'Carlos Rodríguez',
               email: 'carlos.rodriguez@bhealth.com',
               phone: '+34 600 234 567',
-              role: 'agente',
+              role: 'asistente',
               status: 'activo',
               lastLogin: new Date().toISOString(),
               createdAt: '2024-02-20T10:00:00Z',
