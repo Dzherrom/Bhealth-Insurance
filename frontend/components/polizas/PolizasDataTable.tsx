@@ -113,8 +113,8 @@ export function PolizasDataTable({
             <TableRow>
               <TableHead className="w-12">
                 <Checkbox
-                  checked={isAllSelected}
-                  indeterminate={isIndeterminate}
+                  checked={isAllSelected ? true : (isIndeterminate ? "indeterminate" : false)}
+                  
                   onCheckedChange={handleSelectAll}
                 />
               </TableHead>

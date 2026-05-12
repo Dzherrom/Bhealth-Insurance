@@ -69,7 +69,7 @@ export function extractRoleFromToken(token: string): UserRole | null {
   const payload = decodeJwtPayload(token);
   if (!payload?.role) return null;
 
-  const role = payload.role as UserRole;
+  const role = payload.role.toLowerCase() as UserRole;
   return VALID_ROLES.includes(role) ? role : null;
 }
 
