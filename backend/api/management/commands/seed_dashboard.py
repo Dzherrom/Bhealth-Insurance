@@ -7,6 +7,7 @@ from api.models import (
     Agencia, Agente, Aseguradora, Plan, EstadoPoliza,
     Cliente, Poliza, PolizaCliente, Direccion
 )
+from django.contrib.auth.models import User
 from faker import Faker
 
 class Command(BaseCommand):
@@ -22,14 +23,18 @@ class Command(BaseCommand):
         
         self.stdout.write("Iniciando inyección de datos para el Dashboard...")
 
-        # 1. Asegurar Estados de Póliza
-        estados_nombres = ['Efectiva', 'Pagada', 'Activa', 'En Peligro', 'Cancelada', 'Por Efectuar', 'Activa']
+        # 1. Asegurar Estados de PÃ³liza compatibles con Stats View (icontains)
+        estados_nombres = [
+            'Efectiva', 'Pagada', 'Activa', 'En Peligro (Bill/Payment)', 
+            'Cancelado', 'Por Efectuar (Pending)', 'Robado', 'Document Pendiente (Document)',
+            'Espera' 
+        ]
         estados_db = []
         for nombre in estados_nombres:
             est, _ = EstadoPoliza.objects.get_or_create(nombre=nombre)
             estados_db.append(est)
 
-        # 2. Asegurar que haya Agentes (conseguimos los de la base de datos)
+        # 2. Asegurar que haya Agentes y Usuarios Colaboradores
         agentes = list(Agente.objects.all())
         if not agentes:
             agencia, _ = Agencia.objects.get_or_create(nombre='Agencia Central', defaults={'codigo_postal': '10001'})
@@ -50,7 +55,10 @@ class Command(BaseCommand):
             'FL', 'TX', 'CA', 'NY', 'IL', 'OH', 'GA', 'NC', 'MI', 'PA', 
             'FL', 'FL', 'TX', 'TX' # Más peso a Florida y Texas intencionalmente
         ]
-
+        # 5. Obtener Admin User principal para asignar como colaborador
+        admin_user = User.objects.filter(is_superuser=True).first()
+        if not admin_user:
+            admin_user = User.objects.first() # Fallback a cualquiera si no hay syperuser
         now = timezone.now()
         generados = 0
 
@@ -93,6 +101,12 @@ class Command(BaseCommand):
 
             # F) Crear la Póliza conectando todo
             estado_asignado = random.choice(estados_db)
+            
+            # Condicionales para hacer match con Stats Views (Desincronizado, Duplicado, Consentimiento)
+            es_desincronizado = random.random() > 0.8
+            es_duplicado = random.random() > 0.9
+            consentimiento_val = random.choice(['NO_ENVIADO', 'ENVIADO', 'FIRMADO'])
+
             poliza = Poliza.objects.create(
                 id_mercado=fake.unique.numerify('MKT-##########'),
                 id_miembro=fake.unique.numerify('MEM-##########'),
@@ -102,13 +116,21 @@ class Command(BaseCommand):
                 fecha_efectiva=fecha_envio + timedelta(days=10),
                 estado=estado_asignado,
                 fecha_envio=fecha_envio,
-                id_interno=fake.unique.uuid4()[:8],
+                id_interno="" if es_desincronizado else fake.unique.uuid4()[:8],
+                es_duplicado=es_duplicado,
+                estado_consentimiento=consentimiento_val,
                 agente=agente,
                 plan=plan,
                 direccion_fisica=direccion,
                 total_miembros=1, 
                 total_aplicantes=1,
             )
+            
+            if es_desincronizado:
+                 Poliza.objects.filter(id=poliza.id).update(id_interno=None)
+
+            if admin_user:
+                poliza.colaboradores.add(admin_user)
 
             # G) Conectar el cliente a la póliza
             PolizaCliente.objects.create(

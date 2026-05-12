@@ -152,7 +152,7 @@ class Poliza(models.Model):
     estado = models.ForeignKey(EstadoPoliza, on_delete=models.SET_NULL, null=True, verbose_name="Estado")
     fecha_envio = models.DateField(verbose_name="Fecha Envío")
     fecha_cancelacion = models.DateField(null=True, blank=True, verbose_name="Fecha Cancelación")
-    id_interno = models.CharField(max_length=100, verbose_name="ID Interno")
+    id_interno = models.CharField(max_length=100, null=True, blank=True, verbose_name="ID Interno")
     flujo_etapa = models.CharField(
         max_length=30,
         choices=FLUJO_ETAPA_CHOICES,
