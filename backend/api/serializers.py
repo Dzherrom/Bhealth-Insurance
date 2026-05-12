@@ -339,13 +339,16 @@ class MedicamentoSerializer(serializers.ModelSerializer):
 
 class CitaSerializer(serializers.ModelSerializer):
     creado_por_username = serializers.ReadOnlyField(source='creado_por.username')
-    cliente_nombre = serializers.ReadOnlyField(source='cliente.__str__')
+    cliente_nombre = serializers.SerializerMethodField()
     medico_asignado_details = MedicoSerializer(source='medico_asignado', read_only=True)
     
     class Meta:
         model = Cita
         fields = '__all__'
         read_only_fields = ('creado_por', 'fecha_creacion')
+
+    def get_cliente_nombre(self, obj):
+        return str(obj.cliente) if obj.cliente else None
 
 class HistorialPolizaSerializer(serializers.ModelSerializer):
     usuario_username = serializers.ReadOnlyField(source='usuario.username')
