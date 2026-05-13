@@ -529,6 +529,15 @@ class ZipCodeSerializer(serializers.Serializer):
     country_code = serializers.CharField(max_length=2, required=False, default='us')
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        # Añadir custom claims al token en si mismo
+        token['role'] = user.profile.role
+        token['username'] = user.username
+        
+        return token
+
     def validate(self, attrs):
         data = super().validate(attrs) 
         

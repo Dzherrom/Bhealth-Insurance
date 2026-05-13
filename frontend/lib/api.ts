@@ -34,8 +34,9 @@ import {
   OptionalBaseEntity
 } from '../types';
 
-// Configuración base de la API
-const API_BASE_URL = 'https://bhealth-insurance.onrender.com/api';
+// Configuracion base de la API. Lee del entorno local si existe, si no, define el prod o el local.
+// Para probar modo local: NEXT_PUBLIC_API_URL="http://127.0.0.1:8000/api"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
 
 // Utilidad para obtener el token de autenticación
 const getAuthToken = (): string | null => {

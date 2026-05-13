@@ -3,6 +3,20 @@
 import { BaseEntity } from "./common";
 
 // ===============================
+// ROLES Y PERMISOS
+// ===============================
+
+/** Roles disponibles en el sistema. Deben coincidir con los claims del JWT. */
+export type UserRole =
+  | 'admin'
+  | 'manager'
+  | 'asistente'
+  | 'sherpa'
+  | 'pagos'
+  | 'citas'
+  | 'cliente';
+
+// ===============================
 // INTERFACES DE REQUEST
 // ===============================
 
@@ -32,6 +46,7 @@ export interface User extends BaseEntity {
   email: string;
   first_name: string;
   last_name: string;
+  role?: UserRole;
   is_active?: boolean;
   date_joined?: string;
 }
