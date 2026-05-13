@@ -27,57 +27,79 @@ from .models import (
 )
 
 class DashboardStatsView(APIView):
-    permission_classes = [permissions.IsAuthenticated] # Or IsAdminRole
+    permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         stats = {}
+        from django.db.models import Sum, Count, Q
+        from django.db.models.functions import TruncMonth
+        from datetime import timedelta
+        from django.utils import timezone
         
-        # 1. & 2. Stats per Insurer (Applicants and Policies)
-        # Assuming Policy Amount = prima_mensual (monthly premium) or costo_poliza depending on business rule. Using prima_mensual for recurring value.
-        aseguradoras = Aseguradora.objects.annotate(
-            total_aplicantes=Sum('planes__polizas__total_aplicantes'),
-            total_monto=Sum('planes__polizas__prima_mensual'),
-            total_polizas=Count('planes__polizas')
-        )
-        
-        # Calculate real total for display purposes and avoiding division by zero
-        real_total_aplicantes = Poliza.objects.aggregate(t=Sum('total_aplicantes'))['t'] or 0
-        stats['total_aplicantes'] = real_total_aplicantes
-        
-        total_sys_aplicantes = real_total_aplicantes or 1
-        
-        insurer_data = []
-        for a in aseguradoras:
-            apps = a.total_aplicantes or 0
-            monto = a.total_monto or 0
-            pols = a.total_polizas or 0
-            pct = (apps / total_sys_aplicantes) * 100
-            
-            insurer_data.append({
-                "nombre": a.nombre,
-                "monto_total": monto,
-                "total_aplicantes": apps,
-                "total_polizas": pols,
-                "porcentaje_aplicantes": round(pct, 2)
-            })
-        
-        stats['aseguradoras_stats'] = insurer_data
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
 
-        # 3. Failed Login Attempts (Total for Current Month)
+        polizas_qs = Poliza.objects.all()
+        clientes_qs = Cliente.objects.all()
+        recordatorios_qs = Recordatorio.objects.all()
+
+        if start_date:
+            polizas_qs = polizas_qs.filter(fecha_efectiva__gte=start_date)
+            clientes_qs = clientes_qs.filter(fecha_creacion__gte=start_date)
+            recordatorios_qs = recordatorios_qs.filter(fecha_vencimiento__gte=start_date)
+        if end_date:
+            polizas_qs = polizas_qs.filter(fecha_efectiva__lte=end_date)
+            clientes_qs = clientes_qs.filter(fecha_creacion__lte=end_date)
+            recordatorios_qs = recordatorios_qs.filter(fecha_vencimiento__lte=end_date)
+
         now = timezone.now()
-        total_failed_logins = IntentoLoginFallido.objects.filter(
-            fecha_intento__month=now.month,
-            fecha_intento__year=now.year
-        ).count()
         
-        stats['failed_logins_count'] = total_failed_logins
+        # 1. Recordatorios pendientes
+        stats['recordatorios_pendientes'] = recordatorios_qs.exclude(estado='COMPLETADA').count()
 
-        # 4. Top Agents
+        # 2. Cumpleaños esta semana 
+        today = now.date()
+        next_week = today + timedelta(days=7)
+        cumpleanos_qs = Cliente.objects.all()
+        cumpleanos_count = sum(
+            1 for c in cumpleanos_qs 
+            if c.fecha_nacimiento and (c.fecha_nacimiento.replace(year=today.year) >= today and c.fecha_nacimiento.replace(year=today.year) <= next_week)
+        )
+        stats['cumpleanos_semana'] = cumpleanos_count
+
+        # 3. Nuevos prospectos
+        stats['nuevos_prospectos'] = clientes_qs.filter(
+            fecha_creacion__month=now.month,
+            fecha_creacion__year=now.year
+        ).count()
+
+        # 4. Total Polizas y Aplicantes
+        real_total_aplicantes = polizas_qs.aggregate(t=Sum('total_aplicantes'))['t'] or 0
+        stats['total_aplicantes'] = real_total_aplicantes
+        stats['total_polizas'] = polizas_qs.count()
+
+        # 5. Polizas Activas cada mes
+        activas_mensual = polizas_qs.filter(estado__nombre__icontains='activ').annotate(
+            month=TruncMonth('fecha_efectiva')
+        ).values('month').annotate(
+            total_polizas=Count('id'),
+            total_aplicantes=Sum('total_aplicantes')
+        ).order_by('month')
+
+        stats['activas_mensual_chart'] = [
+            {
+                "date": a['month'],
+                "polizas": a['total_polizas'],
+                "aplicantes": a['total_aplicantes'] or 0
+            } for a in activas_mensual if a['month']
+        ]
+
+        # 6. Top Agentes
         agentes = Agente.objects.annotate(
-            num_polizas=Count('polizas'),
-            num_aplicantes=Sum('polizas__total_aplicantes')
-        ).order_by('-num_polizas')[:10]
-        
+            num_polizas=Count('polizas', filter=Q(polizas__in=polizas_qs)),
+            num_aplicantes=Sum('polizas__total_aplicantes', filter=Q(polizas__in=polizas_qs))
+        ).order_by('-num_polizas')[:5]
+
         stats['top_agentes'] = [
             {
                 "nombre": ag.nombre_completo,
@@ -86,112 +108,58 @@ class DashboardStatsView(APIView):
             } for ag in agentes
         ]
         
-        # 5. Earnings Chart (Monthly)
-        # Using prima_mensual as 'Earnings' proxy
-        earnings_monthly = Poliza.objects.annotate(
-            month=TruncMonth('fecha_efectiva')
-        ).values('month').annotate(
-            total=Sum('prima_mensual')
-        ).order_by('month')
-        
-        stats['earnings_chart'] = [
-            {
-                "date": e['month'],
-                "amount": e['total']
-            } for e in earnings_monthly if e['month']
-        ]
-
-        # 6. New Prospects Chart
-        # Requires 'fecha_creacion' on Cliente which we just added.
-        # Note: older clients might have null fecha_creacion if we didn't backfill, but new ones will appear.
-        prospects_monthly = Cliente.objects.annotate(
-            month=TruncMonth('fecha_creacion')
-        ).values('month').annotate(
+        # 7. Polizas por Tipo de Producto
+        tipo_producto = polizas_qs.values('plan__aseguradora__nombre').annotate(
             count=Count('id')
-        ).order_by('month')
-
-        stats['new_prospects_chart'] = [
-            {
-                "date": p['month'],
-                "count": p['count']
-            } for p in prospects_monthly if p['month']
-        ]
-
-        # 7. Effective Policies in Current Month (Daily Chart)
-        policies_current_month = Poliza.objects.filter(
-            fecha_efectiva__month=now.month,
-            fecha_efectiva__year=now.year
-        ).order_by('fecha_efectiva').values('fecha_efectiva').annotate(count=Count('id'))
-        
-        stats['effective_policies_chart'] = [
-            {
-                "date": p['fecha_efectiva'],
-                "count": p['count']
-            } for p in policies_current_month
-        ]
-
-        # 8. Policies by Status
-        policies_by_status = Poliza.objects.values('estado__nombre').annotate(count=Count('id'))
-        
-        stats['policies_by_status_chart'] = [
-            {
-                "status": p['estado__nombre'] or "Sin Estado",
-                "count": p['count']
-            } for p in policies_by_status
-        ]
-
-        # 9. Tags Usage Percentage (Percentage of policies having documents with specific tags)
-        # Total policies
-        total_policies = Poliza.objects.count() or 1
-        
-        # We need to count distinct policies per tag.
-        # Since Etiqueta <-> Documento <-> Poliza.
-        tags_usage = Etiqueta.objects.annotate(
-            policy_count=Count('documentos__poliza', distinct=True)
         )
+        bhealth_count = sum(t['count'] for t in tipo_producto if 'bhealth' in (t['plan__aseguradora__nombre'] or '').lower())
+        otro_count = sum(t['count'] for t in tipo_producto if 'bhealth' not in (t['plan__aseguradora__nombre'] or '').lower())
         
-        stats['tags_usage_chart'] = []
-        for tag in tags_usage:
-            usage_pct = (tag.policy_count / total_policies) * 100
-            stats['tags_usage_chart'].append({
-                "tag": tag.nombre,
-                "count": tag.policy_count,
-                "percentage": round(usage_pct, 2)
-            })
+        stats['polizas_tipo_producto'] = [
+            {"tipo": "Bhealth Insurance", "count": bhealth_count},
+            {"tipo": "Otro", "count": otro_count}
+        ]
 
-        # --- NEW DASHBOARD STATS REQUESTED ---
+        # 8 & 9. Top Aseguradoras
+        aseguradoras = polizas_qs.values('plan__aseguradora__nombre').annotate(
+            count=Count('id'),
+            aplicantes=Sum('total_aplicantes')
+        ).order_by('-count')[:10]
         
-        from django.db.models import Q
-        all_polizas = Poliza.objects.all()
-        total_all = all_polizas.count()
+        stats['top_aseguradoras'] = [
+            {"aseguradora": a['plan__aseguradora__nombre'], "count": a['count'], "aplicantes": a['aplicantes'] or 0} 
+            for a in aseguradoras
+        ]
+
+        # 10. Polizas por Estado (EEUU) y Etiquetas
+        estados = polizas_qs.values('direccion_fisica__estado').annotate(count=Count('id')).order_by('-count')[:10]
+        stats['polizas_por_estado'] = [{"estado": e['direccion_fisica__estado'] or 'N/A', "count": e['count']} for e in estados]
+
+        etiquetas = polizas_qs.filter(documentos__etiquetas__isnull=False).values('documentos__etiquetas__nombre').annotate(count=Count('id', distinct=True)).order_by('-count')[:10]
+        stats['polizas_por_etiqueta_chart'] = [{"etiqueta": e['documentos__etiquetas__nombre'] or 'No asignado', "count": e['count']} for e in etiquetas]
+
+        # Inicios sesión fallidos
+        stats['failed_logins_count'] = IntentoLoginFallido.objects.filter(
+            fecha_intento__month=now.month,
+            fecha_intento__year=now.year
+        ).count()
+        
+        # General stats
+        total_all = polizas_qs.count()
         def calc_perc(part, whole):
             if whole == 0: return "0%"
             return f"{round((part / whole) * 100, 1)}%"
-
-        # 10. General Stats (like UserPolicyStatsView but global)
-        cancelados_qs = all_polizas.filter(estado__nombre__icontains='cancelado')
-        robados_qs = all_polizas.filter(estado__nombre__icontains='robado')
-        por_efectuar_qs = all_polizas.filter(Q(estado__nombre__icontains='pending') | Q(estado__nombre__icontains='espera') | Q(estado__nombre__icontains='waiting'))
-        en_peligro_qs = all_polizas.filter(Q(estado__nombre__icontains='bill') | Q(estado__nombre__icontains='payment'))
-        
-        cancelados_count = cancelados_qs.count()
-        robados_count = robados_qs.count()
-        por_efectuar_count = por_efectuar_qs.count()
-        en_peligro_count = en_peligro_qs.count()
-        
+            
+        cancelados_count = polizas_qs.filter(estado__nombre__icontains='cancelado').count()
+        robados_count = polizas_qs.filter(estado__nombre__icontains='robado').count()
+        por_efectuar_count = polizas_qs.filter(Q(estado__nombre__icontains='pending') | Q(estado__nombre__icontains='espera')).count()
+        en_peligro_count = polizas_qs.filter(Q(estado__nombre__icontains='bill') | Q(estado__nombre__icontains='payment')).count()
         activos_count = total_all - (cancelados_count + robados_count + por_efectuar_count + en_peligro_count)
         if activos_count < 0: activos_count = 0
-        
-        docs_pendientes_count = all_polizas.filter(estado__nombre__icontains='document').count()
-        pagos_pendientes_count = en_peligro_count
-        consentimiento_count = all_polizas.filter(estado_consentimiento__in=['NO_ENVIADO', 'ENVIADO']).count()
-        duplicados_count = all_polizas.filter(es_duplicado=True).count()
-        desincronizados_count = all_polizas.filter(id_interno__isnull=True).count()
-
+            
         stats['general_stats'] = {
             "resumen": {
                 "total_polizas": {"count": total_all, "percentage": "100%"},
-                "desincronizados": {"count": desincronizados_count, "percentage": calc_perc(desincronizados_count, total_all)},
             },
             "estatus_de_las_polizas": {
                 "activos": {"count": activos_count, "percentage": calc_perc(activos_count, total_all)},
@@ -199,79 +167,10 @@ class DashboardStatsView(APIView):
                 "en_peligro": {"count": en_peligro_count, "percentage": calc_perc(en_peligro_count, total_all)},
                 "cancelados": {"count": cancelados_count, "percentage": calc_perc(cancelados_count, total_all)},
                 "robados": {"count": robados_count, "percentage": calc_perc(robados_count, total_all)},
-            },
-            "alertas": {
-                "docs_pendientes": {"count": docs_pendientes_count, "percentage": calc_perc(docs_pendientes_count, total_all)},
-                "pagos_pendientes": {"count": pagos_pendientes_count, "percentage": calc_perc(pagos_pendientes_count, total_all)},
-                "consentimiento": {"count": consentimiento_count, "percentage": calc_perc(consentimiento_count, total_all)},
-                "duplicados": {"count": duplicados_count, "percentage": calc_perc(duplicados_count, total_all)},
             }
         }
 
-        # 11. Balance de Empresa (Pólizas Pagadas vs No Pagadas)
-        # We assume Pagadas = activos, No Pagadas = por_efectuar + en_peligro
-        # Using prima_mensual to calculate balance.
-        # Ensure we don't crash if prima_mensual is null/empty.
-        
-        pagadas_monto = all_polizas.exclude(
-            id__in=cancelados_qs.values('id')
-        ).exclude(
-            id__in=robados_qs.values('id')
-        ).exclude(
-            id__in=por_efectuar_qs.values('id')
-        ).exclude(
-            id__in=en_peligro_qs.values('id')
-        ).aggregate(t=Sum('prima_mensual'))['t'] or 0
-        
-        no_pagadas_monto = (por_efectuar_qs | en_peligro_qs).aggregate(t=Sum('prima_mensual'))['t'] or 0
-        
-        stats['company_balance'] = {
-            "pagadas_monto": float(pagadas_monto),
-            "no_pagadas_monto": float(no_pagadas_monto),
-            "total_estimado": float(pagadas_monto + no_pagadas_monto)
-        }
-
-        # 12. Mapa de EEUU (Policies by State)
-        policies_by_state = Poliza.objects.exclude(
-            direccion_fisica__estado__isnull=True
-        ).values('direccion_fisica__estado').annotate(count=Count('id'))
-        
-        stats['policies_by_state_map'] = [
-            {
-                "state": p['direccion_fisica__estado'].upper() if p['direccion_fisica__estado'] else "UNKNOWN",
-                "count": p['count']
-            } for p in policies_by_state if p['direccion_fisica__estado']
-        ]
-
-        # 13. Tarjeta de agentes con pólizas en este periodo (Este mes)
-        agentes_periodo = Agente.objects.filter(
-            polizas__fecha_envio__month=now.month,
-            polizas__fecha_envio__year=now.year
-        ).annotate(
-            num_polizas=Count('polizas')
-        ).order_by('-num_polizas')[:10]
-        
-        stats['agents_current_period_chart'] = [
-            {
-                "nombre": ag.nombre_completo,
-                "num_polizas": ag.num_polizas
-            } for ag in agentes_periodo
-        ]
-
         return Response(stats)
-from .serializers import (
-    UserSerializer, UserProfileSerializer, AgenciaSerializer,
-    DireccionSerializer, AgenteSerializer, ClienteSerializer,
-    AseguradoraSerializer, PlanSerializer, EstadoPolizaSerializer,
-    PolizaSerializer, NotaSerializer, HistorialPolizaSerializer,
-    EtiquetaSerializer, DocumentoSerializer, TareaSerializer,
-    UserManagementSerializer, CitaSerializer, MedicoSerializer, RecordatorioSerializer,
-    ContratoSerializer, ReporteComisionSerializer, NotificacionSerializer,
-    ZipCodeSerializer, TarjetaCreditoSerializer, CustomTokenObtainPairSerializer,
-    PolizaTransferenciaSerializer, MatrizPermisoRolSerializer, AuditoriaGlobalSerializer
-)
-from .utils import fetch_location_from_zip, send_activity_webhook
-from .permissions import IsPolicyOwnerOrHigher, IsAdminRole, has_matrix_permission
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
