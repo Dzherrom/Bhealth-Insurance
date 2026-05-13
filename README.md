@@ -103,3 +103,8 @@ Cualquier instancia de producciÃ³n requiere las siguientes variables:
 2. Haz commit de tus cambios (`git commit -m 'AÃ±adir Nueva Caracteristica'`).
 3. Empuja los cambios al branch (`git push origin feature/NuevaCaracteristica`).
 4. Abre un Pull Request contra la rama `dev`.
+
+## Últimas Actualizaciones (Rama Dev)
+- **Notas y Recordatorios de Póliza:** Integración CRUD bidireccional, permitiendo edición en vivo en la página de Detalles.
+- **Directorio de Documentos Dinámico:** Soporte multiformato clasificado por categorías ('CARTA_MERCADO', 'ASEGURANZA', etc.) para subida de achivos (multipart/form-data).
+- **Módulo de Configuraciones de Agencia:** Endpoints y vistas acopladas para configurar variables globales como: Título de Portal, Notificaciones del Sistema y Usuarios Facturados.

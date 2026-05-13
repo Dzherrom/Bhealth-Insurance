@@ -67,3 +67,11 @@ A continuaci√≥n se listan todas las p√°ginas compiladas por Next.js a las que pu
 - **Indeterminate Console Error en Tablas de Recharts/Polizas:** Subsanado un error del tipo `Received "false" for a non-boolean attribute "indeterminate"` proveniente de la librer√≠a inferior subyacente que esperaba strings expl√≠citos para React 19. El componente se limpi√≥ para enviar cadenas `"indeterminate"`.
 - **Error `The default export is not a React Component in "/auth/page"`:** Ocurr√≠a porque Next.js intentaba procesar esa ruta pero el archivo `frontend/app/auth/page.tsx` estaba vac√≠o (0 bytes). Se ha corregido introduciendo un componente que autom√°ticamente te redirige a `/auth/login`.
 - **Conexi√≥n Local vs Render:** En el archivo `frontend/lib/api.ts` y en el Dashboard ten√≠as quemada la URL de producci√≥n de Render (`bhealth-insurance.onrender...`). Esto lo modificamos para que en tu entorno local utilice din√°micamente tu `127.0.0.1:8000/api` mediante un fallback. 
+
+
+## Componentes y P·ginas Interactivas AÒadidas
+- **\/crm/configuraciones\**: Se activÛ el panel de ajustes con sub-secciones para Agencia, Notificaciones, Usuarios Facturados y Etiquetas, conectados mediante \/api/agencias/\ y sus correspondientes endpoints.
+- **Detalle de PÛliza (\/crm/polizas/[id]\)**: 
+  - **NotasPoliza**: MÛdulo 100% din·mico con peticiones a la API para agregar, editar y eliminar notas asociadas a la pÛliza actual.
+  - **DocumentosPoliza**: Ahora provee una vista de 'directorios' que clasifica din·micamente seg˙n categorÌas de documentos (Consentimiento, ID, MÈdico) permitiendo subida de archivos real.
+  - **RecordatoriosPoliza**: Reflejando avisos din·micos en lista asociados a la tabla del backend.
