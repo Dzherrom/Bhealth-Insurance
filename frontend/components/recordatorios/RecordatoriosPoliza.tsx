@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,9 @@ import {
   User,
   FolderOpen
 } from 'lucide-react';
+import { recordatoriosApi } from '@/lib/api';
+import { toast } from '@/hooks/use-toast';
+import { useAuthStore } from '@/store/authStore';
 
 interface Recordatorio {
   id: number;
@@ -28,230 +31,165 @@ interface Recordatorio {
   poliza: string;
   fechaVencimiento: string;
   horaVencimiento: string;
-  estado: 'pendiente' | 'completado' | 'vencido';
-  descripcion: string;
-  esPrivado: boolean;
 }
 
 interface RecordatoriosPolizaProps {
   polizaId?: string;
 }
 
-// Datos hardcodeados (por ahora vacío como en la imagen)
-const mockRecordatorios: Recordatorio[] = [
-  // Vacío intencionalmente para mostrar el estado sin datos
-];
-
-const getEstadoColor = (estado: string) => {
-  switch (estado) {
-    case 'pendiente':
-      return 'bg-yellow-100 text-yellow-800';
-    case 'completado':
-      return 'bg-green-100 text-green-800';
-    case 'vencido':
-      return 'bg-red-100 text-red-800';
-    default:
-      return 'bg-gray-100 text-gray-800';
-  }
-};
-
-const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString('es-ES', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  });
-};
-
 export function RecordatoriosPoliza({ polizaId }: RecordatoriosPolizaProps) {
-  const [recordatorios, setRecordatorios] = useState<Recordatorio[]>(mockRecordatorios);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [recordatorios, setRecordatorios] = useState<Recordatorio[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const { user } = useAuthStore();
 
-  const recordatoriosFiltrados = recordatorios.filter(recordatorio =>
-    recordatorio.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    recordatorio.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    recordatorio.usuario.toLowerCase().includes(searchTerm.toLowerCase())
+  useEffect(() => {
+    loadRecordatorios();
+  }, [polizaId]);
+
+  const loadRecordatorios = async () => {
+    if (!polizaId) return;
+    setIsLoading(true);
+    try {
+      const all = await recordatoriosApi.list();
+      let recs = (all as any[]);
+      if ((all as any).results) recs = (all as any).results;
+
+      const forPoliza = recs.filter(r => String(r.poliza) === String(polizaId));
+      setRecordatorios(forPoliza.map(r => ({
+        id: r.id,
+        usuario: r.creado_por_nombre || `#${r.creado_por}`,
+        titulo: r.titulo,
+        cliente: r.cliente ? `#${r.cliente}` : 'N/A',
+        poliza: r.poliza ? `#${r.poliza}` : 'N/A',
+        fechaVencimiento: r.fecha ? new Date(r.fecha).toLocaleDateString('es-ES') : 'Sin fecha',
+        horaVencimiento: r.hora || 'Sin hora',
+      })));
+    } catch (err) {
+      console.error(err);
+      toast({ title: 'Error al cargar recordatorios', variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEliminar = async (id: number) => {
+    if(!window.confirm('¿Seguro de eliminar este recordatorio?')) return;
+    try {
+      await recordatoriosApi.delete(id);
+      toast({ title: 'Recordatorio eliminado' });
+      loadRecordatorios();
+    } catch (err) {
+      console.error(err);
+      toast({ title: 'Error al eliminar', variant: 'destructive' });
+    }
+  };
+
+  const filtered = recordatorios.filter(r => 
+    r.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    r.usuario.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleCreateRecordatorio = (nuevoRecordatorio: Omit<Recordatorio, 'id'>) => {
-    const recordatorio: Recordatorio = {
-      ...nuevoRecordatorio,
-      id: Date.now()
-    };
-    setRecordatorios([recordatorio, ...recordatorios]);
-    setIsCreateModalOpen(false);
-  };
-
-  const handleEditRecordatorio = (id: number) => {
-    console.log('Editar recordatorio:', id);
-  };
-
-  const handleDeleteRecordatorio = (id: number) => {
-    setRecordatorios(prev => prev.filter(rec => rec.id !== id));
-  };
-
-  const handleViewRecordatorio = (id: number) => {
-    console.log('Ver recordatorio:', id);
-  };
-
   return (
-    <>
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle className="text-xl font-semibold">Recordatorios de póliza</CardTitle>
-          
-          {/* Barra de herramientas */}
-          <div className="flex flex-col sm:flex-row gap-4 mt-4">
-            {/* Búsqueda */}
-            <div className="flex-1 relative">
-              <Search className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
-              <Input
-                placeholder="Escribir aquí para buscar..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            
-            {/* Botones de acción */}
-            <div className="flex gap-2 items-center">
-              <Button 
-                onClick={() => setIsCreateModalOpen(true)}
-                className="bg-green-600 hover:bg-green-700"
-                size="sm"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Nuevo
-              </Button>
-              
-              <Button 
-                variant="default" 
-                size="sm" 
-                className="bg-purple-600 hover:bg-purple-700"
-              >
-                <Calendar className="w-4 h-4 mr-2" />
-                Calendario
-              </Button>
-            </div>
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle className="text-xl font-semibold">Recordatorios</CardTitle>
+        <div className="flex flex-col sm:flex-row gap-4 mt-4">
+          <div className="flex-1 relative w-full sm:max-w-xs">
+            <Search className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
+            <Input
+              placeholder="Buscar por título o usuario..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
           </div>
-        </CardHeader>
-        
-        <CardContent>
-          {recordatoriosFiltrados.length > 0 ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Usuario</TableHead>
-                    <TableHead>Título del Recordatorio</TableHead>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Póliza</TableHead>
-                    <TableHead>Vencimiento</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead className="text-center">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recordatoriosFiltrados.map((recordatorio) => (
-                    <TableRow key={recordatorio.id} className="hover:bg-gray-50">
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <User className="w-4 h-4 text-gray-500" />
-                          <span className="font-medium">{recordatorio.usuario}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{recordatorio.titulo}</p>
-                          {recordatorio.esPrivado && (
-                            <Badge variant="outline" className="text-xs mt-1">
-                              Privado
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>{recordatorio.cliente}</TableCell>
-                      <TableCell>{recordatorio.poliza}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-3 h-3 text-gray-500" />
-                          <span className="text-sm">
-                            {formatDate(recordatorio.fechaVencimiento)} {recordatorio.horaVencimiento}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant="secondary" 
-                          className={getEstadoColor(recordatorio.estado)}
-                        >
-                          {recordatorio.estado}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-center gap-1">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleViewRecordatorio(recordatorio.id)}
-                            className="h-8 w-8 p-0"
-                            title="Ver recordatorio"
-                          >
-                            <Eye className="w-3 h-3" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEditRecordatorio(recordatorio.id)}
-                            className="h-8 w-8 p-0"
-                            title="Editar"
-                          >
-                            <Edit className="w-3 h-3" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDeleteRecordatorio(recordatorio.id)}
-                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
-                            title="Eliminar"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-            <div className="text-center py-12 text-gray-500">
-              <FolderOpen className="w-16 h-16 mx-auto mb-4 opacity-50" />
-              <h3 className="text-lg font-medium mb-2">No hay registros para mostrar aquí</h3>
-              <p className="text-sm mb-4">
-                Pruebe crear una nueva búsqueda.
-              </p>
-              <Button 
-                onClick={() => setIsCreateModalOpen(true)}
-                variant="outline"
-                className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Crear primer recordatorio
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          <Button 
+            className="bg-blue-600 hover:bg-blue-700" 
+            onClick={() => setIsCreateModalOpen(true)}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Nuevo Recordatorio
+          </Button>
+        </div>
+      </CardHeader>
 
-      {/* Modal para crear recordatorio */}
-      <CreateRecordatorioModal
+      <CardContent>
+        {isLoading ? (
+          <p className="text-center text-gray-500 py-8">Cargando...</p>
+        ) : filtered.length === 0 ? (
+          <p className="text-center text-gray-500 py-8">No hay recordatorios.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[8%]">ID</TableHead>
+                  <TableHead>Usuario</TableHead>
+                  <TableHead>Título</TableHead>
+                  <TableHead>Vencimiento</TableHead>
+                  <TableHead className="text-center">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((recordatorio) => (
+                  <TableRow key={recordatorio.id} className="hover:bg-gray-50">
+                    <TableCell className="font-medium">#{recordatorio.id}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center space-x-2">
+                        <User className="w-4 h-4 text-gray-400" />
+                        <span className="text-sm">{recordatorio.usuario}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center space-x-2">
+                        <Bell className="w-4 h-4 text-amber-500" />
+                        <span className="text-sm font-medium">{recordatorio.titulo}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="flex items-center space-x-2 text-sm">
+                          <Calendar className="w-4 h-4 text-gray-400" />
+                          <span>{recordatorio.fechaVencimiento}</span>
+                        </div>
+                        <div className="flex items-center space-x-2 text-sm text-gray-500">
+                          <Clock className="w-4 h-4 text-gray-400" />
+                          <span>{recordatorio.horaVencimiento}</span>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-center space-x-2">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:bg-blue-50">
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-amber-600 hover:bg-amber-50">
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:bg-red-50" onClick={() => handleEliminar(recordatorio.id)}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </CardContent>
+
+      <CreateRecordatorioModal 
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        onSave={handleCreateRecordatorio}
+        onSave={async () => {
+          setIsCreateModalOpen(false);
+          await loadRecordatorios();
+        }}
         polizaId={polizaId}
       />
-    </>
+    </Card>
   );
 }

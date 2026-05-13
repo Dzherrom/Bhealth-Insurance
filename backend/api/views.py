@@ -1,5 +1,5 @@
 from rest_framework import generics, permissions, status, viewsets, filters
-from .permissions import IsManagerRole, IsAdminRole
+from .permissions import IsManagerRole, IsAdminRole, IsPolicyOwnerOrHigher
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -25,6 +25,7 @@ from .models import (
     Contrato, ReporteComision, Notificacion, TarjetaCredito,
     PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal, registrar_auditoria_global
 )
+from .serializers import *
 
 class DashboardStatsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -1460,3 +1461,9 @@ class UndoImportExcelView(APIView):
 
 
 
+
+
+class ConfiguracionNotificacionViewSet(viewsets.ModelViewSet):
+    queryset = ConfiguracionNotificacion.objects.all()
+    serializer_class = ConfiguracionNotificacionSerializer
+    permission_classes = [permissions.IsAuthenticated, IsManagerRole]

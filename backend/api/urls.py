@@ -4,6 +4,7 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
+from .views_export import ExportPolizasView
 from .views import (
     RegisterView, ProfileView, LogoutView,
     AgenciaViewSet, DireccionViewSet, AgenteViewSet,
@@ -17,7 +18,8 @@ from .views import (
     MatrizPermisoRolViewSet, AuditoriaGlobalViewSet, AuditoriaConsolidadaView,
     PolizaTransferenciaViewSet, ZohoSignWebhookView,
     ImportarClientesCSVView, ImportarPolizasCSVView, UserPolicyStatsView,
-    ImportarPolizasExcelView, UndoImportExcelView, UserPolicyStatsDetailView
+    ImportarPolizasExcelView, UndoImportExcelView, UserPolicyStatsDetailView,
+    ConfiguracionNotificacionViewSet,
 )
 from .views_consent import ConsentRequestViewSet
 
@@ -49,6 +51,7 @@ router.register(r'transferencias-poliza', PolizaTransferenciaViewSet, basename='
 router.register(r'consent-requests', ConsentRequestViewSet, basename='consent-requests')
 
 urlpatterns = [
+    path('polizas/export/', ExportPolizasView.as_view(), name='export_polizas'),
     path('register/', RegisterView.as_view(), name='register'),
     path('login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('login/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

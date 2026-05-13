@@ -7,4 +7,8 @@ export { StatusFilters } from './StatusFilters';
 export { AgregarStatusModal } from './AgregarStatusModal';
 export * from './types';
 export * from './statusTypes';
-export { mockConfiguracionesData } from './mockData';
+export { mockConfiguracionesData } from './mockData';export * from './NotificacionesConfig';
+export * from './EtiquetasConfig';
+export * from './UsuariosFacturadosConfig';
+
+export * from './AgenciaConfig';

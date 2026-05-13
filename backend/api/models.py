@@ -118,9 +118,12 @@ class ImportBatch(models.Model):
 
 class EstadoPoliza(models.Model):
     nombre = models.CharField(max_length=100, unique=True, verbose_name="Nombre Estado")
+    color = models.CharField(max_length=7, default="#ef4444", verbose_name="Color Hexadecimal")
+    disponible_para_agentes = models.BooleanField(default=True, verbose_name="¿Disponible para agentes?")
 
     def __str__(self):
-        return self.nombre
+        return f"{self.nombre}"
+
 
 class Poliza(models.Model):
     TIPO_INSCRIPCION_CHOICES = [
@@ -305,11 +308,17 @@ class HistorialPoliza(models.Model):
         return f"{self.get_accion_display()} en {self.poliza} por {self.usuario}"
 
 class Etiqueta(models.Model):
-    nombre = models.CharField(max_length=50, unique=True, verbose_name="Nombre Etiqueta")
-    color = models.CharField(max_length=7, default="#FFFFFF", verbose_name="Color Hex")
+    TIPO_CHOICES = [
+        ("DOCUMENTO", "Documento"),
+        ("POLIZA", "Póliza"),
+    ]
+    nombre = models.CharField(max_length=100, unique=True, verbose_name="Nombre Etiqueta")
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default="DOCUMENTO", verbose_name="Tipo de Etiqueta")
+    descripcion = models.TextField(null=True, blank=True, verbose_name="Descripción")
 
     def __str__(self):
-        return self.nombre
+        return f"{self.nombre} ({self.tipo})"
+
 
 class Documento(models.Model):
     CATEGORIA_CHOICES = [
@@ -834,3 +843,19 @@ def track_recordatorio_save(sender, instance, created, **kwargs):
             detalles=f"Recordatorio establecido: {instance.titulo} para {instance.fecha_vencimiento}"
         )
         instance._history_tracked = True
+
+class ConfiguracionNotificacion(models.Model):
+    TIPO_NOTIFICACION_CHOICES = [
+        ('CONTRATO', 'Contratos'),
+        ('PAGO', 'Recibos de Pago'),
+        ('RENOVACION', 'Renovaciones'),
+    ]
+    tipo = models.CharField(max_length=20, choices=TIPO_NOTIFICACION_CHOICES, unique=True, verbose_name="Tipo de Notificación")
+    asunto_en = models.CharField(max_length=255, verbose_name="Asunto (Inglés)", null=True, blank=True)
+    asunto_es = models.CharField(max_length=255, verbose_name="Asunto (Español)", null=True, blank=True)
+    cuerpo_en = models.TextField(verbose_name="Cuerpo del Correo (Inglés)", null=True, blank=True)
+    cuerpo_es = models.TextField(verbose_name="Cuerpo del Correo (Español)", null=True, blank=True)
+    grupos_destino = models.CharField(max_length=255, verbose_name="Grupos Destino", help_text="Separados por comas", null=True, blank=True)
+
+    def __str__(self):
+        return f"Config. Notificación: {self.get_tipo_display()}"

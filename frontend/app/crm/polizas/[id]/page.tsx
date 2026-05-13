@@ -17,6 +17,10 @@ import { NotasPoliza } from '@/components/polizas/NotasPoliza';
 import { DocumentosPoliza } from '@/components/polizas/DocumentosPoliza';
 import { RecordatoriosPoliza } from '@/components/recordatorios';
 import { usePolizaStore } from '@/store/polizaStore';
+import { HistorialPoliza } from '@/components/polizas/HistorialPoliza';
+import { InfoPagoPoliza } from '@/components/polizas/InfoPagoPoliza';
+import { DireccionesPoliza } from '@/components/polizas/DireccionesPoliza';
+import { MetadatosPoliza } from '@/components/polizas/MetadatosPoliza';
 
 /* Mock data comentada — reemplazada por datos reales del API
 const mockPolizaDetails: PolizaResponse = {
@@ -522,14 +526,26 @@ export default function PolizaDetailsPage() {
           )}
           
           {activeSection === 'recordatorios' && (
-            <RecordatoriosPoliza polizaId={params.id as string} />
-          )}
-          
-          {activeSection !== 'poliza' && activeSection !== 'documentos' && activeSection !== 'recordatorios' && (
-            <div className="text-center py-8 text-gray-500">
-              <p>Sección en desarrollo: {activeSection}</p>
-            </div>
-          )}
+              <RecordatoriosPoliza polizaId={params.id as string} />
+            )}
+
+            {activeSection === 'pagos' && (
+              <InfoPagoPoliza poliza={poliza} />
+            )}
+            
+            {activeSection === 'direcciones' && (
+              <DireccionesPoliza poliza={poliza} />
+            )}
+            
+            {activeSection === 'metadatos' && (
+              <MetadatosPoliza poliza={poliza} />
+            )}
+            
+            {activeSection !== 'poliza' && activeSection !== 'documentos' && activeSection !== 'recordatorios' && activeSection !== 'pagos' && activeSection !== 'direcciones' && activeSection !== 'metadatos' && (
+              <div className="text-center py-8 text-gray-500">
+                <p>Sección en desarrollo: {activeSection}</p>
+              </div>
+            )}
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React from 'react';
 import { Card } from '@/components/ui/card';
@@ -48,8 +48,14 @@ export function SidebarConfiguraciones({
       isActive: false
     },
     {
+      id: 'etiquetas',
+      label: 'Etiquetas',
+      icon: Tag,
+      isActive: false
+    },
+    {
       id: 'etiquetas-polizas',
-      label: 'Etiquetas de pólizas',
+      label: 'Etiquetas de pÃ³lizas',
       icon: Tag,
       isActive: false
     },
@@ -69,7 +75,7 @@ export function SidebarConfiguraciones({
 
   return (
     <div className="w-64 space-y-4">
-      {/* Logo y información */}
+      {/* Logo y informaciÃ³n */}
       <Card className="p-4">
         <div className="space-y-3">
           {/* Logo placeholder */}
@@ -79,17 +85,17 @@ export function SidebarConfiguraciones({
             </div>
           </div>
           
-          {/* Código de portal */}
+          {/* CÃ³digo de portal */}
           <div className="space-y-1">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Código de portal</span>
+              <span className="text-sm text-gray-600">CÃ³digo de portal</span>
               <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">
                 8252026
               </Badge>
             </div>
           </div>
           
-          {/* Información de fechas */}
+          {/* InformaciÃ³n de fechas */}
           <div className="space-y-1 text-xs text-gray-500">
             <div>
               <span className="font-medium">Cliente desde:</span>
@@ -97,7 +103,7 @@ export function SidebarConfiguraciones({
               <span>Jun 07, 2024 3:33 PM</span>
             </div>
             <div>
-              <span className="font-medium">Última actualización:</span>
+              <span className="font-medium">Ãšltima actualizaciÃ³n:</span>
               <br />
               <span>Dec 05, 2025 9:00 PM</span>
             </div>
@@ -105,7 +111,7 @@ export function SidebarConfiguraciones({
         </div>
       </Card>
 
-      {/* Menú de navegación */}
+      {/* MenÃº de navegaciÃ³n */}
       <Card className="p-2">
         <nav className="space-y-1">
           {menuItems.map((item) => {

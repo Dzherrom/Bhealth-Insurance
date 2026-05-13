@@ -422,6 +422,9 @@ export const setupTokenInterceptor = () => {
 };
 
 // Exportar todas las APIs como un objeto principal
+export const notasApi = createCrudApi<any>('notas');
+export const recordatoriosApi = createCrudApi<any>('recordatorios');
+
 export const api = {
   auth: authApi,
   agencias: agenciasApi,

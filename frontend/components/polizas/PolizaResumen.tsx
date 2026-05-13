@@ -74,14 +74,16 @@ export function PolizaResumen({ poliza, activeSection = 'poliza', onSectionChang
   const navigationItems = [
     { id: 'poliza', icon: FileText, label: 'Póliza', active: activeSection === 'poliza' },
     { id: 'documentos', icon: File, label: 'Documentos', count: 12, active: activeSection === 'documentos' },
+    { id: 'direcciones', icon: MapPin, label: 'Direcciones', active: activeSection === 'direcciones' },
+    { id: 'pagos', icon: CreditCard, label: 'Medios de Pago', active: activeSection === 'pagos' },
+    { id: 'metadatos', icon: Save, label: 'Detalles Esp.', active: activeSection === 'metadatos' },
     { id: 'hive', icon: Archive, label: 'HIVE', count: 4, active: activeSection === 'hive' },
     { id: 'notas', icon: MessageSquare, label: 'Notas', count: 8, active: false, isChat: true },
     { id: 'recordatorios', icon: Bell, label: 'Recordatorios', count: 2, active: activeSection === 'recordatorios' },
     { id: 'calendario', icon: Calendar, label: 'Calendario de Primas', active: activeSection === 'calendario' },
     { id: 'comentarios', icon: Users, label: 'Comentarios', active: activeSection === 'comentarios' },
     { id: 'tareas', icon: Phone, label: 'Tareas', active: activeSection === 'tareas' },
-    { id: 'centros', icon: CreditCard, label: 'Centros de vida', active: activeSection === 'centros' },
-    { id: 'registro', icon: MapPin, label: 'Registro', active: false, isModal: true }
+    { id: 'registro', icon: Lock, label: 'Registro', active: false, isModal: true }
   ];
 
   return (

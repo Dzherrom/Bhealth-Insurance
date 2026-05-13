@@ -3,37 +3,19 @@
 
 import React, { useState } from 'react';
 import {
-  InformacionNegocioCard,
-  DireccionNegocioCard,
-  BrandingPortalCard,
   SidebarConfiguraciones,
   StatusList,
-  mockConfiguracionesData,
-  ConfiguracionesData
+  NotificacionesConfig,
+  EtiquetasConfig,
+  UsuariosFacturadosConfig,
+  AgenciaConfig
 } from '@/components/configuraciones';
 
 const ConfiguracionesPage = () => {
-  const [configuraciones, setConfiguraciones] = useState<ConfiguracionesData>(mockConfiguracionesData);
   const [activeSection, setActiveSection] = useState('agencia');
-
-  const handleEditInformacionNegocio = () => {
-    console.log('Editar información del negocio');
-    // Aquí se abriría un modal o formulario de edición
-  };
-
-  const handleEditDireccionNegocio = () => {
-    console.log('Editar dirección del negocio');
-    // Aquí se abriría un modal o formulario de edición
-  };
-
-  const handleEditBrandingPortal = () => {
-    console.log('Editar branding del portal');
-    // Aquí se abriría un modal o formulario de edición
-  };
 
   const handleSectionChange = (section: string) => {
     setActiveSection(section);
-    console.log('Cambiar a sección:', section);
   };
 
   // Renderizar el contenido basado en la sección activa
@@ -41,39 +23,15 @@ const ConfiguracionesPage = () => {
     switch (activeSection) {
       case 'status':
         return <StatusList />;
+      case 'notificaciones':
+        return <NotificacionesConfig />;
+      case 'etiquetas':
+        return <EtiquetasConfig />;
+      case 'usuarios-facturados':
+        return <UsuariosFacturadosConfig />;
       case 'agencia':
       default:
-        return (
-          <div className="space-y-6">
-            {/* Header */}
-            <div className="mb-6">
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                Agencia
-              </h1>
-            </div>
-
-            {/* Configuraciones Cards */}
-            <div className="space-y-6">
-              {/* Información del negocio */}
-              <InformacionNegocioCard
-                data={configuraciones.informacionNegocio}
-                onEdit={handleEditInformacionNegocio}
-              />
-
-              {/* Dirección del negocio */}
-              <DireccionNegocioCard
-                data={configuraciones.direccionNegocio}
-                onEdit={handleEditDireccionNegocio}
-              />
-
-              {/* Branding del Portal */}
-              <BrandingPortalCard
-                data={configuraciones.brandingPortal}
-                onEdit={handleEditBrandingPortal}
-              />
-            </div>
-          </div>
-        );
+        return <AgenciaConfig />;
     }
   };
 

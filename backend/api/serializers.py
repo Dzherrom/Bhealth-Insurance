@@ -6,7 +6,7 @@ from .models import (
     EstadoPoliza, Poliza, PolizaCliente, Licencia, Nota, HistorialPoliza,
     Etiqueta, Documento, Tarea, UserProfile,
     InfoPago, TarjetaCredito, CuentaBancaria, PolizaViewer, Cita, Medico, Medicamento, Recordatorio,
-    Contrato, ReporteComision, Notificacion, PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal
+    Contrato, ReporteComision, Notificacion, PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal, ConfiguracionNotificacion
 )
 
 def can_view_sensitive_data(request_user):
@@ -541,3 +541,9 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         
         return data
 
+
+
+class ConfiguracionNotificacionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConfiguracionNotificacion
+        fields = '__all__'
