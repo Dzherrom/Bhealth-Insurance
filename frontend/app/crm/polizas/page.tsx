@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Poliza, PolizaFilters } from '@/components/polizas/types';
 import { usePolizaStore } from '@/store/polizaStore';
 
-/* Mock data comentada — reemplazada por datos reales del API
+// Mock data restaurada como fallback para desarrollo
 const mockPolizas: Poliza[] = [
   {
     id: 1,
@@ -91,7 +91,6 @@ const mockPolizas: Poliza[] = [
     fecha_creacion: '2023-12-30'
   }
 ];
-*/
 
 export default function PolizasPage() {
   const router = useRouter();
@@ -110,7 +109,7 @@ export default function PolizasPage() {
   }, [fetchPolizas]);
 
   // Mapear PolizaResponse → Poliza local (normalizar tipos numéricos y extraer cliente principal)
-  const polizas: Poliza[] = polizasData.map(p => ({
+  let polizas: Poliza[] = polizasData && polizasData.length > 0 ? polizasData.map(p => ({
     id: p.id!,
     id_mercado: p.id_mercado,
     id_miembro: p.id_miembro,
@@ -124,7 +123,7 @@ export default function PolizasPage() {
       ? `${p.clientes_info.find(c => c.es_solicitante_principal)!.cliente_details.primer_nombre} ${p.clientes_info.find(c => c.es_solicitante_principal)!.cliente_details.apellido_paterno}`
       : undefined,
     fecha_creacion: p.fecha_creacion ?? '',
-  }));
+  })) : mockPolizas;
 
   // Filtrar pólizas
   const filteredPolizas = polizas.filter(poliza => {

@@ -1,7 +1,13 @@
+'use client';
+
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { FileText, Plus } from 'lucide-react';
+import { CrearPolizaModal } from './formularios/CrearPolizaModal';
 
 export function PolizasHeader() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   return (
     <div className="flex flex-col space-y-4 lg:flex-row lg:items-center lg:justify-between lg:space-y-0">
       <div className="flex items-center space-x-3">
@@ -16,11 +22,16 @@ export function PolizasHeader() {
         </div>
       </div>
       <div className="flex items-center space-x-2">
-        <Button>
+        <Button onClick={() => setIsModalOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Nueva Póliza
         </Button>
       </div>
+
+      <CrearPolizaModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+      />
     </div>
   );
 }
