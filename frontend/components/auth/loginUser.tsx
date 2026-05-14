@@ -26,9 +26,10 @@ type LoginUserFormData = z.infer<typeof loginUserSchema>;
 interface LoginUserProps {
   onSubmit?: (data: LoginUserFormData) => Promise<void>;
   isLoading?: boolean;
+  externalError?: string | null;
 }
 
-export default function LoginUser({ onSubmit, isLoading = false }: LoginUserProps) {
+export default function LoginUser({ onSubmit, isLoading = false, externalError = null }: LoginUserProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,6 +73,12 @@ export default function LoginUser({ onSubmit, isLoading = false }: LoginUserProp
           {error && (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {externalError && !error && (
+            <Alert variant="destructive">
+              <AlertDescription>{externalError}</AlertDescription>
             </Alert>
           )}
 

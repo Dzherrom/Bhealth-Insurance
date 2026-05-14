@@ -5,8 +5,6 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/side
 import SidebarCRM from "@/components/sidebar/sidebarCRM";
 import CRMNotificationButton from "@/components/configuraciones/CRMNotificationButton";
 import { CatalogoProvider } from "@/components/providers";
-import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { useRouter, usePathname } from "next/navigation";
 
@@ -49,37 +47,29 @@ export default function CRMLayout({ children }: CRMLayoutProps) {
     <CatalogoProvider>
       <SidebarProvider>
         <div className="flex h-screen w-full overflow-hidden">
-          <SidebarCRM onItemClick={handleSidebarNavigation} />
+          <SidebarCRM
+            onItemClick={handleSidebarNavigation}
+            onLogout={handleLogout}
+            isLoggingOut={isLoggingOut}
+          />
           <SidebarInset className="flex-1 overflow-hidden">
             <div className="flex h-16 shrink-0 items-center gap-2 px-4 pt-2 justify-between border-b">
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 <SidebarTrigger className="ml-1" />
                 <h1 className="text-xl font-semibold truncate">CRM - BHealth Insurance</h1>
               </div>
-              
-              {/* Acciones del header */}
-              <div className="flex-shrink-0 flex items-center gap-2">
-                <CRMNotificationButton 
-                  variant="inline" 
-                  size="md"
-                  className="bg-blue-600 hover:bg-blue-700"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleLogout}
-                  disabled={isLoggingOut}
-                  className="gap-2"
-                >
-                  <LogOut className="h-4 w-4" />
-                  {isLoggingOut ? 'Cerrando...' : 'Cerrar sesión'}
-                </Button>
-              </div>
             </div>
 
             <div className="flex-1 overflow-auto">
               {children}
             </div>
+
+            <CRMNotificationButton
+              variant="floating"
+              position="bottom-right"
+              size="md"
+              className="bg-blue-600 hover:bg-blue-700"
+            />
           </SidebarInset>
         </div>
       </SidebarProvider>

@@ -44,6 +44,10 @@ const getAuthToken = (): string | null => {
     const directToken = localStorage.getItem('access_token');
     if (directToken) return directToken;
 
+    // Fallback legacy key used by older frontend code.
+    const legacyToken = localStorage.getItem('token');
+    if (legacyToken) return legacyToken;
+
     // Fallback: Zustand persist storage (auth-storage)
     const persistedAuthRaw = localStorage.getItem('auth-storage');
     if (persistedAuthRaw) {
@@ -87,7 +91,31 @@ const getAuthHeadersWithoutContentType = (): HeadersInit => {
 const handleApiResponse = async <T>(response: Response): Promise<T> => {
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || errorData.error || `HTTP ${response.status}`);
+    const rawMessage =
+      errorData.detail ||
+      errorData.message ||
+      errorData.error ||
+      errorData.non_field_errors?.[0] ||
+      errorData.username?.[0] ||
+      errorData.password?.[0] ||
+      `HTTP ${response.status}`;
+
+    const normalizedMessage = typeof rawMessage === 'string' ? rawMessage : JSON.stringify(rawMessage);
+
+    const isLoginRequest = response.url.includes('/login/');
+
+    if (response.status === 401 || response.status === 403) {
+      if (
+        isLoginRequest ||
+        /no active account|unable to log in|incorrect|invalid credentials|credentials|credenciales|usuario/i.test(normalizedMessage)
+      ) {
+        throw new Error('Credenciales incorrectas o usuario no existe.');
+      }
+
+      throw new Error('No tienes permisos para acceder.');
+    }
+
+    throw new Error(normalizedMessage);
   }
   
   const contentType = response.headers.get('content-type');
@@ -133,7 +161,25 @@ export const authApi = {
 
   // Refrescar token JWT
   refreshToken: async (): Promise<RefreshTokenResponse> => {
-    const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refresh_token') : null;
+    let refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refresh_token') : null;
+
+    if (!refreshToken && typeof window !== 'undefined') {
+      // Fallback legacy key used by older frontend code.
+      refreshToken = localStorage.getItem('refresh');
+    }
+
+    if (!refreshToken && typeof window !== 'undefined') {
+      // Fallback: Zustand persisted auth storage.
+      const persistedAuthRaw = localStorage.getItem('auth-storage');
+      if (persistedAuthRaw) {
+        try {
+          const persistedAuth = JSON.parse(persistedAuthRaw);
+          refreshToken = persistedAuth?.state?.refreshToken || null;
+        } catch {
+          refreshToken = null;
+        }
+      }
+    }
     
     if (!refreshToken) {
       throw new Error('No refresh token available');
@@ -335,6 +381,22 @@ interface Documento extends OptionalBaseEntity {
   fecha_subida?: string;
 }
 
+interface Cita extends OptionalBaseEntity {
+  poliza: number;
+  cliente?: number | null;
+  cliente_nombre?: string | null;
+  creado_por?: number;
+  creado_por_username?: string;
+  fecha_hora: string;
+  proveedor: string;
+  lugar: string;
+  motivo?: string | null;
+  estado: 'PROGRAMADA' | 'COMPLETADA' | 'CANCELADA' | 'NO_ASISTIO';
+  notas?: string | null;
+  medico_asignado?: number | null;
+  fecha_creacion?: string;
+}
+
 interface ManagedUserProfile {
   role?: string;
   status?: string;
@@ -451,6 +513,9 @@ export const etiquetasApi = createCrudApi<Etiqueta>('etiquetas');
 // 📂 Documentos
 export const documentosApi = createCrudApi<Documento>('documentos');
 
+// 📅 Citas
+export const citasApi = createCrudApi<Cita>('citas');
+
 // =============================================================================
 // 🔧 UTILIDADES ADICIONALES
 // =============================================================================
@@ -527,6 +592,7 @@ export const api = {
   estadosPoliza: estadosPolizaApi,
   polizas: polizasApi,
   tareas: tareasApi,
+  citas: citasApi,
   notas: notasApi,
   historial: historialApi,
   etiquetas: etiquetasApi,

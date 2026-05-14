@@ -110,8 +110,6 @@ export default function NotificationButton({
   const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
   
   const unreadCount = notifications.filter(n => !n.read).length;
-  console.log('Unread')
-  console.log('Unread',unreadCount)
   
   // Estilos según el tamaño
   const sizeStyles = {
@@ -145,8 +143,6 @@ export default function NotificationButton({
   };
   
   const formatTimeAgo = (timestamp: Date) => {
-    console.log('Timestamp format',timestamp)
-    console.log('Timestamp format type',typeof timestamp)
     const now = new Date();
     const diffInMinutes = Math.floor((now.getTime() - timestamp.getTime()) / 60000);
     

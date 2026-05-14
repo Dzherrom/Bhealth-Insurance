@@ -119,17 +119,34 @@ class DashboardStatsView(APIView):
 
         # 4. Total Polizas y Aplicantes
         real_total_aplicantes = polizas_qs.aggregate(t=Sum('total_aplicantes'))['t'] or 0
+        total_polizas_count = polizas_qs.count()
         stats['total_aplicantes'] = real_total_aplicantes
-        stats['total_polizas'] = polizas_qs.count()
+        stats['total_polizas'] = total_polizas_count
 
-        # 5. Polizas Activas cada mes
-        activas_mensual = polizas_qs.filter(estado__nombre__icontains='activ').annotate(
+        # 5. Pólizas efectivas por mes (columnas: pólizas y aplicantes)
+        polizas_efectivas_mensual = polizas_qs.annotate(
             month=TruncMonth('fecha_efectiva')
         ).values('month').annotate(
             total_polizas=Count('id'),
             total_aplicantes=Sum('total_aplicantes')
         ).order_by('month')
 
+        polizas_efectivas_mensual_chart = [
+            {
+                "date": a['month'],
+                "polizas": a['total_polizas'],
+                "aplicantes": a['total_aplicantes'] or 0
+            } for a in polizas_efectivas_mensual if a['month']
+        ]
+        stats['polizas_efectivas_mensual_chart'] = polizas_efectivas_mensual_chart
+
+        # Compatibilidad con frontend existente
+        activas_mensual = polizas_qs.filter(estado__nombre__icontains='activ').annotate(
+            month=TruncMonth('fecha_efectiva')
+        ).values('month').annotate(
+            total_polizas=Count('id'),
+            total_aplicantes=Sum('total_aplicantes')
+        ).order_by('month')
         stats['activas_mensual_chart'] = [
             {
                 "date": a['month'],
@@ -138,46 +155,119 @@ class DashboardStatsView(APIView):
             } for a in activas_mensual if a['month']
         ]
 
-        # 6. Top Agentes
+        # 6. Clasificación de agentes
         agentes = Agente.objects.annotate(
             num_polizas=Count('polizas', filter=Q(polizas__in=polizas_qs)),
             num_aplicantes=Sum('polizas__total_aplicantes', filter=Q(polizas__in=polizas_qs))
-        ).order_by('-num_polizas')[:5]
+        ).order_by('-num_polizas')[:10]
 
+        stats['clasificacion_agentes'] = [
+            {
+                "nombre": ag.nombre_completo,
+                "num_polizas": ag.num_polizas,
+                "num_aplicantes": ag.num_aplicantes or 0,
+                "porcentaje_polizas": round((ag.num_polizas / total_polizas_count) * 100, 2) if total_polizas_count else 0,
+            } for ag in agentes
+        ]
+
+        # Compatibilidad con frontend existente
         stats['top_agentes'] = [
             {
                 "nombre": ag.nombre_completo,
                 "num_polizas": ag.num_polizas,
                 "num_aplicantes": ag.num_aplicantes or 0
-            } for ag in agentes
-        ]
-        
-        # 7. Polizas por Tipo de Producto
-        tipo_producto = polizas_qs.values('plan__aseguradora__nombre').annotate(
-            count=Count('id')
-        )
-        bhealth_count = sum(t['count'] for t in tipo_producto if 'bhealth' in (t['plan__aseguradora__nombre'] or '').lower())
-        otro_count = sum(t['count'] for t in tipo_producto if 'bhealth' not in (t['plan__aseguradora__nombre'] or '').lower())
-        
-        stats['polizas_tipo_producto'] = [
-            {"tipo": "Bhealth Insurance", "count": bhealth_count},
-            {"tipo": "Otro", "count": otro_count}
+            } for ag in agentes[:5]
         ]
 
-        # 8 & 9. Top Aseguradoras
-        aseguradoras = polizas_qs.values('plan__aseguradora__nombre').annotate(
+        # 7. Pólizas por tipo de producto (pie) y tendencia mensual por tipo (línea)
+        tipo_producto = polizas_qs.values('plan__nombre').annotate(
+            count=Count('id')
+        ).order_by('-count')
+
+        stats['polizas_tipo_producto'] = [
+            {"tipo": t['plan__nombre'] or 'Sin plan', "count": t['count']}
+            for t in tipo_producto
+        ]
+
+        tipo_producto_mensual_qs = polizas_qs.annotate(
+            month=TruncMonth('fecha_efectiva')
+        ).values('month', 'plan__nombre').annotate(
+            count=Count('id')
+        ).order_by('month', 'plan__nombre')
+
+        grouped_by_month = {}
+        product_types = set()
+        for row in tipo_producto_mensual_qs:
+            month = row['month']
+            if not month:
+                continue
+            month_key = month.isoformat()
+            product_type = row['plan__nombre'] or 'Sin plan'
+            product_types.add(product_type)
+            if month_key not in grouped_by_month:
+                grouped_by_month[month_key] = {'date': month}
+            grouped_by_month[month_key][product_type] = row['count']
+
+        sorted_product_types = sorted(list(product_types))
+        trend_rows = []
+        for month_key in sorted(grouped_by_month.keys()):
+            item = grouped_by_month[month_key]
+            for product_type in sorted_product_types:
+                if product_type not in item:
+                    item[product_type] = 0
+            trend_rows.append(item)
+
+        stats['polizas_efectivas_tipo_producto_mensual_chart'] = trend_rows
+        stats['tipos_producto_disponibles'] = sorted_product_types
+
+        # 8 & 9. Aseguradoras (top 10 por pólizas y top 10 por aplicantes, con porcentajes)
+        aseguradoras_base_qs = polizas_qs.values('plan__aseguradora__nombre').annotate(
             count=Count('id'),
             aplicantes=Sum('total_aplicantes')
-        ).order_by('-count')[:10]
-        
-        stats['top_aseguradoras'] = [
-            {"aseguradora": a['plan__aseguradora__nombre'], "count": a['count'], "aplicantes": a['aplicantes'] or 0} 
-            for a in aseguradoras
+        )
+
+        total_aplicantes_for_percentage = real_total_aplicantes or 0
+
+        top_aseguradoras_por_polizas = aseguradoras_base_qs.order_by('-count')[:10]
+        top_aseguradoras_por_aplicantes = aseguradoras_base_qs.order_by('-aplicantes')[:10]
+
+        stats['polizas_por_aseguradora_top10'] = [
+            {
+                "aseguradora": a['plan__aseguradora__nombre'] or 'Sin aseguradora',
+                "count": a['count'],
+                "porcentaje": round((a['count'] / total_polizas_count) * 100, 2) if total_polizas_count else 0,
+            }
+            for a in top_aseguradoras_por_polizas
         ]
 
-        # 10. Polizas por Estado (EEUU) y Etiquetas
-        estados = polizas_qs.values('direccion_fisica__estado').annotate(count=Count('id')).order_by('-count')[:10]
+        stats['aplicantes_por_aseguradora_top10'] = [
+            {
+                "aseguradora": a['plan__aseguradora__nombre'] or 'Sin aseguradora',
+                "aplicantes": a['aplicantes'] or 0,
+                "porcentaje": round(((a['aplicantes'] or 0) / total_aplicantes_for_percentage) * 100, 2) if total_aplicantes_for_percentage else 0,
+            }
+            for a in top_aseguradoras_por_aplicantes
+        ]
+
+        # Compatibilidad con frontend existente
+        stats['top_aseguradoras'] = [
+            {
+                "aseguradora": a['plan__aseguradora__nombre'] or 'Sin aseguradora',
+                "count": a['count'],
+                "aplicantes": a['aplicantes'] or 0
+            }
+            for a in top_aseguradoras_por_polizas
+        ]
+
+        # 10. Pólizas por Estado (datos para mapa EEUU) y estado de póliza (pie)
+        estados = polizas_qs.values('direccion_fisica__estado').annotate(count=Count('id')).order_by('-count')
         stats['polizas_por_estado'] = [{"estado": e['direccion_fisica__estado'] or 'N/A', "count": e['count']} for e in estados]
+
+        polizas_por_estado_poliza = polizas_qs.values('estado__nombre').annotate(count=Count('id')).order_by('-count')
+        stats['polizas_por_estado_poliza_chart'] = [
+            {"estado": e['estado__nombre'] or 'Sin estado', "count": e['count']}
+            for e in polizas_por_estado_poliza
+        ]
 
         etiquetas = polizas_qs.filter(documentos__etiquetas__isnull=False).values('documentos__etiquetas__nombre').annotate(count=Count('id', distinct=True)).order_by('-count')[:10]
         stats['polizas_por_etiqueta_chart'] = [{"etiqueta": e['documentos__etiquetas__nombre'] or 'No asignado', "count": e['count']} for e in etiquetas]

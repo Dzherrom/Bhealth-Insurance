@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import LoginUser from '@/components/auth/loginUser';
 import { useAuthStore } from '@/store/authStore';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, logout, isLoading, isAuthenticated, role, clearError, setError } = useAuthStore();
+  const { login, logout, isLoading, isAuthenticated, role, error, clearError, setError } = useAuthStore();
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Redirect based on role instead of just isAuthenticated to prevent loops
   useEffect(() => {
@@ -25,22 +26,38 @@ export default function LoginPage() {
   }, [isAuthenticated, role, logout, setError, router]);
 
   const handleLogin = async (data: { username: string; password: string }) => {
+    setSubmitError(null);
     try {
       await login({ username: data.username, password: data.password });
-      // The push is now completely handled by the useEffect above
-    } catch (e) {
-      // Error handled by store
+    } catch (loginError) {
+      const message = loginError instanceof Error ? loginError.message : 'Error al iniciar sesión';
+      setSubmitError(message);
+      throw loginError;
     }
+    // The push is now completely handled by the useEffect above
   };
 
   // Limpiar errores previos al montar la página
   useEffect(() => {
     clearError();
+    setSubmitError(null);
   }, [clearError]);
+
+  useEffect(() => {
+    if (role === null && isAuthenticated) {
+      setSubmitError('La cuenta inició sesión, pero no tiene un rol válido para acceder al CRM.');
+    }
+  }, [role, isAuthenticated]);
+
+  useEffect(() => {
+    if (error) {
+      setSubmitError(error);
+    }
+  }, [error]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <LoginUser onSubmit={handleLogin} isLoading={isLoading} />
+      <LoginUser onSubmit={handleLogin} isLoading={isLoading} externalError={submitError || error || undefined} />
     </div>
   );
 }
