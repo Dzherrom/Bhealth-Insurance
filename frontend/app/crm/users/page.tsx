@@ -1,14 +1,26 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { UsersHeader } from '@/components/users/UsersHeader';
 import { UsersFilters } from '@/components/users/UsersFilters';
 import BoxComponent from '@/components/boxes/BoxComponent';
 import { UsersList } from '@/components/users/UsersList';
 import { User } from '@/components/users/types';
-import { usersApi } from '@/lib/api';
+import { authApi, usersApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 
 const PAGE_SIZE = 25;
 
@@ -30,6 +42,33 @@ interface ApiUser {
   date_joined?: string;
   last_login?: string | null;
 }
+
+interface CreateUserForm {
+  username: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  password: string;
+  role: string;
+  status: string;
+  phone: string;
+}
+
+const ROLE_OPTIONS = [
+  { value: 'ADMIN', label: 'Admin' },
+  { value: 'MANAGER', label: 'Manager' },
+  { value: 'ASISTENTE', label: 'Asistente' },
+  { value: 'SHERPA', label: 'Sherpa' },
+  { value: 'PAGOS', label: 'Pagos' },
+  { value: 'CITAS', label: 'Citas' },
+  { value: 'USER', label: 'Usuario' },
+];
+
+const STATUS_OPTIONS = [
+  { value: 'ACTIVE', label: 'Activo' },
+  { value: 'INACTIVE', label: 'Inactivo' },
+  { value: 'CANDIDATE', label: 'Candidato' },
+];
 
 const normalizeStatus = (rawStatus?: string, isActive?: boolean): string => {
   if (rawStatus) {
@@ -68,29 +107,44 @@ const mapApiUserToUIUser = (apiUser: ApiUser): User => {
 };
 
 export default function UsersPage() {
+  const router = useRouter();
+  const { toast } = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createForm, setCreateForm] = useState<CreateUserForm>({
+    username: '',
+    email: '',
+    firstName: '',
+    lastName: '',
+    password: '',
+    role: 'USER',
+    status: 'ACTIVE',
+    phone: '',
+  });
+
+  const fetchUsers = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const apiUsers = await usersApi.list();
+      setUsers((apiUsers as ApiUser[]).map(mapApiUserToUIUser));
+    } catch (error) {
+      console.error('Error al cargar usuarios:', error);
+      setUsers([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      setIsLoading(true);
-      try {
-        const apiUsers = await usersApi.list();
-        setUsers((apiUsers as ApiUser[]).map(mapApiUserToUIUser));
-      } catch (error) {
-        console.error('Error al cargar usuarios:', error);
-        setUsers([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchUsers();
-  }, []);
+  }, [fetchUsers]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -156,6 +210,62 @@ export default function UsersPage() {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
+  const handleOpenCreateModal = () => {
+    setCreateError(null);
+    setIsCreateModalOpen(true);
+  };
+
+  const handleCreateUser = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setCreateError(null);
+    setIsCreating(true);
+
+    try {
+      const registered = await authApi.register({
+        username: createForm.username,
+        email: createForm.email,
+        password: createForm.password,
+        first_name: createForm.firstName,
+        last_name: createForm.lastName,
+      });
+
+      await usersApi.patch(registered.id, {
+        profile: {
+          role: createForm.role,
+          status: createForm.status,
+          telefono: createForm.phone || '',
+        },
+      } as any);
+
+      await fetchUsers();
+      setIsCreateModalOpen(false);
+      setCreateForm({
+        username: '',
+        email: '',
+        firstName: '',
+        lastName: '',
+        password: '',
+        role: 'USER',
+        status: 'ACTIVE',
+        phone: '',
+      });
+      toast({
+        title: 'Usuario creado',
+        description: 'El usuario se creó correctamente.',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudo crear el usuario';
+      setCreateError(message);
+      toast({
+        title: 'Error al crear usuario',
+        description: message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex flex-col space-y-6 p-6">
@@ -173,7 +283,7 @@ export default function UsersPage() {
 
   return (
     <div className="flex flex-col space-y-6 p-6">
-      <UsersHeader />
+      <UsersHeader onNewUser={handleOpenCreateModal} isCreating={isCreating} />
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <BoxComponent 
           title="Total Usuarios" 
@@ -209,6 +319,7 @@ export default function UsersPage() {
         getInitials={getInitials}
         formatLastLogin={formatLastLogin}
         formatDate={formatDate}
+        onViewUser={(id) => router.push(`/crm/users/${id}`)}
       />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -235,6 +346,120 @@ export default function UsersPage() {
           </Button>
         </div>
       </div>
+
+      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Crear Nuevo Usuario</DialogTitle>
+            <DialogDescription>
+              Completa la información para registrar un nuevo usuario en el sistema.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateUser} className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="username">Usuario</Label>
+                <Input
+                  id="username"
+                  value={createForm.username}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, username: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Correo</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={createForm.email}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, email: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="firstName">Nombre</Label>
+                <Input
+                  id="firstName"
+                  value={createForm.firstName}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, firstName: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Apellido</Label>
+                <Input
+                  id="lastName"
+                  value={createForm.lastName}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, lastName: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Contraseña</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={createForm.password}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, password: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Teléfono</Label>
+                <Input
+                  id="phone"
+                  value={createForm.phone}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, phone: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="role">Rol</Label>
+                <select
+                  id="role"
+                  value={createForm.role}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, role: e.target.value }))}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  {ROLE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="status">Estado</Label>
+                <select
+                  id="status"
+                  value={createForm.status}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, status: e.target.value }))}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  {STATUS_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {createError && (
+              <p className="text-sm text-red-600">{createError}</p>
+            )}
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={isCreating}>
+                {isCreating ? 'Creando...' : 'Crear usuario'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

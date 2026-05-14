@@ -18,6 +18,7 @@ interface UserCardProps {
   getInitials: (name: string) => string;
   formatLastLogin: (dateString: string) => string;
   formatDate: (dateString: string) => string;
+  onViewUser?: (id: number) => void;
 }
 
 export function UserCard({
@@ -27,6 +28,7 @@ export function UserCard({
   getInitials,
   formatLastLogin,
   formatDate,
+  onViewUser,
 }: UserCardProps) {
   return (
     <div className="flex items-center justify-between rounded-lg border p-4 hover:bg-muted/50 transition-colors">
@@ -77,7 +79,7 @@ export function UserCard({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem>Ver perfil</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onViewUser?.(user.id)}>Ver perfil</DropdownMenuItem>
           <DropdownMenuItem>Editar usuario</DropdownMenuItem>
           <DropdownMenuItem>Cambiar permisos</DropdownMenuItem>
           <DropdownMenuItem>Resetear contraseña</DropdownMenuItem>

@@ -11,6 +11,7 @@ interface UsersListProps {
   getInitials: (name: string) => string;
   formatLastLogin: (dateString: string) => string;
   formatDate: (dateString: string) => string;
+  onViewUser?: (id: number) => void;
 }
 
 export function UsersList({
@@ -20,6 +21,7 @@ export function UsersList({
   getInitials,
   formatLastLogin,
   formatDate,
+  onViewUser,
 }: UsersListProps) {
   return (
     <Card>
@@ -42,6 +44,7 @@ export function UsersList({
               getInitials={getInitials}
               formatLastLogin={formatLastLogin}
               formatDate={formatDate}
+              onViewUser={onViewUser}
             />
           ))}
 

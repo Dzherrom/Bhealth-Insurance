@@ -1,7 +1,12 @@
 import { Button } from '@/components/ui/button';
 import { Settings, Plus, Users } from 'lucide-react';
 
-export function UsersHeader() {
+interface UsersHeaderProps {
+  onNewUser?: () => void;
+  isCreating?: boolean;
+}
+
+export function UsersHeader({ onNewUser, isCreating = false }: UsersHeaderProps) {
   return (
     <div className="flex flex-col space-y-4 lg:flex-row lg:items-center lg:justify-between lg:space-y-0">
       <div className="flex items-center space-x-3">
@@ -16,9 +21,9 @@ export function UsersHeader() {
         </div>
       </div>
       <div className="flex items-center space-x-2">
-        <Button>
+        <Button onClick={onNewUser} disabled={isCreating}>
           <Plus className="h-4 w-4 mr-2" />
-          Nuevo Usuario
+          {isCreating ? 'Creando...' : 'Nuevo Usuario'}
         </Button>
       </div>
     </div>
