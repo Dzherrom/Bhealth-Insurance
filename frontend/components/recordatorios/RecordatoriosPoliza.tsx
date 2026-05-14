@@ -4,33 +4,26 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { CreateRecordatorioModal } from './CreateRecordatorioModal';
-import { 
-  Calendar, 
-  Plus, 
-  Search, 
-  Eye, 
-  Edit, 
-  Trash2,
-  Bell,
-  Clock,
-  User,
-  FolderOpen
-} from 'lucide-react';
+import { Calendar, Plus, Search, Eye, Edit, Trash2, Bell, Clock, User } from 'lucide-react';
 import { recordatoriosApi } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/authStore';
+import type { RecordatorioFormData } from './CreateRecordatorioModal';
 
 interface Recordatorio {
   id: number;
   usuario: string;
+  usuario_notificar: number;
   titulo: string;
-  cliente: string;
-  poliza: string;
+  poliza: number;
   fechaVencimiento: string;
   horaVencimiento: string;
+  zonaHoraria: string;
+  descripcion?: string;
+  establecerRecordatorio: boolean;
 }
 
 interface RecordatoriosPolizaProps {
@@ -41,6 +34,8 @@ export function RecordatoriosPoliza({ polizaId }: RecordatoriosPolizaProps) {
   const [recordatorios, setRecordatorios] = useState<Recordatorio[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editingRecordatorio, setEditingRecordatorio] = useState<Recordatorio | null>(null);
+  const [viewingRecordatorio, setViewingRecordatorio] = useState<Recordatorio | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const { user } = useAuthStore();
 
@@ -59,12 +54,15 @@ export function RecordatoriosPoliza({ polizaId }: RecordatoriosPolizaProps) {
       const forPoliza = recs.filter(r => String(r.poliza) === String(polizaId));
       setRecordatorios(forPoliza.map(r => ({
         id: r.id,
-        usuario: r.creado_por_nombre || `#${r.creado_por}`,
+        usuario: r.usuario_notificar_username || `#${r.usuario_notificar}`,
+        usuario_notificar: r.usuario_notificar,
         titulo: r.titulo,
-        cliente: r.cliente ? `#${r.cliente}` : 'N/A',
-        poliza: r.poliza ? `#${r.poliza}` : 'N/A',
-        fechaVencimiento: r.fecha ? new Date(r.fecha).toLocaleDateString('es-ES') : 'Sin fecha',
-        horaVencimiento: r.hora || 'Sin hora',
+        poliza: r.poliza,
+        fechaVencimiento: r.fecha_vencimiento,
+        horaVencimiento: r.hora_vencimiento,
+        zonaHoraria: r.zona_horaria,
+        descripcion: r.descripcion,
+        establecerRecordatorio: r.establecer_recordatorio,
       })));
     } catch (err) {
       console.error(err);
@@ -90,6 +88,42 @@ export function RecordatoriosPoliza({ polizaId }: RecordatoriosPolizaProps) {
     r.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
     r.usuario.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const toModalData = (recordatorio: Recordatorio): Partial<RecordatorioFormData> => ({
+    titulo: recordatorio.titulo,
+    fecha_vencimiento: recordatorio.fechaVencimiento,
+    hora_vencimiento: recordatorio.horaVencimiento,
+    zona_horaria: recordatorio.zonaHoraria,
+    establecer_recordatorio: recordatorio.establecerRecordatorio,
+    usuario_notificar: recordatorio.usuario_notificar,
+    descripcion: recordatorio.descripcion,
+    poliza: recordatorio.poliza,
+  });
+
+  const handleCreate = async (payload: RecordatorioFormData) => {
+    try {
+      await recordatoriosApi.create(payload as any);
+      toast({ title: 'Recordatorio creado' });
+      setIsCreateModalOpen(false);
+      await loadRecordatorios();
+    } catch (err) {
+      console.error(err);
+      toast({ title: 'Error al crear recordatorio', variant: 'destructive' });
+    }
+  };
+
+  const handleUpdate = async (payload: RecordatorioFormData) => {
+    if (!editingRecordatorio) return;
+    try {
+      await recordatoriosApi.patch(editingRecordatorio.id, payload as any);
+      toast({ title: 'Recordatorio actualizado' });
+      setEditingRecordatorio(null);
+      await loadRecordatorios();
+    } catch (err) {
+      console.error(err);
+      toast({ title: 'Error al actualizar recordatorio', variant: 'destructive' });
+    }
+  };
 
   return (
     <Card className="w-full">
@@ -162,10 +196,10 @@ export function RecordatoriosPoliza({ polizaId }: RecordatoriosPolizaProps) {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-center space-x-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:bg-blue-50">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:bg-blue-50" onClick={() => setViewingRecordatorio(recordatorio)}>
                           <Eye className="w-4 h-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-amber-600 hover:bg-amber-50">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-amber-600 hover:bg-amber-50" onClick={() => setEditingRecordatorio(recordatorio)}>
                           <Edit className="w-4 h-4" />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:bg-red-50" onClick={() => handleEliminar(recordatorio.id)}>
@@ -184,12 +218,38 @@ export function RecordatoriosPoliza({ polizaId }: RecordatoriosPolizaProps) {
       <CreateRecordatorioModal 
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        onSave={async () => {
-          setIsCreateModalOpen(false);
-          await loadRecordatorios();
-        }}
+        onSave={handleCreate}
         polizaId={polizaId}
+        userId={user?.id}
       />
+
+      <CreateRecordatorioModal
+        isOpen={!!editingRecordatorio}
+        onClose={() => setEditingRecordatorio(null)}
+        onSave={handleUpdate}
+        polizaId={polizaId}
+        userId={user?.id}
+        mode="edit"
+        initialData={editingRecordatorio ? toModalData(editingRecordatorio) : undefined}
+      />
+
+      <Dialog open={!!viewingRecordatorio} onOpenChange={() => setViewingRecordatorio(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Detalle de recordatorio</DialogTitle>
+          </DialogHeader>
+          {viewingRecordatorio && (
+            <div className="space-y-3 text-sm">
+              <p><span className="font-medium">Titulo:</span> {viewingRecordatorio.titulo}</p>
+              <p><span className="font-medium">Usuario:</span> {viewingRecordatorio.usuario}</p>
+              <p><span className="font-medium">Fecha:</span> {new Date(viewingRecordatorio.fechaVencimiento).toLocaleDateString('es-ES')}</p>
+              <p><span className="font-medium">Hora:</span> {viewingRecordatorio.horaVencimiento}</p>
+              <p><span className="font-medium">Zona:</span> {viewingRecordatorio.zonaHoraria}</p>
+              <p><span className="font-medium">Descripcion:</span> {viewingRecordatorio.descripcion || 'Sin descripcion'}</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

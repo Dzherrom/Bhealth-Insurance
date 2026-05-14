@@ -11,6 +11,7 @@ from django.http import FileResponse
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 import datetime
+import calendar
 import zipfile
 import io
 import requests
@@ -23,7 +24,7 @@ from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
     EstadoPoliza, Poliza, Nota, HistorialPoliza, Etiqueta, Documento, Tarea,
     PolizaViewer, Cita, Medico, Recordatorio, IntentoLoginFallido,
-    Contrato, ReporteComision, Notificacion, TarjetaCredito,
+    Contrato, ReporteComision, Notificacion, TarjetaCredito, CuentaBancaria, InfoPago,
     PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal, registrar_auditoria_global
 )
 from .serializers import *
@@ -308,6 +309,69 @@ class DashboardStatsView(APIView):
         }
 
         return Response(stats)
+
+
+class CalendarioPrimasPolizaView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @staticmethod
+    def _add_months(base_date, months):
+        month = base_date.month - 1 + months
+        year = base_date.year + month // 12
+        month = month % 12 + 1
+        day = min(base_date.day, calendar.monthrange(year, month)[1])
+        return datetime.date(year, month, day)
+
+    def get(self, request, poliza_id):
+        try:
+            poliza = Poliza.objects.select_related('info_pago').get(id=poliza_id)
+        except Poliza.DoesNotExist:
+            return Response({'detail': 'Póliza no encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+
+        hoy = timezone.now().date()
+        info_pago = getattr(poliza, 'info_pago', None)
+
+        prima = float(poliza.prima_mensual or 0)
+        fecha_base = None
+
+        if info_pago and info_pago.fecha_primer_pago:
+            fecha_base = info_pago.fecha_primer_pago
+        elif poliza.fecha_efectiva:
+            fecha_base = poliza.fecha_efectiva
+        else:
+            fecha_base = hoy
+
+        pagos = []
+        for i in range(12):
+            fecha = self._add_months(fecha_base, i)
+            estado = 'PENDIENTE'
+            if fecha < hoy:
+                estado = 'VENCIDA'
+            elif fecha <= (hoy + datetime.timedelta(days=30)):
+                estado = 'PROXIMA'
+
+            pagos.append({
+                'indice': i + 1,
+                'fecha': fecha.isoformat(),
+                'monto': round(prima, 2),
+                'estado': estado,
+            })
+
+        stats = {
+            'total_programadas': len(pagos),
+            'vencidas': len([p for p in pagos if p['estado'] == 'VENCIDA']),
+            'proximas_30_dias': len([p for p in pagos if p['estado'] == 'PROXIMA']),
+            'pendientes': len([p for p in pagos if p['estado'] == 'PENDIENTE']),
+            'monto_total_programado': round(sum(p['monto'] for p in pagos), 2),
+        }
+
+        return Response({
+            'poliza_id': poliza.id,
+            'poliza_codigo': poliza.id_mercado,
+            'fecha_base': fecha_base.isoformat(),
+            'stats': stats,
+            'pagos': pagos,
+        })
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
@@ -659,6 +723,7 @@ class NotaViewSet(viewsets.ModelViewSet):
     serializer_class = NotaSerializer
     permission_classes = [permissions.IsAuthenticated]
     filterset_fields = ['poliza']
+    parser_classes = [MultiPartParser, FormParser]
 
     def perform_create(self, serializer):
         nota = serializer.save(autor=self.request.user)
@@ -1037,6 +1102,19 @@ class TarjetaCreditoViewSet(viewsets.ModelViewSet):
     queryset = TarjetaCredito.objects.all()
     serializer_class = TarjetaCreditoSerializer
     permission_classes = [permissions.IsAuthenticated]
+    filterset_fields = ['poliza']
+
+class CuentaBancariaViewSet(viewsets.ModelViewSet):
+    queryset = CuentaBancaria.objects.all()
+    serializer_class = CuentaBancariaSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filterset_fields = ['poliza']
+
+class InfoPagoViewSet(viewsets.ModelViewSet):
+    queryset = InfoPago.objects.all()
+    serializer_class = InfoPagoSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filterset_fields = ['poliza']
 
 class LocationLookupView(APIView):
     permission_classes = [permissions.IsAuthenticated]

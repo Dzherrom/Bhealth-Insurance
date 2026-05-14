@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { MessageSquare, Plus, User, Clock, Edit2, Trash2, Paperclip, Image as ImageIcon, AtSign } from 'lucide-react';
-import { notasApi } from '@/lib/api';
+import { notasApi, resolveApiMediaUrl } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from '@/hooks/use-toast';
 
@@ -15,6 +15,11 @@ interface Nota {
   id: number;
   contenido: string;
   archivo?: string;
+  adjuntos?: Array<{
+    id: number;
+    archivo: string;
+    nombre?: string;
+  }>;
   usuario: {
     nombre: string;
     apellido: string;
@@ -33,7 +38,7 @@ export function NotasPoliza({ polizaId }: NotasPolizaProps) {
   const [notas, setNotas] = useState<Nota[]>([]);
   const [isLoadingNotas, setIsLoadingNotas] = useState(false);
   const [nuevaNota, setNuevaNota] = useState('');
-  const [archivoAdjunto, setArchivoAdjunto] = useState<File | null>(null);
+  const [archivosAdjuntos, setArchivosAdjuntos] = useState<File[]>([]);
   const [agregandoNota, setAgregandoNota] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContenido, setEditContenido] = useState('');
@@ -58,7 +63,11 @@ export function NotasPoliza({ polizaId }: NotasPolizaProps) {
       setNotas(dePoliza.map((n: any) => ({
         id: n.id ?? Date.now(),
         contenido: n.contenido,
-        archivo: n.archivo,
+        archivo: resolveApiMediaUrl(n.archivo),
+        adjuntos: (n.adjuntos ?? []).map((adjunto: any) => ({
+          ...adjunto,
+          archivo: resolveApiMediaUrl(adjunto.archivo),
+        })),
         usuario: {
           nombre: 'Usuario',
           apellido: `#${n.usuario}`,
@@ -106,24 +115,15 @@ export function NotasPoliza({ polizaId }: NotasPolizaProps) {
       formData.append('contenido', nuevaNota.trim());
       if (polizaId) formData.append('poliza', String(polizaId));
       formData.append('usuario', String(user?.id ?? 1));
-      if (archivoAdjunto) formData.append('archivo', archivoAdjunto);
+      for (const archivo of archivosAdjuntos) {
+        formData.append('archivos', archivo);
+      }
 
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
-      const token = localStorage.getItem('access_token');
-      
-      const res = await fetch(`${API_BASE_URL}/notas/`, {
-        method: 'POST',
-        headers: {
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-        body: formData,
-      });
-
-      if (!res.ok) throw new Error('Error guardando nota');
+      await (notasApi as any).createFormData(formData);
 
       toast({ title: 'Nota agregada' });
       setNuevaNota('');
-      setArchivoAdjunto(null);
+      setArchivosAdjuntos([]);
       setAgregandoNota(false);
       loadNotas();
     } catch (err) {
@@ -186,13 +186,22 @@ export function NotasPoliza({ polizaId }: NotasPolizaProps) {
                 onChange={(e) => setNuevaNota(e.target.value)}
                 className="min-h-20 bg-white"
               />
-              {archivoAdjunto && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground p-2 bg-slate-100 rounded-md truncate max-w-full">
-                  <Paperclip className="h-4 w-4 shrink-0" />
-                  <span className="truncate">{archivoAdjunto.name}</span>
-                  <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto shrink-0" onClick={() => setArchivoAdjunto(null)}>
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
+              {archivosAdjuntos.length > 0 && (
+                <div className="space-y-2">
+                  {archivosAdjuntos.map((archivo, index) => (
+                    <div key={`${archivo.name}-${index}`} className="flex items-center gap-2 text-sm text-muted-foreground p-2 bg-slate-100 rounded-md truncate max-w-full">
+                      <Paperclip className="h-4 w-4 shrink-0" />
+                      <span className="truncate">{archivo.name}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 ml-auto shrink-0"
+                        onClick={() => setArchivosAdjuntos((prev) => prev.filter((_, fileIndex) => fileIndex !== index))}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
                 </div>
               )}
               <div className="flex flex-col sm:flex-row justify-between gap-2">
@@ -204,8 +213,9 @@ export function NotasPoliza({ polizaId }: NotasPolizaProps) {
                   <input 
                     id="archivo-nota" 
                     type="file" 
+                    multiple
                     className="hidden" 
-                    onChange={(e) => setArchivoAdjunto(e.target.files?.[0] ?? null)} 
+                    onChange={(e) => setArchivosAdjuntos((prev) => [...prev, ...Array.from(e.target.files ?? [])])} 
                   />
                   <Button variant="outline" size="sm" type="button" onClick={() => {
                     const input = document.getElementById('archivo-nota');
@@ -230,7 +240,7 @@ export function NotasPoliza({ polizaId }: NotasPolizaProps) {
                     onClick={() => {
                       setAgregandoNota(false);
                       setNuevaNota('');
-                      setArchivoAdjunto(null);
+                      setArchivosAdjuntos([]);
                     }}
                   >
                     Cancelar
@@ -304,18 +314,32 @@ export function NotasPoliza({ polizaId }: NotasPolizaProps) {
                           part.startsWith('@') ? <span key={i} className="text-blue-600 font-medium bg-blue-50 px-1 rounded-sm">{part}</span> : part
                         )}
                       </p>
-                      {nota.archivo && (
-                        <div className="mt-2">
-                          {nota.archivo.match(/\.(jpeg|jpg|gif|png|webp|svg)/i) ? (
-                            <a href={nota.archivo} target="_blank" rel="noopener noreferrer" className="block max-w-xs rounded-md overflow-hidden border">
-                              <img src={nota.archivo} alt="Archivo adjunto" className="w-full h-auto" />
-                            </a>
-                          ) : (
-                            <a href={nota.archivo} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 p-2 rounded-md transition-colors">
-                              <Paperclip className="h-4 w-4 mr-2" />
-                              Descargar archivo
-                            </a>
+                      {(nota.archivo || nota.adjuntos?.length) && (
+                        <div className="mt-2 flex flex-wrap gap-3">
+                          {nota.archivo && (
+                            nota.archivo.match(/\.(jpeg|jpg|gif|png|webp|svg)/i) ? (
+                              <a href={nota.archivo} target="_blank" rel="noopener noreferrer" className="block max-w-xs rounded-md overflow-hidden border">
+                                <img src={nota.archivo} alt="Archivo adjunto" className="w-full h-auto" />
+                              </a>
+                            ) : (
+                              <a href={nota.archivo} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 p-2 rounded-md transition-colors">
+                                <Paperclip className="h-4 w-4 mr-2" />
+                                Descargar archivo
+                              </a>
+                            )
                           )}
+                          {nota.adjuntos?.map((adjunto) => (
+                            adjunto.archivo.match(/\.(jpeg|jpg|gif|png|webp|svg)/i) ? (
+                              <a key={adjunto.id} href={adjunto.archivo} target="_blank" rel="noopener noreferrer" className="block max-w-xs rounded-md overflow-hidden border">
+                                <img src={adjunto.archivo} alt={adjunto.nombre || 'Adjunto'} className="w-full h-auto" />
+                              </a>
+                            ) : (
+                              <a key={adjunto.id} href={adjunto.archivo} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 p-2 rounded-md transition-colors">
+                                <Paperclip className="h-4 w-4 mr-2" />
+                                {adjunto.nombre || 'Descargar archivo'}
+                              </a>
+                            )
+                          ))}
                         </div>
                       )}
                     </div>

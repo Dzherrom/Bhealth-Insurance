@@ -280,6 +280,16 @@ const createCrudApi = <T extends OptionalBaseEntity, TCreate = Omit<T, 'id'>, TU
     return handleApiResponse<T>(response);
   },
 
+  // Crear con multipart/form-data
+  createFormData: async (data: FormData): Promise<T> => {
+    const response = await fetch(`${API_BASE_URL}/${endpoint}/`, {
+      method: 'POST',
+      headers: getAuthHeadersWithoutContentType(),
+      body: data,
+    });
+    return handleApiResponse<T>(response);
+  },
+
   // Actualizar un registro completo
   update: async (id: number, data: TCreate): Promise<T> => {
     const response = await fetch(`${API_BASE_URL}/${endpoint}/${id}/`, {
@@ -383,6 +393,7 @@ interface Documento extends OptionalBaseEntity {
 
 interface Cita extends OptionalBaseEntity {
   poliza: number;
+  poliza_codigo?: string;
   cliente?: number | null;
   cliente_nombre?: string | null;
   creado_por?: number;
@@ -485,6 +496,14 @@ export const polizasApi = {
     
     return await response.blob();
   },
+
+  getCalendarioPrimas: async (id: number): Promise<any> => {
+    const response = await fetch(`${API_BASE_URL}/polizas/${id}/calendario-primas/`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+    return handleApiResponse<any>(response);
+  },
 };
 
 // 📋 Tareas - Con función especializada para mis tareas
@@ -515,6 +534,12 @@ export const documentosApi = createCrudApi<Documento>('documentos');
 
 // 📅 Citas
 export const citasApi = createCrudApi<Cita>('citas');
+
+// 💳 Pagos
+export const tarjetasCreditoApi = createCrudApi<any>('tarjetas_credito');
+export const cuentasBancariasApi = createCrudApi<any>('cuentas_bancarias');
+export const infoPagoApi = createCrudApi<any>('info_pago');
+export const reportesComisionApi = createCrudApi<any>('reportes_comision');
 
 // =============================================================================
 // 🔧 UTILIDADES ADICIONALES
@@ -593,6 +618,10 @@ export const api = {
   polizas: polizasApi,
   tareas: tareasApi,
   citas: citasApi,
+  tarjetasCredito: tarjetasCreditoApi,
+  cuentasBancarias: cuentasBancariasApi,
+  infoPago: infoPagoApi,
+  reportesComision: reportesComisionApi,
   notas: notasApi,
   historial: historialApi,
   etiquetas: etiquetasApi,

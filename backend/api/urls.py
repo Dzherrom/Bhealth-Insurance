@@ -15,11 +15,12 @@ from .views import (
     ReporteAgentesView, DashboardStatsView, ReporteIntentosFallidosView,
     ContratoViewSet, ReporteComisionViewSet, NotificacionViewSet,
     LocationLookupView, TarjetaCreditoViewSet, CustomTokenObtainPairView,
+    CuentaBancariaViewSet, InfoPagoViewSet,
     MatrizPermisoRolViewSet, AuditoriaGlobalViewSet, AuditoriaConsolidadaView,
     PolizaTransferenciaViewSet, ZohoSignWebhookView,
     ImportarClientesCSVView, ImportarPolizasCSVView, UserPolicyStatsView,
     ImportarPolizasExcelView, UndoImportExcelView, UserPolicyStatsDetailView,
-    ConfiguracionNotificacionViewSet,
+    ConfiguracionNotificacionViewSet, CalendarioPrimasPolizaView,
 )
 from .views_consent import ConsentRequestViewSet
 
@@ -45,6 +46,8 @@ router.register(r'contratos', ContratoViewSet)
 router.register(r'reportes_comision', ReporteComisionViewSet)
 router.register(r'notificaciones', NotificacionViewSet, basename='notificacion')
 router.register(r'tarjetas_credito', TarjetaCreditoViewSet)
+router.register(r'cuentas_bancarias', CuentaBancariaViewSet)
+router.register(r'info_pago', InfoPagoViewSet)
 router.register(r'matriz-permisos', MatrizPermisoRolViewSet, basename='matriz-permisos')
 router.register(r'auditoria-global', AuditoriaGlobalViewSet, basename='auditoria-global')
 router.register(r'transferencias-poliza', PolizaTransferenciaViewSet, basename='transferencias-poliza')
@@ -63,6 +66,7 @@ urlpatterns = [
     path('reportes/intentos-fallidos/', ReporteIntentosFallidosView.as_view(), name='reporte-intentos-fallidos'),
     path('reportes/auditoria-consolidada/', AuditoriaConsolidadaView.as_view(), name='auditoria-consolidada'),
     path('dashboard/stats/', DashboardStatsView.as_view(), name='dashboard-stats'),
+    path('polizas/<int:poliza_id>/calendario-primas/', CalendarioPrimasPolizaView.as_view(), name='poliza-calendario-primas'),
     path('webhooks/zohosign/', ZohoSignWebhookView.as_view(), name='webhook-zohosign'),
     path('clientes/import-csv/', ImportarClientesCSVView.as_view(), name='import-clientes-csv'),
     path('polizas/import-csv/', ImportarPolizasCSVView.as_view(), name='import-polizas-csv'),

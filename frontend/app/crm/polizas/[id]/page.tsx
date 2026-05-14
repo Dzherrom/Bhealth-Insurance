@@ -21,6 +21,9 @@ import { usePolizaStore } from '@/store/polizaStore';
 import { InfoPagoPoliza } from '@/components/polizas/InfoPagoPoliza';
 import { DireccionesPoliza } from '@/components/polizas/DireccionesPoliza';
 import { MetadatosPoliza } from '@/components/polizas/MetadatosPoliza';
+import { CalendarioPrimasPoliza } from '@/components/polizas/CalendarioPrimasPoliza';
+import { TareasPoliza } from '@/components/polizas/TareasPoliza';
+import { useAuthStore } from '@/store/authStore';
 
 /* Mock data comentada — reemplazada por datos reales del API
 const mockPolizaDetails: PolizaResponse = {
@@ -163,11 +166,11 @@ export default function PolizaDetailsPage() {
   const router = useRouter();
   const params = useParams();
   const { polizaSeleccionada: poliza, isLoading: loading, fetchPolizaById } = usePolizaStore();
+  const { user } = useAuthStore();
   const [activeSection, setActiveSection] = useState('poliza');
 
   const [isBasicInfoModalOpen, setIsBasicInfoModalOpen] = useState(false);
   const [isFinancialModalOpen, setIsFinancialModalOpen] = useState(false);
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isFamilyModalOpen, setIsFamilyModalOpen] = useState(false);
   const [currentFamilyMember, setCurrentFamilyMember] = useState<any>(null);
 
@@ -341,9 +344,6 @@ export default function PolizaDetailsPage() {
               <Calendar className="w-4 h-4 text-muted-foreground" />
               <span>Fechas Importantes</span>
             </CardTitle>
-            <Button variant="outline" size="sm">
-              Editar
-            </Button>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -365,9 +365,6 @@ export default function PolizaDetailsPage() {
               <Shield className="w-4 h-4 text-muted-foreground" />
               <span>Plan de Seguro</span>
             </CardTitle>
-            <Button variant="outline" size="sm">
-              Editar
-            </Button>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -386,9 +383,6 @@ export default function PolizaDetailsPage() {
               <Building className="w-4 h-4 text-muted-foreground" />
               <span>Agente Asignado</span>
             </CardTitle>
-            <Button variant="outline" size="sm">
-              Editar
-            </Button>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -399,66 +393,20 @@ export default function PolizaDetailsPage() {
         </Card>
       </div>
 
-      {/* Direcciones */}
-      <div className="grid gap-6 md:grid-cols-3">
-        {/* Dirección física */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium flex items-center space-x-2">
-              <MapPin className="w-4 h-4 text-muted-foreground" />
-              <span>Dirección física</span>
-            </CardTitle>
-            <Button variant="outline" size="sm">
-              Editar
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 text-sm">
-              <p className="font-medium">90 SANT MARLOWR DR APT 902</p>
-              <p className="text-gray-600">LAWRENCEVILLE, Georgia (GA), 30044</p>
-              <p className="text-gray-500">Gwinnett County</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Dirección postal */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium flex items-center space-x-2">
-              <MapPin className="w-4 h-4 text-muted-foreground" />
-              <span>Dirección postal</span>
-            </CardTitle>
-            <Button variant="outline" size="sm">
-              Editar
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center text-gray-500 py-4">
-              <p>No hay una dirección asociada con esta póliza</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Dirección de facturación */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium flex items-center space-x-2">
-              <MapPin className="w-4 h-4 text-muted-foreground" />
-              <span>Dirección de facturación</span>
-            </CardTitle>
-            <Button variant="outline" size="sm">
-              Editar
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 text-sm">
-              <p className="font-medium">740 Laural Lane</p>
-              <p className="text-gray-600">Lawrenceville, Georgia (GA), 30044</p>
-              <p className="text-gray-500">Gwinnett County</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-sm font-medium flex items-center space-x-2">
+            <MapPin className="w-4 h-4 text-muted-foreground" />
+            <span>Direcciones</span>
+          </CardTitle>
+          <Button variant="outline" size="sm" onClick={() => setActiveSection('direcciones')}>
+            Gestionar
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">Administra direcciones fisica, postal y de facturacion en la seccion Direcciones.</p>
+        </CardContent>
+      </Card>
 
       {/* Familiares */}
       <Familiares 
@@ -468,62 +416,18 @@ export default function PolizaDetailsPage() {
         onAdd={handleAddFamiliar}
       />
 
-      {/* Información de pago */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="flex items-center space-x-2">
-            <CreditCard className="w-5 h-5" />
-            <span>Información de pago</span>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-sm font-medium flex items-center space-x-2">
+            <CreditCard className="w-4 h-4 text-muted-foreground" />
+            <span>Pagos y cronograma</span>
           </CardTitle>
-          <Button variant="outline" size="sm" onClick={() => setIsPaymentModalOpen(true)}>
-            Editar
+          <Button variant="outline" size="sm" onClick={() => setActiveSection('pagos')}>
+            Gestionar
           </Button>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div>
-              <span className="text-sm text-gray-500">Pago recurrente:</span>
-              <p className="font-semibold">No configurado</p>
-            </div>
-            <div>
-              <span className="text-sm text-gray-500">Fecha del primer pago:</span>
-              <p className="font-semibold">No establecida</p>
-            </div>
-            <div>
-              <span className="text-sm text-gray-500">Día de pago preferido:</span>
-              <p className="font-semibold">No seleccionado</p>
-            </div>
-          </div>
-          
-          <div className="mt-6">
-            <h4 className="font-medium mb-3">Tarjetas de pago</h4>
-            <div className="border rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-6 bg-gray-200 rounded flex items-center justify-center">
-                    <span className="text-xs font-bold">•••• ••••</span>
-                  </div>
-                  <div>
-                    <p className="font-medium">•••••••••3259</p>
-                    <p className="text-sm text-gray-500">Débito • Aug 08, 2026</p>
-                  </div>
-                </div>
-                <div className="flex space-x-2">
-                  <Button variant="outline" size="sm">
-                    Editar
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    Eliminar
-                  </Button>
-                </div>
-              </div>
-            </div>
-            <div className="mt-3 flex space-x-2">
-              <Button variant="outline" size="sm">
-                + Agregar tarjeta
-              </Button>
-            </div>
-          </div>
+          <p className="text-sm text-muted-foreground">Gestiona medios de pago, cronograma y tarjetas en la seccion Medios de Pago.</p>
         </CardContent>
       </Card>
 
@@ -554,8 +458,16 @@ export default function PolizaDetailsPage() {
             {activeSection === 'metadatos' && (
               <MetadatosPoliza poliza={poliza} />
             )}
+
+            {activeSection === 'calendario' && (
+              <CalendarioPrimasPoliza polizaId={poliza.id} />
+            )}
+
+            {activeSection === 'tareas' && (
+              <TareasPoliza polizaId={poliza.id} userId={user?.id} />
+            )}
             
-            {activeSection !== 'poliza' && activeSection !== 'documentos' && activeSection !== 'recordatorios' && activeSection !== 'pagos' && activeSection !== 'direcciones' && activeSection !== 'metadatos' && (
+            {activeSection !== 'poliza' && activeSection !== 'documentos' && activeSection !== 'recordatorios' && activeSection !== 'pagos' && activeSection !== 'direcciones' && activeSection !== 'metadatos' && activeSection !== 'calendario' && activeSection !== 'tareas' && (
               <div className="text-center py-8 text-gray-500">
                 <p>Sección en desarrollo: {activeSection}</p>
               </div>
@@ -578,10 +490,6 @@ export default function PolizaDetailsPage() {
         open={isFamilyModalOpen} 
         onOpenChange={setIsFamilyModalOpen} 
         member={currentFamilyMember} 
-      />
-      <EditPaymentModal 
-        open={isPaymentModalOpen} 
-        onOpenChange={setIsPaymentModalOpen} 
       />
 
     </div>
@@ -724,38 +632,3 @@ function EditFamilyModal({ open, onOpenChange, member }: { open: boolean, onOpen
   );
 }
 
-function EditPaymentModal({ open, onOpenChange }: { open: boolean, onOpenChange: (open: boolean) => void }) {
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    console.log("Updating Payment Info");
-    // Implement API call for payment info
-    onOpenChange(false);
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader><DialogTitle>Editar Información de Pago</DialogTitle></DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <p className="text-sm text-muted-foreground italic">Configuración de pagos recurrentes y tarjetas.</p>
-          <div className="grid gap-2">
-            <Label htmlFor="pagos_recurrentes">Pago Recurrente</Label>
-            <select id="pagos_recurrentes" name="pagos_recurrentes" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
-                <option value="true">Sí</option>
-                <option value="false">No</option>
-            </select>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="fecha_primer_pago">Fecha Primer Pago</Label>
-            <Input id="fecha_primer_pago" name="fecha_primer_pago" type="date" />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="dia_pago">Día de pago preferido</Label>
-            <Input id="dia_pago" name="dia_pago" type="number" placeholder="1-31" min={1} max={31} />
-          </div>
-          <DialogFooter><Button type="submit">Actualizar Pago</Button></DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}

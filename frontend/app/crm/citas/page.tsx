@@ -1,10 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -20,12 +24,25 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { CalendarDays, Clock3, FileText, MapPin, Search, User2, Plus } from 'lucide-react';
-import { citasApi } from '@/lib/api';
+import { CalendarDays, Clock3, FileText, MapPin, Search, SquarePen, User2, Plus } from 'lucide-react';
+import { citasApi, polizasApi } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 
 type CitaApi = Awaited<ReturnType<typeof citasApi.list>>[number];
+type PolizaApi = Awaited<ReturnType<typeof polizasApi.list>>[number];
 
 type EstadoCita = 'PROGRAMADA' | 'COMPLETADA' | 'CANCELADA' | 'NO_ASISTIO';
+
+type AppointmentFormValues = {
+  polizaCodigo: string;
+  fecha: string;
+  hora: string;
+  proveedor: string;
+  lugar: string;
+  estado: EstadoCita;
+  motivo: string;
+  notas: string;
+};
 
 const ITEMS_PER_PAGE = 50;
 
@@ -33,6 +50,7 @@ const MOCK_CITAS: CitaApi[] = [
   {
     id: 1,
     poliza: 34,
+    poliza_codigo: 'MKT-DEMO-034',
     cliente_nombre: null,
     fecha_hora: '2026-05-13T03:00:00',
     proveedor: 'Pepito',
@@ -42,6 +60,7 @@ const MOCK_CITAS: CitaApi[] = [
   {
     id: 2,
     poliza: 1,
+    poliza_codigo: 'MKT-DEMO-001',
     cliente_nombre: null,
     fecha_hora: '2026-05-15T03:00:00',
     proveedor: 'Raymundo',
@@ -91,16 +110,51 @@ const formatTime = (value: string) => {
 };
 
 export default function CitasPage() {
+  const { toast } = useToast();
   const [citas, setCitas] = useState<CitaApi[]>([]);
+  const [polizas, setPolizas] = useState<PolizaApi[]>([]);
   const [search, setSearch] = useState('');
   const [estadoFilter, setEstadoFilter] = useState<'ALL' | EstadoCita>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editingCitaId, setEditingCitaId] = useState<number | null>(null);
+  const [formValues, setFormValues] = useState<AppointmentFormValues>({
+    polizaCodigo: '',
+    fecha: '',
+    hora: '',
+    proveedor: '',
+    lugar: '',
+    estado: 'PROGRAMADA',
+    motivo: '',
+    notas: '',
+  });
+
+  const polizaByCodigo = useMemo(
+    () => new Map(polizas.map((poliza) => [poliza.id_mercado, poliza])),
+    [polizas]
+  );
+
+  const resetForm = () => {
+    setEditingCitaId(null);
+    setFormValues({
+      polizaCodigo: '',
+      fecha: '',
+      hora: '',
+      proveedor: '',
+      lugar: '',
+      estado: 'PROGRAMADA',
+      motivo: '',
+      notas: '',
+    });
+  };
 
   const loadCitas = async () => {
     setIsLoading(true);
     try {
-      const data = await citasApi.list();
+      const [data, polizasData] = await Promise.all([citasApi.list(), polizasApi.list()]);
+      setPolizas(polizasData);
       setCitas(data.length > 0 ? data : MOCK_CITAS);
     } catch {
       setCitas(MOCK_CITAS);
@@ -114,8 +168,13 @@ export default function CitasPage() {
   }, []);
 
   const citasConEstado = useMemo(
-    () => citas.map((cita) => ({ ...cita, estado: toEstadoCita(cita.estado) })),
-    [citas]
+    () =>
+      citas.map((cita) => ({
+        ...cita,
+        estado: toEstadoCita(cita.estado),
+        poliza_codigo: cita.poliza_codigo || polizas.find((poliza) => poliza.id === cita.poliza)?.id_mercado || `#${cita.poliza}`,
+      })),
+    [citas, polizas]
   );
 
   const filteredCitas = useMemo(() => {
@@ -126,7 +185,7 @@ export default function CitasPage() {
       if (!statusOk) return false;
       if (!searchTerm) return true;
 
-      const polizaText = `#${cita.poliza}`;
+      const polizaText = `${cita.poliza_codigo || `#${cita.poliza}`}`;
       const cliente = (cita.cliente_nombre || '--').toLowerCase();
 
       return (
@@ -156,6 +215,83 @@ export default function CitasPage() {
   const totalCompletadas = citasConEstado.filter((c) => c.estado === 'COMPLETADA').length;
   const totalCanceladas = citasConEstado.filter((c) => c.estado === 'CANCELADA').length;
 
+  const openCreateDialog = () => {
+    resetForm();
+    setIsDialogOpen(true);
+  };
+
+  const openEditDialog = (cita: CitaApi) => {
+    const citaDate = new Date(cita.fecha_hora);
+    const fecha = Number.isNaN(citaDate.getTime()) ? '' : citaDate.toISOString().split('T')[0];
+    const hora = Number.isNaN(citaDate.getTime())
+      ? ''
+      : citaDate.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+    setEditingCitaId(cita.id ?? null);
+    setFormValues({
+      polizaCodigo: cita.poliza_codigo || polizas.find((poliza) => poliza.id === cita.poliza)?.id_mercado || '',
+      fecha,
+      hora,
+      proveedor: cita.proveedor,
+      lugar: cita.lugar,
+      estado: toEstadoCita(cita.estado),
+      motivo: cita.motivo || '',
+      notas: cita.notas || '',
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleFormChange = <K extends keyof AppointmentFormValues>(field: K, value: AppointmentFormValues[K]) => {
+    setFormValues((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const saveCita = async () => {
+    const selectedPoliza = polizaByCodigo.get(formValues.polizaCodigo.trim());
+    if (!selectedPoliza) {
+      toast({ title: 'Selecciona un codigo de poliza valido', variant: 'destructive' });
+      return;
+    }
+
+    if (!formValues.fecha || !formValues.hora || !formValues.proveedor.trim() || !formValues.lugar.trim()) {
+      toast({ title: 'Completa los campos requeridos', variant: 'destructive' });
+      return;
+    }
+
+    const clientePrincipal = selectedPoliza.clientes_info?.find((cliente) => cliente.es_solicitante_principal)?.cliente;
+    const fecha_hora = `${formValues.fecha}T${formValues.hora}:00`;
+
+    const payload = {
+      poliza: selectedPoliza.id,
+      cliente: clientePrincipal || null,
+      fecha_hora,
+      proveedor: formValues.proveedor.trim(),
+      lugar: formValues.lugar.trim(),
+      estado: formValues.estado,
+      motivo: formValues.motivo.trim(),
+      notas: formValues.notas.trim(),
+    };
+
+    setIsSaving(true);
+    try {
+      if (editingCitaId) {
+        await citasApi.patch(editingCitaId, payload);
+        toast({ title: 'Cita actualizada' });
+      } else {
+        await citasApi.create(payload as never);
+        toast({ title: 'Cita creada' });
+      }
+
+      setIsDialogOpen(false);
+      resetForm();
+      await loadCitas();
+    } catch (error) {
+      console.error(error);
+      toast({ title: 'No se pudo guardar la cita', variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const cancelCita = async (citaId: number) => {
     const current = citasConEstado.find((cita) => cita.id === citaId);
     if (!current || current.estado !== 'PROGRAMADA') return;
@@ -181,7 +317,7 @@ export default function CitasPage() {
           <h1 className="text-3xl font-bold tracking-tight">Citas</h1>
         </div>
 
-        <Button className="bg-blue-600 text-white hover:bg-blue-700">
+        <Button className="bg-blue-600 text-white hover:bg-blue-700" onClick={openCreateDialog}>
           <Plus className="mr-2 h-4 w-4" />
           Nueva cita
         </Button>
@@ -316,10 +452,13 @@ export default function CitasPage() {
                   </TableCell>
 
                   <TableCell>
-                    <span className="flex items-center gap-2">
+                    <Link
+                      href={`/crm/polizas/${cita.poliza}`}
+                      className="flex items-center gap-2 text-blue-600 hover:text-blue-700 hover:underline"
+                    >
                       <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                      #{cita.poliza}
-                    </span>
+                      {cita.poliza_codigo || `#${cita.poliza}`}
+                    </Link>
                   </TableCell>
 
                   <TableCell>{cita.cliente_nombre || '--'}</TableCell>
@@ -331,15 +470,25 @@ export default function CitasPage() {
                   </TableCell>
 
                   <TableCell className="pr-6 text-right">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-                      disabled={cita.estado !== 'PROGRAMADA'}
-                      onClick={() => cancelCita(cita.id!)}
-                    >
-                      Cancelar
-                    </Button>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openEditDialog(cita)}
+                      >
+                        <SquarePen className="mr-2 h-3.5 w-3.5" />
+                        Editar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                        disabled={cita.estado !== 'PROGRAMADA'}
+                        onClick={() => cancelCita(cita.id!)}
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -377,6 +526,85 @@ export default function CitasPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={isDialogOpen} onOpenChange={(open) => {
+        setIsDialogOpen(open);
+        if (!open) resetForm();
+      }}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editingCitaId ? 'Editar cita' : 'Nueva cita'}</DialogTitle>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-2 md:grid-cols-2">
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="polizaCodigo">Codigo de poliza (MKT...)</Label>
+              <Input
+                id="polizaCodigo"
+                list="polizas-disponibles"
+                placeholder="MKT..."
+                value={formValues.polizaCodigo}
+                onChange={(event) => handleFormChange('polizaCodigo', event.target.value)}
+              />
+              <datalist id="polizas-disponibles">
+                {polizas.map((poliza) => (
+                  <option key={poliza.id} value={poliza.id_mercado} />
+                ))}
+              </datalist>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="fecha">Fecha</Label>
+              <Input id="fecha" type="date" value={formValues.fecha} onChange={(event) => handleFormChange('fecha', event.target.value)} />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="hora">Hora</Label>
+              <Input id="hora" type="time" value={formValues.hora} onChange={(event) => handleFormChange('hora', event.target.value)} />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="proveedor">Proveedor</Label>
+              <Input id="proveedor" value={formValues.proveedor} onChange={(event) => handleFormChange('proveedor', event.target.value)} />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="lugar">Lugar</Label>
+              <Input id="lugar" value={formValues.lugar} onChange={(event) => handleFormChange('lugar', event.target.value)} />
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="estado">Estado</Label>
+              <Select value={formValues.estado} onValueChange={(value) => handleFormChange('estado', value as EstadoCita)}>
+                <SelectTrigger id="estado">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PROGRAMADA">Programada</SelectItem>
+                  <SelectItem value="COMPLETADA">Completada</SelectItem>
+                  <SelectItem value="CANCELADA">Cancelada</SelectItem>
+                  <SelectItem value="NO_ASISTIO">No asistio</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="motivo">Motivo</Label>
+              <Textarea id="motivo" value={formValues.motivo} onChange={(event) => handleFormChange('motivo', event.target.value)} />
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="notas">Notas</Label>
+              <Textarea id="notas" value={formValues.notas} onChange={(event) => handleFormChange('notas', event.target.value)} />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSaving}>Cancelar</Button>
+            <Button onClick={saveCita} disabled={isSaving}>{isSaving ? 'Guardando...' : editingCitaId ? 'Guardar cambios' : 'Crear cita'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

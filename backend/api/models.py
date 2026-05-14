@@ -287,6 +287,14 @@ class Nota(models.Model):
     def __str__(self):
         return f"Nota en {self.poliza} por {self.autor.username}"
 
+class NotaAdjunto(models.Model):
+    nota = models.ForeignKey(Nota, on_delete=models.CASCADE, related_name='adjuntos')
+    archivo = models.FileField(upload_to='notas_archivos/', verbose_name="Archivo Adjunto")
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
+
+    def __str__(self):
+        return f"Adjunto nota #{self.nota_id}"
+
 class HistorialPoliza(models.Model):
     ACCION_CHOICES = [
         ('CREACION', 'Creación'),

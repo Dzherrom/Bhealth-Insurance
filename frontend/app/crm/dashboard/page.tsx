@@ -258,8 +258,8 @@ export default function DashboardPage() {
         <BoxComponent title="Total de aplicantes" value={stats.total_aplicantes || 0} />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Card>
           <CardHeader>
             <CardTitle>Pólizas efectivas por mes</CardTitle>
           </CardHeader>
@@ -362,7 +362,7 @@ export default function DashboardPage() {
                     ))}
                   </Pie>
                   <RechartsTooltip />
-                  <Legend />
+                  <Legend align="right" verticalAlign="middle" layout="vertical" iconType="square" />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
@@ -430,8 +430,8 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Card>
           <CardHeader>
             <CardTitle>Mapa de pólizas por estado (EEUU)</CardTitle>
           </CardHeader>
@@ -488,7 +488,7 @@ export default function DashboardPage() {
                     ))}
                   </Pie>
                   <RechartsTooltip />
-                  <Legend />
+                  <Legend align="right" verticalAlign="middle" layout="vertical" iconType="square" />
                 </PieChart>
               </ResponsiveContainer>
             ) : (

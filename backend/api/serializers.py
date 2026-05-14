@@ -4,6 +4,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
     EstadoPoliza, Poliza, PolizaCliente, Licencia, Nota, HistorialPoliza,
+    NotaAdjunto,
     Etiqueta, Documento, Tarea, UserProfile,
     InfoPago, TarjetaCredito, CuentaBancaria, PolizaViewer, Cita, Medico, Medicamento, Recordatorio,
     Contrato, ReporteComision, Notificacion, PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal, ConfiguracionNotificacion
@@ -303,11 +304,32 @@ class NotaSerializer(serializers.ModelSerializer):
         slug_field='username', 
         source='usuarios_etiquetados'
     )
+    adjuntos = serializers.SerializerMethodField()
 
     class Meta:
         model = Nota
         fields = '__all__'
         read_only_fields = ('autor', 'fecha_creacion', 'usuarios_etiquetados')
+
+    def get_adjuntos(self, obj):
+        return [
+            {
+                'id': adjunto.id,
+                'archivo': adjunto.archivo.url if adjunto.archivo else None,
+                'nombre': adjunto.archivo.name.split('/')[-1] if adjunto.archivo else None,
+            }
+            for adjunto in obj.adjuntos.all()
+        ]
+
+    def create(self, validated_data):
+        nota = Nota.objects.create(**validated_data)
+        request = self.context.get('request')
+
+        if request and hasattr(request, 'FILES'):
+            for archivo in request.FILES.getlist('archivos'):
+                NotaAdjunto.objects.create(nota=nota, archivo=archivo)
+
+        return nota
 
 class PolizaClienteSerializer(serializers.ModelSerializer):
     cliente_details = ClienteSerializer(source='cliente', read_only=True)
@@ -340,6 +362,7 @@ class MedicamentoSerializer(serializers.ModelSerializer):
 class CitaSerializer(serializers.ModelSerializer):
     creado_por_username = serializers.ReadOnlyField(source='creado_por.username')
     cliente_nombre = serializers.SerializerMethodField()
+    poliza_codigo = serializers.ReadOnlyField(source='poliza.id_mercado')
     medico_asignado_details = MedicoSerializer(source='medico_asignado', read_only=True)
     
     class Meta:
