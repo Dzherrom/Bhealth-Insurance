@@ -42,6 +42,18 @@ class IsCitasRole(permissions.BasePermission):
         if not auth or status != 'ACTIVE': return False
         return request.user.profile.role in ['ADMIN', 'MANAGER', 'CITAS']
 
+
+class IsCRMNonBasicRole(permissions.BasePermission):
+    """Permite acceso a roles CRM excepto USER (usuario básico)."""
+
+    def has_permission(self, request, view):
+        auth, status = check_status(request)
+        if not auth or status != 'ACTIVE':
+            return False
+
+        role = request.user.profile.role
+        return role in ['ADMIN', 'MANAGER', 'ASISTENTE', 'SHERPA', 'PAGOS', 'CITAS']
+
 class IsPolicyOwnerOrHigher(permissions.BasePermission):
     """
     Object-level permission to only allow owners (Asistentes) of a policy to edit it.

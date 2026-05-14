@@ -1,9 +1,13 @@
 'use client';
 
+import { useState } from "react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/sidebar";
 import SidebarCRM from "@/components/sidebar/sidebarCRM";
 import CRMNotificationButton from "@/components/configuraciones/CRMNotificationButton";
 import { CatalogoProvider } from "@/components/providers";
+import { Button } from "@/components/ui/button";
+import { LogOut } from "lucide-react";
+import { useAuthStore } from "@/store/authStore";
 import { useRouter, usePathname } from "next/navigation";
 
 interface CRMLayoutProps {
@@ -13,6 +17,8 @@ interface CRMLayoutProps {
 export default function CRMLayout({ children }: CRMLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const logout = useAuthStore((state) => state.logout);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // No mostrar sidebar en la página principal de CRM (login)
   const showSidebar = pathname !== '/crm';
@@ -20,6 +26,16 @@ export default function CRMLayout({ children }: CRMLayoutProps) {
   const handleSidebarNavigation = (item: any) => {
     if (item.href) {
       router.push(item.href);
+    }
+  };
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await logout();
+      router.push('/auth');
+    } finally {
+      setIsLoggingOut(false);
     }
   };
 
@@ -41,13 +57,23 @@ export default function CRMLayout({ children }: CRMLayoutProps) {
                 <h1 className="text-xl font-semibold truncate">CRM - BHealth Insurance</h1>
               </div>
               
-              {/* Botón de notificaciones en el header */}
-              <div className="flex-shrink-0">
+              {/* Acciones del header */}
+              <div className="flex-shrink-0 flex items-center gap-2">
                 <CRMNotificationButton 
                   variant="inline" 
                   size="md"
                   className="bg-blue-600 hover:bg-blue-700"
                 />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLogout}
+                  disabled={isLoggingOut}
+                  className="gap-2"
+                >
+                  <LogOut className="h-4 w-4" />
+                  {isLoggingOut ? 'Cerrando...' : 'Cerrar sesión'}
+                </Button>
               </div>
             </div>
 

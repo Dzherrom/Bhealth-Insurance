@@ -41,7 +41,28 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/a
 // Utilidad para obtener el token de autenticación
 const getAuthToken = (): string | null => {
   if (typeof window !== 'undefined') {
-    return localStorage.getItem('access_token');
+    const directToken = localStorage.getItem('access_token');
+    if (directToken) return directToken;
+
+    // Fallback: Zustand persist storage (auth-storage)
+    const persistedAuthRaw = localStorage.getItem('auth-storage');
+    if (persistedAuthRaw) {
+      try {
+        const persistedAuth = JSON.parse(persistedAuthRaw);
+        const tokenFromPersist = persistedAuth?.state?.accessToken;
+        if (tokenFromPersist) return tokenFromPersist;
+      } catch {
+        // Ignore malformed persisted data and continue with next fallback.
+      }
+    }
+
+    // Fallback: cookie used by middleware/session sync.
+    const cookieToken = document.cookie
+      .split('; ')
+      .find((row) => row.startsWith('access_token='))
+      ?.split('=')[1];
+
+    if (cookieToken) return decodeURIComponent(cookieToken);
   }
   return null;
 };

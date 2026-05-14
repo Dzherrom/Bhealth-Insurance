@@ -1,5 +1,5 @@
 from rest_framework import generics, permissions, status, viewsets, filters
-from .permissions import IsManagerRole, IsAdminRole, IsPolicyOwnerOrHigher
+from .permissions import IsManagerRole, IsAdminRole, IsPolicyOwnerOrHigher, IsCRMNonBasicRole
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -29,7 +29,7 @@ from .models import (
 from .serializers import *
 
 class DashboardStatsView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsCRMNonBasicRole]
 
     def get(self, request):
         stats = {}
@@ -38,21 +38,52 @@ class DashboardStatsView(APIView):
         from datetime import timedelta
         from django.utils import timezone
         
-        start_date = request.query_params.get('start_date')
-        end_date = request.query_params.get('end_date')
+        start_date_param = request.query_params.get('start_date')
+        end_date_param = request.query_params.get('end_date')
+        period = request.query_params.get('period')
+
+        today = timezone.now().date()
+        start_date = None
+        end_date = None
+
+        if start_date_param:
+            try:
+                start_date = datetime.date.fromisoformat(start_date_param)
+            except ValueError:
+                return Response({"detail": "start_date inválida. Usa YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
+        if end_date_param:
+            try:
+                end_date = datetime.date.fromisoformat(end_date_param)
+            except ValueError:
+                return Response({"detail": "end_date inválida. Usa YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Si no mandan fechas explícitas, derivar ventana por periodo predefinido.
+        if not start_date and not end_date:
+            period_days = {
+                'last_year': 365,
+                'last_6_months': 183,
+                'last_3_months': 92,
+                'last_month': 31,
+            }
+            selected_days = period_days.get(period or 'last_month', 31)
+            end_date = today
+            start_date = today - timedelta(days=selected_days)
 
         polizas_qs = Poliza.objects.all()
         clientes_qs = Cliente.objects.all()
         recordatorios_qs = Recordatorio.objects.all()
+        failed_logins_qs = IntentoLoginFallido.objects.all()
 
         if start_date:
             polizas_qs = polizas_qs.filter(fecha_efectiva__gte=start_date)
             clientes_qs = clientes_qs.filter(fecha_creacion__gte=start_date)
             recordatorios_qs = recordatorios_qs.filter(fecha_vencimiento__gte=start_date)
+            failed_logins_qs = failed_logins_qs.filter(fecha_intento__date__gte=start_date)
         if end_date:
             polizas_qs = polizas_qs.filter(fecha_efectiva__lte=end_date)
             clientes_qs = clientes_qs.filter(fecha_creacion__lte=end_date)
             recordatorios_qs = recordatorios_qs.filter(fecha_vencimiento__lte=end_date)
+            failed_logins_qs = failed_logins_qs.filter(fecha_intento__date__lte=end_date)
 
         now = timezone.now()
         
@@ -60,20 +91,31 @@ class DashboardStatsView(APIView):
         stats['recordatorios_pendientes'] = recordatorios_qs.count()
 
         # 2. Cumpleaños esta semana 
-        today = now.date()
         next_week = today + timedelta(days=7)
-        cumpleanos_qs = Cliente.objects.all()
+
+        def _next_birthday(fecha_nacimiento, reference_date):
+            try:
+                candidate = fecha_nacimiento.replace(year=reference_date.year)
+            except ValueError:
+                # Ajuste para cumpleaños 29/02 en años no bisiestos.
+                candidate = datetime.date(reference_date.year, 2, 28)
+
+            if candidate < reference_date:
+                try:
+                    candidate = fecha_nacimiento.replace(year=reference_date.year + 1)
+                except ValueError:
+                    candidate = datetime.date(reference_date.year + 1, 2, 28)
+            return candidate
+
+        cumpleanos_qs = clientes_qs
         cumpleanos_count = sum(
             1 for c in cumpleanos_qs 
-            if c.fecha_nacimiento and (c.fecha_nacimiento.replace(year=today.year) >= today and c.fecha_nacimiento.replace(year=today.year) <= next_week)
+            if c.fecha_nacimiento and (_next_birthday(c.fecha_nacimiento, today) >= today and _next_birthday(c.fecha_nacimiento, today) <= next_week)
         )
         stats['cumpleanos_semana'] = cumpleanos_count
 
-        # 3. Nuevos prospectos
-        stats['nuevos_prospectos'] = clientes_qs.filter(
-            fecha_creacion__month=now.month,
-            fecha_creacion__year=now.year
-        ).count()
+        # 3. Nuevos prospectos (dentro del periodo)
+        stats['nuevos_prospectos'] = clientes_qs.count()
 
         # 4. Total Polizas y Aplicantes
         real_total_aplicantes = polizas_qs.aggregate(t=Sum('total_aplicantes'))['t'] or 0
@@ -140,11 +182,8 @@ class DashboardStatsView(APIView):
         etiquetas = polizas_qs.filter(documentos__etiquetas__isnull=False).values('documentos__etiquetas__nombre').annotate(count=Count('id', distinct=True)).order_by('-count')[:10]
         stats['polizas_por_etiqueta_chart'] = [{"etiqueta": e['documentos__etiquetas__nombre'] or 'No asignado', "count": e['count']} for e in etiquetas]
 
-        # Inicios sesión fallidos
-        stats['failed_logins_count'] = IntentoLoginFallido.objects.filter(
-            fecha_intento__month=now.month,
-            fecha_intento__year=now.year
-        ).count()
+        # Inicios sesión fallidos (dentro del periodo)
+        stats['failed_logins_count'] = failed_logins_qs.count()
         
         # General stats
         total_all = polizas_qs.count()
@@ -170,6 +209,12 @@ class DashboardStatsView(APIView):
                 "cancelados": {"count": cancelados_count, "percentage": calc_perc(cancelados_count, total_all)},
                 "robados": {"count": robados_count, "percentage": calc_perc(robados_count, total_all)},
             }
+        }
+
+        stats['periodo_aplicado'] = {
+            "period": period or 'last_month',
+            "start_date": start_date,
+            "end_date": end_date,
         }
 
         return Response(stats)

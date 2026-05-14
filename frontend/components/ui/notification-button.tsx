@@ -189,7 +189,7 @@ export default function NotificationButton({
     'relative text-white transition-all duration-200 flex items-center justify-center hover:cursor-pointer',
     sizeStyles[size],
     variant === 'floating' && `fixed z-50 ${positionStyles[position]} rounded-full shadow-lg hover:shadow-xl bg-blue-600 hover:bg-blue-700`,
-    variant === 'inline' && 'static rounded-full bg-blue-600 hover:bg-blue-700 flex-shrink-0',
+    variant === 'inline' && 'relative rounded-full bg-blue-600 hover:bg-blue-700 flex-shrink-0',
     className
   );
   
