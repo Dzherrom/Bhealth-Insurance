@@ -1,14 +1,27 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, CalendarDays, Clock, Mail, Phone, Shield, User as UserIcon } from 'lucide-react';
-import { usersApi } from '@/lib/api';
+import { ArrowLeft, CalendarDays, Clock, Mail, Phone, Shield, User as UserIcon, Pencil } from 'lucide-react';
+import { resolveApiMediaUrl, usersApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+import { useAuthStore } from '@/store/authStore';
 
 interface ApiUserProfile {
   role?: string;
@@ -29,6 +42,47 @@ interface ApiUser {
   date_joined?: string;
   last_login?: string | null;
 }
+
+interface EditProfileForm {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  role: string;
+  status: string;
+}
+
+const ROLE_OPTIONS = [
+  { value: 'ADMIN', label: 'Admin' },
+  { value: 'MANAGER', label: 'Manager' },
+  { value: 'ASISTENTE', label: 'Asistente' },
+  { value: 'SHERPA', label: 'Sherpa' },
+  { value: 'PAGOS', label: 'Pagos' },
+  { value: 'CITAS', label: 'Citas' },
+  { value: 'USER', label: 'Usuario' },
+];
+
+const STATUS_OPTIONS = [
+  { value: 'ACTIVE', label: 'Activo' },
+  { value: 'INACTIVE', label: 'Inactivo' },
+  { value: 'CANDIDATE', label: 'Candidato' },
+];
+
+const ROLE_RANK: Record<string, number> = {
+  ADMIN: 100,
+  MANAGER: 90,
+  ASISTENTE: 70,
+  SHERPA: 70,
+  PAGOS: 70,
+  CITAS: 70,
+  USER: 10,
+};
+
+const toBackendRole = (role?: string | null): string => {
+  if (!role) return 'USER';
+  if (role.toLowerCase() === 'cliente') return 'USER';
+  return role.toUpperCase();
+};
 
 const formatDate = (value?: string | null) => {
   if (!value) return 'Sin registro';
@@ -72,25 +126,50 @@ const statusVariant = (status?: string): 'default' | 'secondary' | 'outline' => 
 export default function UserDetailsPage() {
   const params = useParams();
   const router = useRouter();
+  const { toast } = useToast();
+  const currentUserRole = useAuthStore((state) => state.role);
   const [user, setUser] = useState<ApiUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [form, setForm] = useState<EditProfileForm>({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    role: 'USER',
+    status: 'ACTIVE',
+  });
+
+  const fetchUser = async () => {
+    if (!params.id) return;
+    setIsLoading(true);
+    try {
+      const data = await usersApi.get(Number(params.id));
+      const typedData = data as ApiUser;
+      setUser(typedData);
+      setForm({
+        firstName: typedData.first_name || '',
+        lastName: typedData.last_name || '',
+        email: typedData.email || '',
+        phone: typedData.profile?.telefono || '',
+        role: typedData.profile?.role || 'USER',
+        status: typedData.profile?.status || 'ACTIVE',
+      });
+    } catch (error) {
+      console.error('Error al cargar detalle de usuario:', error);
+      setUser(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const run = async () => {
-      if (!params.id) return;
-      setIsLoading(true);
-      try {
-        const data = await usersApi.get(Number(params.id));
-        setUser(data as ApiUser);
-      } catch (error) {
-        console.error('Error al cargar detalle de usuario:', error);
-        setUser(null);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    run();
+    fetchUser();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
   const fullName = useMemo(() => {
@@ -98,6 +177,69 @@ export default function UserDetailsPage() {
     const name = `${user.first_name || ''} ${user.last_name || ''}`.trim();
     return name || user.username;
   }, [user]);
+
+  const maxAssignableRank = useMemo(() => {
+    const backendRole = toBackendRole(currentUserRole);
+    return ROLE_RANK[backendRole] ?? ROLE_RANK.USER;
+  }, [currentUserRole]);
+
+  const allowedRoleOptions = useMemo(
+    () => ROLE_OPTIONS.filter((option) => (ROLE_RANK[option.value] ?? -1) <= maxAssignableRank),
+    [maxAssignableRank]
+  );
+
+  const displayAvatar = avatarPreview || resolveApiMediaUrl(user?.profile?.avatar) || undefined;
+
+  const handleAvatarChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setAvatarFile(file);
+    if (file) {
+      setAvatarPreview(URL.createObjectURL(file));
+    } else {
+      setAvatarPreview(null);
+    }
+  };
+
+  const handleEditSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!user?.id) return;
+
+    setSaveError(null);
+    setIsSaving(true);
+    try {
+      const selectedRank = ROLE_RANK[form.role] ?? -1;
+      if (selectedRank > maxAssignableRank) {
+        throw new Error('No puedes asignar un rol superior al tuyo.');
+      }
+
+      await usersApi.patch(user.id, {
+        first_name: form.firstName,
+        last_name: form.lastName,
+        email: form.email,
+        profile: {
+          role: form.role,
+          status: form.status,
+          telefono: form.phone,
+        },
+      } as any);
+
+      if (avatarFile) {
+        await usersApi.uploadAvatar(user.id, avatarFile);
+      }
+
+      await fetchUser();
+      setIsEditOpen(false);
+      setAvatarFile(null);
+      setAvatarPreview(null);
+      toast({ title: 'Perfil actualizado', description: 'Los cambios se guardaron correctamente.' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudo actualizar el perfil';
+      setSaveError(message);
+      toast({ title: 'Error al actualizar', description: message, variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -138,12 +280,20 @@ export default function UserDetailsPage() {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Volver
           </Button>
+          <Avatar className="h-12 w-12 border">
+            <AvatarImage src={displayAvatar} />
+            <AvatarFallback>{(fullName || user.username).slice(0, 2).toUpperCase()}</AvatarFallback>
+          </Avatar>
           <div>
             <h1 className="text-2xl font-bold">{fullName}</h1>
             <p className="text-muted-foreground">@{user.username}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setIsEditOpen(true)}>
+            <Pencil className="h-4 w-4 mr-2" />
+            Editar Perfil
+          </Button>
           <Badge variant={statusVariant(user.profile?.status)}>{mapStatusLabel(user.profile?.status)}</Badge>
           <Badge variant="outline">{mapRoleLabel(user.profile?.role || 'USER')}</Badge>
         </div>
@@ -245,6 +395,104 @@ export default function UserDetailsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Editar Perfil de Usuario</DialogTitle>
+            <DialogDescription>
+              Actualiza los datos del usuario y su avatar.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">Nombre</Label>
+                <Input
+                  id="firstName"
+                  value={form.firstName}
+                  onChange={(e) => setForm((prev) => ({ ...prev, firstName: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Apellido</Label>
+                <Input
+                  id="lastName"
+                  value={form.lastName}
+                  onChange={(e) => setForm((prev) => ({ ...prev, lastName: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Correo</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Teléfono</Label>
+                <Input
+                  id="phone"
+                  value={form.phone}
+                  onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="role">Rol</Label>
+                <select
+                  id="role"
+                  value={form.role}
+                  onChange={(e) => setForm((prev) => ({ ...prev, role: e.target.value }))}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  {allowedRoleOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="status">Estado</Label>
+                <select
+                  id="status"
+                  value={form.status}
+                  onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  {STATUS_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="avatar">Avatar</Label>
+              <Input id="avatar" type="file" accept="image/*" onChange={handleAvatarChange} />
+            </div>
+
+            {saveError && <p className="text-sm text-red-600">{saveError}</p>}
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={isSaving}>
+                {isSaving ? 'Guardando...' : 'Guardar cambios'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

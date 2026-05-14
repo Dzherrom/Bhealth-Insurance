@@ -3,6 +3,7 @@ from .permissions import IsManagerRole, IsAdminRole, IsPolicyOwnerOrHigher
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.exceptions import ValidationError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth.models import User
@@ -15,7 +16,7 @@ import io
 import requests
 import csv
 from django.db import transaction
-from rest_framework.parsers import MultiPartParser
+from rest_framework.parsers import MultiPartParser, FormParser
 from django.db.models import Sum, Count, F
 from django.db.models.functions import TruncMonth, TruncYear
 from .models import (
@@ -570,6 +571,47 @@ class UserManagementViewSet(viewsets.ModelViewSet):
         # Ensure we get users with their profiles
         return User.objects.select_related('profile').all()
 
+    ROLE_RANK = {
+        'ADMIN': 100,
+        'MANAGER': 90,
+        'ASISTENTE': 70,
+        'SHERPA': 70,
+        'PAGOS': 70,
+        'CITAS': 70,
+        'USER': 10,
+    }
+
+    def _validate_assignable_role(self, request, serializer):
+        if request.user.is_superuser:
+            return
+
+        requester_profile = getattr(request.user, 'profile', None)
+        requester_role = getattr(requester_profile, 'role', None)
+        if not requester_role:
+            return
+
+        profile_data = serializer.validated_data.get('profile')
+        if not profile_data:
+            return
+
+        requested_role = profile_data.get('role')
+        if not requested_role:
+            return
+
+        requester_rank = self.ROLE_RANK.get(requester_role, -1)
+        requested_rank = self.ROLE_RANK.get(requested_role, -1)
+
+        if requested_rank > requester_rank:
+            raise ValidationError({
+                'profile': {
+                    'role': 'No puedes asignar un rol superior al tuyo.'
+                }
+            })
+
+    def perform_update(self, serializer):
+        self._validate_assignable_role(self.request, serializer)
+        serializer.save()
+
     @action(detail=True, methods=['get'], url_path='status')
     def check_status(self, request, pk=None):
         """
@@ -583,6 +625,21 @@ class UserManagementViewSet(viewsets.ModelViewSet):
             "profile_status": user.profile.status,
             "role": user.profile.role
         })
+
+    @action(detail=True, methods=['post'], url_path='avatar', parser_classes=[MultiPartParser, FormParser])
+    def upload_avatar(self, request, pk=None):
+        user = self.get_object()
+        avatar = request.FILES.get('avatar')
+
+        if not avatar:
+            return Response({'error': 'Debes adjuntar un archivo de avatar.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        profile = user.profile
+        profile.avatar = avatar
+        profile.save(update_fields=['avatar'])
+
+        serializer = self.get_serializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 class TareaViewSet(viewsets.ModelViewSet):
     queryset = Tarea.objects.all()

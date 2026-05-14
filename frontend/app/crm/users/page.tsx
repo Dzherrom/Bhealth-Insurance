@@ -7,7 +7,7 @@ import { UsersFilters } from '@/components/users/UsersFilters';
 import BoxComponent from '@/components/boxes/BoxComponent';
 import { UsersList } from '@/components/users/UsersList';
 import { User } from '@/components/users/types';
-import { authApi, usersApi } from '@/lib/api';
+import { authApi, resolveApiMediaUrl, usersApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -21,6 +21,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { useAuthStore } from '@/store/authStore';
 
 const PAGE_SIZE = 25;
 
@@ -70,6 +71,22 @@ const STATUS_OPTIONS = [
   { value: 'CANDIDATE', label: 'Candidato' },
 ];
 
+const ROLE_RANK: Record<string, number> = {
+  ADMIN: 100,
+  MANAGER: 90,
+  ASISTENTE: 70,
+  SHERPA: 70,
+  PAGOS: 70,
+  CITAS: 70,
+  USER: 10,
+};
+
+const toBackendRole = (role?: string | null): string => {
+  if (!role) return 'USER';
+  if (role.toLowerCase() === 'cliente') return 'USER';
+  return role.toUpperCase();
+};
+
 const normalizeStatus = (rawStatus?: string, isActive?: boolean): string => {
   if (rawStatus) {
     if (rawStatus === 'ACTIVE') return 'activo';
@@ -100,7 +117,7 @@ const mapApiUserToUIUser = (apiUser: ApiUser): User => {
     phone: apiUser.profile?.telefono || '-',
     role: normalizeRole(apiUser.profile?.role),
     status: normalizeStatus(apiUser.profile?.status, apiUser.is_active),
-    avatar: apiUser.profile?.avatar || undefined,
+    avatar: resolveApiMediaUrl(apiUser.profile?.avatar),
     lastLogin: apiUser.last_login || apiUser.date_joined || new Date().toISOString(),
     createdAt: apiUser.date_joined || new Date().toISOString(),
   };
@@ -109,6 +126,7 @@ const mapApiUserToUIUser = (apiUser: ApiUser): User => {
 export default function UsersPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const currentUserRole = useAuthStore((state) => state.role);
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -177,6 +195,16 @@ export default function UsersPage() {
     [users]
   );
 
+  const maxAssignableRank = useMemo(() => {
+    const backendRole = toBackendRole(currentUserRole);
+    return ROLE_RANK[backendRole] ?? ROLE_RANK.USER;
+  }, [currentUserRole]);
+
+  const allowedRoleOptions = useMemo(
+    () => ROLE_OPTIONS.filter((option) => (ROLE_RANK[option.value] ?? -1) <= maxAssignableRank),
+    [maxAssignableRank]
+  );
+
   // Funciones utilitarias
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('es-ES', {
@@ -212,7 +240,9 @@ export default function UsersPage() {
 
   const handleOpenCreateModal = () => {
     setCreateError(null);
+    const defaultRole = allowedRoleOptions[0]?.value ?? 'USER';
     setIsCreateModalOpen(true);
+    setCreateForm((prev) => ({ ...prev, role: defaultRole }));
   };
 
   const handleCreateUser = async (e: FormEvent<HTMLFormElement>) => {
@@ -228,6 +258,11 @@ export default function UsersPage() {
         first_name: createForm.firstName,
         last_name: createForm.lastName,
       });
+
+      const selectedRank = ROLE_RANK[createForm.role] ?? -1;
+      if (selectedRank > maxAssignableRank) {
+        throw new Error('No puedes asignar un rol superior al tuyo.');
+      }
 
       await usersApi.patch(registered.id, {
         profile: {
@@ -421,7 +456,7 @@ export default function UsersPage() {
                   onChange={(e) => setCreateForm((prev) => ({ ...prev, role: e.target.value }))}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
-                  {ROLE_OPTIONS.map((option) => (
+                  {allowedRoleOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>

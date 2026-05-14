@@ -55,6 +55,13 @@ const getAuthHeaders = (): HeadersInit => {
   };
 };
 
+const getAuthHeadersWithoutContentType = (): HeadersInit => {
+  const token = getAuthToken();
+  return {
+    ...(token && { Authorization: `Bearer ${token}` }),
+  };
+};
+
 // Utilidad para manejar respuestas de la API
 const handleApiResponse = async <T>(response: Response): Promise<T> => {
   if (!response.ok) {
@@ -226,6 +233,16 @@ const createCrudApi = <T extends OptionalBaseEntity, TCreate = Omit<T, 'id'>, TU
     return handleApiResponse<T>(response);
   },
 
+  // Actualizar parcialmente con multipart/form-data
+  patchFormData: async (id: number, data: FormData): Promise<T> => {
+    const response = await fetch(`${API_BASE_URL}/${endpoint}/${id}/`, {
+      method: 'PATCH',
+      headers: getAuthHeadersWithoutContentType(),
+      body: data,
+    });
+    return handleApiResponse<T>(response);
+  },
+
   // Eliminar un registro
   delete: async (id: number): Promise<void> => {
     const response = await fetch(`${API_BASE_URL}/${endpoint}/${id}/`, {
@@ -348,7 +365,22 @@ export const aseguradorasApi = createCrudApi<Aseguradora>('aseguradoras');
 export const planesApi = createCrudApi<Plan>('planes');
 
 // 👤 Gestión de Usuarios (CRM)
-export const usersApi = createCrudApi<ManagedUser, Partial<ManagedUser>, Partial<ManagedUser>>('users');
+export const usersApi = {
+  ...createCrudApi<ManagedUser, Partial<ManagedUser>, Partial<ManagedUser>>('users'),
+
+  uploadAvatar: async (id: number, avatarFile: File): Promise<ManagedUser> => {
+    const formData = new FormData();
+    formData.append('avatar', avatarFile);
+
+    const response = await fetch(`${API_BASE_URL}/users/${id}/avatar/`, {
+      method: 'POST',
+      headers: getAuthHeadersWithoutContentType(),
+      body: formData,
+    });
+
+    return handleApiResponse<ManagedUser>(response);
+  },
+};
 
 // 📊 Estados de Póliza
 export const estadosPolizaApi = createCrudApi<EstadoPoliza>('estados-poliza');
@@ -411,6 +443,20 @@ export const isAuthenticated = (): boolean => {
 // Obtener el token actual
 export const getCurrentToken = (): string | null => {
   return getAuthToken();
+};
+
+export const resolveApiMediaUrl = (path?: string | null): string | undefined => {
+  if (!path) return undefined;
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+
+  const apiBase = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api').replace(/\/$/, '');
+  const serverBase = apiBase.endsWith('/api') ? apiBase.slice(0, -4) : apiBase;
+
+  if (path.startsWith('/')) {
+    return `${serverBase}${path}`;
+  }
+
+  return `${serverBase}/${path}`;
 };
 
 // Configurar interceptor para renovar token automáticamente
