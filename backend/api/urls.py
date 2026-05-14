@@ -17,6 +17,7 @@ from .views import (
     LocationLookupView, TarjetaCreditoViewSet, CustomTokenObtainPairView,
     CuentaBancariaViewSet, InfoPagoViewSet,
     MatrizPermisoRolViewSet, AuditoriaGlobalViewSet, AuditoriaConsolidadaView,
+    ConfiguracionComisionViewSet,
     PolizaTransferenciaViewSet, ZohoSignWebhookView,
     ImportarClientesCSVView, ImportarPolizasCSVView, UserPolicyStatsView,
     ImportarPolizasExcelView, UndoImportExcelView, UserPolicyStatsDetailView,
@@ -44,6 +45,7 @@ router.register(r'citas', CitaViewSet)
 router.register(r'medicos', MedicoViewSet)
 router.register(r'contratos', ContratoViewSet)
 router.register(r'reportes_comision', ReporteComisionViewSet)
+router.register(r'configuracion-comisiones', ConfiguracionComisionViewSet)
 router.register(r'notificaciones', NotificacionViewSet, basename='notificacion')
 router.register(r'tarjetas_credito', TarjetaCreditoViewSet)
 router.register(r'cuentas_bancarias', CuentaBancariaViewSet)

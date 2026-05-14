@@ -122,9 +122,6 @@ export function FormulariosFirmasDataTable({
                       Ver detalles
                     </DropdownMenuItem>
                     <DropdownMenuItem>
-                      Editar formulario
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
                       Descargar PDF
                     </DropdownMenuItem>
                     <DropdownMenuItem>

@@ -19,6 +19,10 @@ interface UserCardProps {
   formatLastLogin: (dateString: string) => string;
   formatDate: (dateString: string) => string;
   onViewUser?: (id: number) => void;
+  onEditUser?: (id: number) => void;
+  onResetPassword?: (id: number) => void;
+  onDeactivateUser?: (id: number) => void;
+  actionBusyId?: number | null;
 }
 
 export function UserCard({
@@ -29,6 +33,10 @@ export function UserCard({
   formatLastLogin,
   formatDate,
   onViewUser,
+  onEditUser,
+  onResetPassword,
+  onDeactivateUser,
+  actionBusyId,
 }: UserCardProps) {
   return (
     <div className="flex items-center justify-between rounded-lg border p-4 hover:bg-muted/50 transition-colors">
@@ -80,11 +88,10 @@ export function UserCard({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => onViewUser?.(user.id)}>Ver perfil</DropdownMenuItem>
-          <DropdownMenuItem>Editar usuario</DropdownMenuItem>
-          <DropdownMenuItem>Cambiar permisos</DropdownMenuItem>
-          <DropdownMenuItem>Resetear contraseña</DropdownMenuItem>
-          <DropdownMenuItem className="text-red-600">
-            Desactivar usuario
+          <DropdownMenuItem onClick={() => onEditUser?.(user.id)}>Editar usuario</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onResetPassword?.(user.id)} disabled={actionBusyId === user.id}>Resetear contraseña</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onDeactivateUser?.(user.id)} className="text-red-600" disabled={actionBusyId === user.id}>
+            {actionBusyId === user.id ? 'Procesando...' : 'Desactivar usuario'}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

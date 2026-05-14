@@ -2,16 +2,14 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, Settings } from 'lucide-react';
+import { Plus } from 'lucide-react';
 
 interface FormulariosFirmasHeaderProps {
   onNuevoFormulario: () => void;
-  onAvanzado: () => void;
 }
 
 export function FormulariosFirmasHeader({ 
-  onNuevoFormulario, 
-  onAvanzado 
+  onNuevoFormulario
 }: FormulariosFirmasHeaderProps) {
   return (
     <div className="flex flex-col space-y-4">
@@ -27,15 +25,6 @@ export function FormulariosFirmasHeader({
           >
             <Plus className="w-4 h-4 mr-2" />
             Nuevo formulario de firma
-          </Button>
-          
-          <Button 
-            onClick={onAvanzado}
-            variant="outline"
-            className="border-blue-600 text-blue-600 hover:bg-blue-50"
-          >
-            <Settings className="w-4 h-4 mr-2" />
-            Avanzado
           </Button>
         </div>
       </div>

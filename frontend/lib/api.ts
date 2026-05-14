@@ -474,6 +474,30 @@ export const usersApi = {
 
     return handleApiResponse<ManagedUser>(response);
   },
+
+  resetPassword: async (id: number): Promise<{ detail: string; temporary_password: string }> => {
+    const response = await fetch(`${API_BASE_URL}/users/${id}/reset-password/`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    return handleApiResponse<{ detail: string; temporary_password: string }>(response);
+  },
+
+  deactivate: async (id: number): Promise<{ detail: string }> => {
+    const response = await fetch(`${API_BASE_URL}/users/${id}/deactivate/`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    return handleApiResponse<{ detail: string }>(response);
+  },
+
+  activate: async (id: number): Promise<{ detail: string }> => {
+    const response = await fetch(`${API_BASE_URL}/users/${id}/activate/`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    return handleApiResponse<{ detail: string }>(response);
+  },
 };
 
 // 📊 Estados de Póliza
@@ -540,6 +564,19 @@ export const tarjetasCreditoApi = createCrudApi<any>('tarjetas_credito');
 export const cuentasBancariasApi = createCrudApi<any>('cuentas_bancarias');
 export const infoPagoApi = createCrudApi<any>('info_pago');
 export const reportesComisionApi = createCrudApi<any>('reportes_comision');
+export const configuracionComisionesApi = createCrudApi<any>('configuracion-comisiones');
+export const consentRequestsApi = createCrudApi<any>('consent-requests');
+
+export const notificacionesApi = {
+  enviarGeneral: async (data: { mensaje: string; tipo?: string }): Promise<any> => {
+    const response = await fetch(`${API_BASE_URL}/notificaciones/enviar-general/`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return handleApiResponse<any>(response);
+  },
+};
 
 // =============================================================================
 // 🔧 UTILIDADES ADICIONALES
@@ -622,6 +659,9 @@ export const api = {
   cuentasBancarias: cuentasBancariasApi,
   infoPago: infoPagoApi,
   reportesComision: reportesComisionApi,
+  configuracionComisiones: configuracionComisionesApi,
+  consentRequests: consentRequestsApi,
+  notificaciones: notificacionesApi,
   notas: notasApi,
   historial: historialApi,
   etiquetas: etiquetasApi,

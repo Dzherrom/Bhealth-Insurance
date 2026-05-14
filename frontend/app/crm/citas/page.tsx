@@ -136,6 +136,11 @@ export default function CitasPage() {
     [polizas]
   );
 
+  const selectedPoliza = useMemo(
+    () => polizaByCodigo.get(formValues.polizaCodigo.trim()),
+    [formValues.polizaCodigo, polizaByCodigo]
+  );
+
   const resetForm = () => {
     setEditingCitaId(null);
     setFormValues({
@@ -538,19 +543,32 @@ export default function CitasPage() {
 
           <div className="grid gap-4 py-2 md:grid-cols-2">
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="polizaCodigo">Codigo de poliza (MKT...)</Label>
-              <Input
-                id="polizaCodigo"
-                list="polizas-disponibles"
-                placeholder="MKT..."
-                value={formValues.polizaCodigo}
-                onChange={(event) => handleFormChange('polizaCodigo', event.target.value)}
-              />
-              <datalist id="polizas-disponibles">
-                {polizas.map((poliza) => (
-                  <option key={poliza.id} value={poliza.id_mercado} />
-                ))}
-              </datalist>
+              <Label htmlFor="polizaCodigo">Póliza</Label>
+              <Select value={formValues.polizaCodigo} onValueChange={(value) => handleFormChange('polizaCodigo', value)}>
+                <SelectTrigger id="polizaCodigo">
+                  <SelectValue placeholder="Selecciona una póliza existente" />
+                </SelectTrigger>
+                <SelectContent>
+                  {polizas.map((poliza) => (
+                    <SelectItem key={poliza.id} value={poliza.id_mercado}>
+                      {poliza.id_mercado}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedPoliza && (
+                <div className="rounded-md border bg-slate-50 px-3 py-2 text-xs text-muted-foreground">
+                  <div>{selectedPoliza.id_mercado}</div>
+                  <div>
+                    {(() => {
+                      const clientePrincipal = selectedPoliza.clientes_info?.find((cliente) => cliente.es_solicitante_principal)?.cliente_details;
+                      if (!clientePrincipal) return 'Cliente no disponible';
+                      return `${clientePrincipal.primer_nombre} ${clientePrincipal.apellido_paterno}`.trim();
+                    })()}
+                    {selectedPoliza.agente_nombre ? ` · ${selectedPoliza.agente_nombre}` : ''}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">

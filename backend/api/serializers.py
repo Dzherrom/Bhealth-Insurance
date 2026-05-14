@@ -7,7 +7,7 @@ from .models import (
     NotaAdjunto,
     Etiqueta, Documento, Tarea, UserProfile,
     InfoPago, TarjetaCredito, CuentaBancaria, PolizaViewer, Cita, Medico, Medicamento, Recordatorio,
-    Contrato, ReporteComision, Notificacion, PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal, ConfiguracionNotificacion
+    Contrato, ReporteComision, ConfiguracionComision, Notificacion, PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal, ConfiguracionNotificacion
 )
 
 def can_view_sensitive_data(request_user):
@@ -545,6 +545,15 @@ class ContratoSerializer(serializers.ModelSerializer):
 class ReporteComisionSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReporteComision
+        fields = '__all__'
+
+class ConfiguracionComisionSerializer(serializers.ModelSerializer):
+    agencia_nombre = serializers.ReadOnlyField(source='agencia.nombre')
+    aseguradora_nombre = serializers.ReadOnlyField(source='aseguradora.nombre')
+    plan_nombre = serializers.ReadOnlyField(source='plan.nombre')
+
+    class Meta:
+        model = ConfiguracionComision
         fields = '__all__'
 
 class ZipCodeSerializer(serializers.Serializer):

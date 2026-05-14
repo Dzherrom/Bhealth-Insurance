@@ -1,108 +1,72 @@
 "use client";
-import React, { useState, useEffect } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import React, { useState } from "react";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import api from "@/services/api";
-import { Loader2 } from "lucide-react";
+import { notificacionesApi } from "@/lib/api";
 
 export function NotificacionesConfig() {
-  const [data, setData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [tipo, setTipo] = useState('SISTEMA');
+  const [mensaje, setMensaje] = useState('');
+  const [asunto, setAsunto] = useState('');
+  const [sending, setSending] = useState(false);
 
-  useEffect(() => {
-    fetchNotificaciones();
-  }, []);
+  const handleSend = async () => {
+    if (!mensaje.trim()) {
+      toast({ title: 'Error', description: 'Escribe un mensaje para enviar', variant: 'destructive' });
+      return;
+    }
 
-  const fetchNotificaciones = async () => {
+    setSending(true);
     try {
-      const res = await api.get("/configuracion-notificaciones/");
-      setData(res.data);
-    } catch (e) {
-      console.error(e);
+      await notificacionesApi.enviarGeneral({ tipo, mensaje: asunto ? `${asunto}\n\n${mensaje}` : mensaje });
+      toast({ title: 'Enviado', description: 'La notificación general fue enviada a los agentes.' });
+      setAsunto('');
+      setMensaje('');
+      setTipo('SISTEMA');
+    } catch (error) {
+      toast({ title: 'Error', description: 'No se pudo enviar la notificación', variant: 'destructive' });
     } finally {
-      setLoading(false);
+      setSending(false);
     }
   };
-
-  const handleSave = async (item: any) => {
-    try {
-      const payload = {
-        tipo_notificacion: item.tipo_notificacion,
-        asunto_general: item.asunto_general,
-        cuerpo_general: item.cuerpo_general
-      };
-      if (item.id) {
-        await api.put(`/configuracion-notificaciones/${item.id}/`, payload);
-      } else {
-        await api.post("/configuracion-notificaciones/", payload);
-      }
-      toast({ title: "Guardado", description: "Configuración guardada exitosamente" });
-      fetchNotificaciones();
-    } catch (e) {
-      toast({ title: "Error", description: "Error al guardar", variant: "destructive" });
-    }
-  };
-
-  if (loading) return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>;
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Notificaciones</h2>
-      <p className="text-sm text-slate-500">Configura las plantillas de correo por defecto.</p>
-      
-      {data.length === 0 && <p className="text-sm text-slate-500">No hay configuraciones.</p>}
-      
-      {data.map((item, idx) => (
-        <Card key={item.id || idx}>
-          <CardHeader>
-            <CardTitle>
-              <Input 
-                value={item.tipo_notificacion} 
-                onChange={(e) => {
-                  const newData = [...data];
-                  newData[idx].tipo_notificacion = e.target.value;
-                  setData(newData);
-                }} 
-                placeholder="Ej. CONTRATOS, RECORDATORIOS_PAGO" 
-                className="max-w-md font-bold"
-              />
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Asunto</label>
-              <Input 
-                value={item.asunto_general || ""} 
-                onChange={(e) => {
-                  const newData = [...data];
-                  newData[idx].asunto_general = e.target.value;
-                  setData(newData);
-                }} 
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Cuerpo del Mensaje</label>
-              <Textarea 
-                value={item.cuerpo_general || ""} 
-                rows={5}
-                onChange={(e) => {
-                  const newData = [...data];
-                  newData[idx].cuerpo_general = e.target.value;
-                  setData(newData);
-                }} 
-              />
-            </div>
-            <Button onClick={() => handleSave(item)}>Guardar Cambios</Button>
-          </CardContent>
-        </Card>
-      ))}
-
-      <Button variant="outline" onClick={() => setData([...data, { tipo_notificacion: "NUEVA", asunto_general: "", cuerpo_general: "" }])}>
-        + Nueva Configuración
-      </Button>
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Enviar notificación general</CardTitle>
+        <CardDescription>Se enviará a todos los agentes activos del sistema.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Asunto</label>
+          <Input value={asunto} onChange={(e) => setAsunto(e.target.value)} placeholder="Mensaje principal" />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Tipo de notificación</label>
+          <Select value={tipo} onValueChange={setTipo}>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecciona tipo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="SISTEMA">Sistema</SelectItem>
+              <SelectItem value="SEGURIDAD">Seguridad</SelectItem>
+              <SelectItem value="ASIGNACION">Asignación</SelectItem>
+              <SelectItem value="TAG">Etiquetado</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Mensaje</label>
+          <Textarea rows={6} value={mensaje} onChange={(e) => setMensaje(e.target.value)} placeholder="Escribe el mensaje a enviar a todos los agentes" />
+        </div>
+        <div className="flex justify-end">
+          <Button onClick={handleSend} disabled={sending}>{sending ? 'Enviando...' : 'Enviar'}</Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

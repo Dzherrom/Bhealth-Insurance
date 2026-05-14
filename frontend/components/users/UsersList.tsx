@@ -12,6 +12,10 @@ interface UsersListProps {
   formatLastLogin: (dateString: string) => string;
   formatDate: (dateString: string) => string;
   onViewUser?: (id: number) => void;
+  onEditUser?: (id: number) => void;
+  onResetPassword?: (id: number) => void;
+  onDeactivateUser?: (id: number) => void;
+  actionBusyId?: number | null;
 }
 
 export function UsersList({
@@ -22,6 +26,10 @@ export function UsersList({
   formatLastLogin,
   formatDate,
   onViewUser,
+  onEditUser,
+  onResetPassword,
+  onDeactivateUser,
+  actionBusyId,
 }: UsersListProps) {
   return (
     <Card>
@@ -45,6 +53,10 @@ export function UsersList({
               formatLastLogin={formatLastLogin}
               formatDate={formatDate}
               onViewUser={onViewUser}
+              onEditUser={onEditUser}
+              onResetPassword={onResetPassword}
+              onDeactivateUser={onDeactivateUser}
+              actionBusyId={actionBusyId}
             />
           ))}
 

@@ -6,10 +6,11 @@ import {
   SidebarConfiguraciones,
   StatusList,
   NotificacionesConfig,
-  EtiquetasConfig,
   UsuariosFacturadosConfig,
-  AgenciaConfig
+  AgenciaConfig,
+  ListadoGeneral,
 } from '@/components/configuraciones';
+import { EtiquetasConfig } from '@/components/configuraciones/EtiquetasConfig';
 
 const ConfiguracionesPage = () => {
   const [activeSection, setActiveSection] = useState('agencia');
@@ -25,8 +26,12 @@ const ConfiguracionesPage = () => {
         return <StatusList />;
       case 'notificaciones':
         return <NotificacionesConfig />;
-      case 'etiquetas':
-        return <EtiquetasConfig />;
+      case 'listado':
+        return <ListadoGeneral />;
+      case 'etiquetas-polizas':
+        return <EtiquetasConfig tipo="POLIZA" title="Etiquetas de póliza" description="Configura etiquetas para pólizas." />;
+      case 'etiquetas-documentos':
+        return <EtiquetasConfig tipo="DOCUMENTO" title="Etiquetas de documento" description="Configura etiquetas para documentos." />;
       case 'usuarios-facturados':
         return <UsuariosFacturadosConfig />;
       case 'agencia':

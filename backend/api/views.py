@@ -745,6 +745,7 @@ class EtiquetaViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['nombre', 'color']
     ordering_fields = ['nombre']
+    filterset_fields = ['tipo']
 
 class DocumentoViewSet(viewsets.ModelViewSet):
     queryset = Documento.objects.all()
@@ -840,6 +841,34 @@ class UserManagementViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='reset-password')
+    def reset_password(self, request, pk=None):
+        user = self.get_object()
+        temp_password = User.objects.make_random_password(length=12)
+        user.set_password(temp_password)
+        user.save(update_fields=['password'])
+        return Response({'detail': 'Contraseña restablecida', 'temporary_password': temp_password})
+
+    @action(detail=True, methods=['post'], url_path='deactivate')
+    def deactivate(self, request, pk=None):
+        user = self.get_object()
+        user.is_active = False
+        user.save(update_fields=['is_active'])
+        if hasattr(user, 'profile'):
+            user.profile.status = 'INACTIVE'
+            user.profile.save(update_fields=['status'])
+        return Response({'detail': 'Usuario desactivado'})
+
+    @action(detail=True, methods=['post'], url_path='activate')
+    def activate(self, request, pk=None):
+        user = self.get_object()
+        user.is_active = True
+        user.save(update_fields=['is_active'])
+        if hasattr(user, 'profile'):
+            user.profile.status = 'ACTIVE'
+            user.profile.save(update_fields=['status'])
+        return Response({'detail': 'Usuario activado'})
 
 class TareaViewSet(viewsets.ModelViewSet):
     queryset = Tarea.objects.all()
@@ -1079,6 +1108,16 @@ class ReporteComisionViewSet(viewsets.ModelViewSet):
     search_fields = ['agente__nombre_completo', 'poliza__id_mercado']
     ordering_fields = ['fecha_pago', 'monto']
 
+
+class ConfiguracionComisionViewSet(viewsets.ModelViewSet):
+    queryset = ConfiguracionComision.objects.all()
+    serializer_class = ConfiguracionComisionSerializer
+    permission_classes = [permissions.IsAuthenticated, IsManagerRole]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['nivel', 'agencia', 'aseguradora', 'plan', 'activo']
+    search_fields = ['descripcion', 'agencia__nombre', 'aseguradora__nombre', 'plan__nombre']
+    ordering_fields = ['nivel', 'porcentaje', 'id']
+
 class NotificacionViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = NotificacionSerializer
@@ -1097,6 +1136,21 @@ class NotificacionViewSet(viewsets.ModelViewSet):
     def marcar_todas_leidas(self, request):
         self.get_queryset().update(leida=True)
         return Response({'status': 'todas marcadas como leidas'})
+
+    @action(detail=False, methods=['post'], url_path='enviar-general')
+    def enviar_general(self, request):
+        mensaje = request.data.get('mensaje')
+        tipo = request.data.get('tipo', 'SISTEMA')
+        if not mensaje:
+            return Response({'detail': 'mensaje es obligatorio'}, status=status.HTTP_400_BAD_REQUEST)
+
+        target_users = User.objects.filter(is_active=True).exclude(profile__role='USER')
+        created = 0
+        for user in target_users:
+            Notificacion.objects.create(usuario=user, mensaje=mensaje, tipo=tipo)
+            created += 1
+
+        return Response({'detail': 'Notificación enviada', 'creadas': created}, status=status.HTTP_201_CREATED)
 
 class TarjetaCreditoViewSet(viewsets.ModelViewSet):
     queryset = TarjetaCredito.objects.all()

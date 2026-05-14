@@ -569,6 +569,26 @@ class ReporteComision(models.Model):
     def __str__(self):
         return f"Comision {self.poliza} - {self.monto}"
 
+
+class ConfiguracionComision(models.Model):
+    NIVEL_CHOICES = [
+        ('AGENCIA', 'Agencia'),
+        ('PROVEEDOR', 'Proveedor'),
+        ('PLAN', 'Plan'),
+    ]
+
+    nivel = models.CharField(max_length=20, choices=NIVEL_CHOICES, verbose_name='Nivel')
+    agencia = models.ForeignKey(Agencia, on_delete=models.CASCADE, null=True, blank=True, related_name='configuraciones_comision')
+    aseguradora = models.ForeignKey(Aseguradora, on_delete=models.CASCADE, null=True, blank=True, related_name='configuraciones_comision')
+    plan = models.ForeignKey(Plan, on_delete=models.CASCADE, null=True, blank=True, related_name='configuraciones_comision')
+    porcentaje = models.DecimalField(max_digits=6, decimal_places=2, verbose_name='Porcentaje de Comisión')
+    activo = models.BooleanField(default=True)
+    descripcion = models.CharField(max_length=255, blank=True, null=True)
+
+    def __str__(self):
+        target = self.agencia or self.aseguradora or self.plan
+        return f"{self.nivel} - {target} ({self.porcentaje}%)"
+
 class ConsentRequest(models.Model):
     STATUS_CHOICES = [
         ('BORRADOR', 'Borrador'),

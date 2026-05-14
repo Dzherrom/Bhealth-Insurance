@@ -55,6 +55,15 @@ interface CreateUserForm {
   phone: string;
 }
 
+interface EditUserForm {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  role: string;
+  status: string;
+}
+
 const ROLE_OPTIONS = [
   { value: 'ADMIN', label: 'Admin' },
   { value: 'MANAGER', label: 'Manager' },
@@ -127,6 +136,7 @@ export default function UsersPage() {
   const router = useRouter();
   const { toast } = useToast();
   const currentUserRole = useAuthStore((state) => state.role);
+  const [apiUsers, setApiUsers] = useState<ApiUser[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -134,8 +144,13 @@ export default function UsersPage() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [actionBusyId, setActionBusyId] = useState<number | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<ApiUser | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
   const [createForm, setCreateForm] = useState<CreateUserForm>({
     username: '',
     email: '',
@@ -146,11 +161,20 @@ export default function UsersPage() {
     status: 'ACTIVE',
     phone: '',
   });
+  const [editForm, setEditForm] = useState<EditUserForm>({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    role: 'USER',
+    status: 'ACTIVE',
+  });
 
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
     try {
       const apiUsers = await usersApi.list();
+      setApiUsers(apiUsers as ApiUser[]);
       setUsers((apiUsers as ApiUser[]).map(mapApiUserToUIUser));
     } catch (error) {
       console.error('Error al cargar usuarios:', error);
@@ -243,6 +267,81 @@ export default function UsersPage() {
     const defaultRole = allowedRoleOptions[0]?.value ?? 'USER';
     setIsCreateModalOpen(true);
     setCreateForm((prev) => ({ ...prev, role: defaultRole }));
+  };
+
+  const handleOpenEditModal = (id: number) => {
+    const current = apiUsers.find((user) => user.id === id);
+    if (!current) return;
+    setSelectedUser(current);
+    setEditError(null);
+    setEditForm({
+      firstName: current.first_name || '',
+      lastName: current.last_name || '',
+      email: current.email || '',
+      phone: current.profile?.telefono || '',
+      role: current.profile?.role || 'USER',
+      status: current.profile?.status || 'ACTIVE',
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEditUser = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!selectedUser) return;
+    setEditError(null);
+    setIsSavingEdit(true);
+    try {
+      const selectedRank = ROLE_RANK[editForm.role] ?? -1;
+      if (selectedRank > maxAssignableRank) {
+        throw new Error('No puedes asignar un rol superior al tuyo.');
+      }
+
+      await usersApi.patch(selectedUser.id, {
+        first_name: editForm.firstName,
+        last_name: editForm.lastName,
+        email: editForm.email,
+        profile: {
+          role: editForm.role,
+          status: editForm.status,
+          telefono: editForm.phone,
+        },
+      } as any);
+
+      await fetchUsers();
+      setIsEditModalOpen(false);
+      toast({ title: 'Usuario actualizado' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudo actualizar el usuario';
+      setEditError(message);
+      toast({ title: 'Error al editar', description: message, variant: 'destructive' });
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  const handleResetPassword = async (id: number) => {
+    setActionBusyId(id);
+    try {
+      const result = await usersApi.resetPassword(id);
+      toast({ title: 'Contraseña restablecida', description: `Temporal: ${result.temporary_password}` });
+    } catch (error) {
+      toast({ title: 'Error', description: 'No se pudo resetear la contraseña', variant: 'destructive' });
+    } finally {
+      setActionBusyId(null);
+    }
+  };
+
+  const handleDeactivateUser = async (id: number) => {
+    setActionBusyId(id);
+    try {
+      await usersApi.deactivate(id);
+      await fetchUsers();
+      toast({ title: 'Usuario desactivado' });
+    } catch (error) {
+      toast({ title: 'Error', description: 'No se pudo desactivar el usuario', variant: 'destructive' });
+    } finally {
+      setActionBusyId(null);
+    }
   };
 
   const handleCreateUser = async (e: FormEvent<HTMLFormElement>) => {
@@ -355,6 +454,10 @@ export default function UsersPage() {
         formatLastLogin={formatLastLogin}
         formatDate={formatDate}
         onViewUser={(id) => router.push(`/crm/users/${id}`)}
+        onEditUser={handleOpenEditModal}
+        onResetPassword={handleResetPassword}
+        onDeactivateUser={handleDeactivateUser}
+        actionBusyId={actionBusyId}
       />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -491,6 +594,61 @@ export default function UsersPage() {
               <Button type="submit" disabled={isCreating}>
                 {isCreating ? 'Creando...' : 'Crear usuario'}
               </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Editar Usuario</DialogTitle>
+            <DialogDescription>
+              Actualiza la información del usuario seleccionado.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveEditUser} className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="editFirstName">Nombre</Label>
+                <Input id="editFirstName" value={editForm.firstName} onChange={(e) => setEditForm((prev) => ({ ...prev, firstName: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editLastName">Apellido</Label>
+                <Input id="editLastName" value={editForm.lastName} onChange={(e) => setEditForm((prev) => ({ ...prev, lastName: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editEmail">Correo</Label>
+                <Input id="editEmail" type="email" value={editForm.email} onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editPhone">Teléfono</Label>
+                <Input id="editPhone" value={editForm.phone} onChange={(e) => setEditForm((prev) => ({ ...prev, phone: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editRole">Rol</Label>
+                <select id="editRole" value={editForm.role} onChange={(e) => setEditForm((prev) => ({ ...prev, role: e.target.value }))} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                  {allowedRoleOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editStatus">Estado</Label>
+                <select id="editStatus" value={editForm.status} onChange={(e) => setEditForm((prev) => ({ ...prev, status: e.target.value }))} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                  {STATUS_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {editError && <p className="text-sm text-red-600">{editError}</p>}
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)}>Cancelar</Button>
+              <Button type="submit" disabled={isSavingEdit}>{isSavingEdit ? 'Guardando...' : 'Guardar cambios'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

@@ -48,20 +48,14 @@ export function SidebarConfiguraciones({
       isActive: false
     },
     {
-      id: 'etiquetas',
-      label: 'Etiquetas',
-      icon: Tag,
-      isActive: false
-    },
-    {
       id: 'etiquetas-polizas',
-      label: 'Etiquetas de pÃ³lizas',
+      label: 'Etiquetas de póliza',
       icon: Tag,
       isActive: false
     },
     {
       id: 'etiquetas-documentos',
-      label: 'Etiquetas de documentos',
+      label: 'Etiquetas de documento',
       icon: FileText,
       isActive: false
     },

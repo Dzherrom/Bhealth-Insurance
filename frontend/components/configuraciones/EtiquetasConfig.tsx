@@ -11,9 +11,16 @@ interface Etiqueta {
   id: number;
   nombre: string;
   color: string;
+  tipo: 'DOCUMENTO' | 'POLIZA';
 }
 
-export function EtiquetasConfig() {
+interface EtiquetasConfigProps {
+  tipo: 'DOCUMENTO' | 'POLIZA';
+  title: string;
+  description: string;
+}
+
+export function EtiquetasConfig({ tipo, title, description }: EtiquetasConfigProps) {
   const [etiquetas, setEtiquetas] = useState<Etiqueta[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
@@ -23,11 +30,11 @@ export function EtiquetasConfig() {
 
   useEffect(() => {
     fetchEtiquetas();
-  }, []);
+  }, [tipo]);
 
   const fetchEtiquetas = async () => {
     try {
-      const res = await api.get('/etiquetas/');
+      const res = await api.get(`/etiquetas/?tipo=${tipo}`);
       setEtiquetas(res.data);
     } catch (error) {
       toast({ title: 'Error', description: 'No se pudieron cargar las etiquetas', variant: 'destructive' });
@@ -38,12 +45,13 @@ export function EtiquetasConfig() {
 
   const handleSave = async () => {
     try {
+      const payload = { ...formData, tipo };
       if (editingId) {
-        const res = await api.put(`/etiquetas/${editingId}/`, formData);
+        const res = await api.put(`/etiquetas/${editingId}/`, payload);
         setEtiquetas(prev => prev.map(e => e.id === editingId ? res.data : e));
         toast({ title: 'Éxito', description: 'Etiqueta actualizada' });
       } else {
-        const res = await api.post('/etiquetas/', formData);
+        const res = await api.post('/etiquetas/', payload);
         setEtiquetas(prev => [...prev, res.data]);
         toast({ title: 'Éxito', description: 'Etiqueta creada' });
       }
@@ -77,8 +85,8 @@ export function EtiquetasConfig() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle>Etiquetas (Tags)</CardTitle>
-            <CardDescription>Administra las etiquetas para clasificar documentos y pólizas.</CardDescription>
+            <CardTitle>{title}</CardTitle>
+            <CardDescription>{description}</CardDescription>
           </div>
           <Button onClick={() => setIsAdding(true)} disabled={isAdding || editingId !== null}>
             <Plus className="w-4 h-4 mr-2" /> Nueva Etiqueta
@@ -96,12 +104,23 @@ export function EtiquetasConfig() {
               </div>
               <div>
                 <label className="text-sm font-medium">Color</label>
-                <Input 
-                  type="color"
-                  className="w-16 h-10 p-1"
-                  value={formData.color} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
-                />
+                <div className="mt-1 flex items-center gap-3">
+                  <button
+                    type="button"
+                    aria-label="Seleccionar color"
+                    className="h-10 w-10 rounded-full border-2 border-white shadow ring-1 ring-gray-200"
+                    style={{ backgroundColor: formData.color }}
+                    onClick={() => document.getElementById('color-input-etiqueta')?.click()}
+                  />
+                  <Input 
+                    id="color-input-etiqueta"
+                    type="color"
+                    className="sr-only"
+                    value={formData.color} 
+                    onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
+                  />
+                  <span className="text-xs text-gray-500">{formData.color}</span>
+                </div>
               </div>
               <div className="mt-5 flex gap-2">
                 <Button onClick={handleSave}>Guardar</Button>

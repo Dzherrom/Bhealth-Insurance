@@ -117,7 +117,7 @@ const SidebarCRM = ({ onItemClick, onLogout, isLoggingOut = false } : SidebarCRM
           disabled={isLoggingOut}
           title={isLoggingOut ? 'Cerrando sesión' : 'Cerrar sesión'}
           className={cn(
-            'mb-2 bg-red-600 text-white hover:bg-red-700 hover:text-white',
+            'mb-2 bg-transparent text-red-600 hover:bg-red-50 hover:text-red-700 border border-transparent',
             state === 'expanded' ? 'w-full justify-start gap-2' : 'h-8 w-8 p-0'
           )}
         >
