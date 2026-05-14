@@ -56,7 +56,7 @@ class DashboardStatsView(APIView):
         now = timezone.now()
         
         # 1. Recordatorios pendientes
-        stats['recordatorios_pendientes'] = recordatorios_qs.exclude(estado='COMPLETADA').count()
+        stats['recordatorios_pendientes'] = recordatorios_qs.count()
 
         # 2. Cumpleaños esta semana 
         today = now.date()

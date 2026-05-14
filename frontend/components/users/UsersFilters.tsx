@@ -17,7 +17,17 @@ interface UsersFiltersProps {
   setFilterRole: (v: string) => void;
   filterStatus: string;
   setFilterStatus: (v: string) => void;
+  availableRoles: string[];
+  availableStatuses: string[];
 }
+
+const formatFilterLabel = (value: string) => {
+  if (!value) return 'N/A';
+  return value
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+};
 
 export function UsersFilters({
   searchTerm,
@@ -26,6 +36,8 @@ export function UsersFilters({
   setFilterRole,
   filterStatus,
   setFilterStatus,
+  availableRoles,
+  availableStatuses,
 }: UsersFiltersProps) {
   return (
     <Card>
@@ -52,22 +64,18 @@ export function UsersFilters({
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="w-full lg:w-auto">
                 <Filter className="h-4 w-4 mr-2" />
-                Rol: {filterRole === 'all' ? 'Todos' : filterRole}
+                Rol: {filterRole === 'all' ? 'Todos' : formatFilterLabel(filterRole)}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuItem onClick={() => setFilterRole('all')}>
                 Todos
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setFilterRole('admin')}>
-                Administrador
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setFilterRole('agente')}>
-                Agente
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setFilterRole('cliente')}>
-                Cliente
-              </DropdownMenuItem>
+              {availableRoles.map((role) => (
+                <DropdownMenuItem key={role} onClick={() => setFilterRole(role)}>
+                  {formatFilterLabel(role)}
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -76,22 +84,18 @@ export function UsersFilters({
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="w-full lg:w-auto">
                 <Filter className="h-4 w-4 mr-2" />
-                Estado: {filterStatus === 'all' ? 'Todos' : filterStatus}
+                Estado: {filterStatus === 'all' ? 'Todos' : formatFilterLabel(filterStatus)}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuItem onClick={() => setFilterStatus('all')}>
                 Todos
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setFilterStatus('activo')}>
-                Activo
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setFilterStatus('inactivo')}>
-                Inactivo
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setFilterStatus('pendiente')}>
-                Pendiente
-              </DropdownMenuItem>
+              {availableStatuses.map((status) => (
+                <DropdownMenuItem key={status} onClick={() => setFilterStatus(status)}>
+                  {formatFilterLabel(status)}
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

@@ -1,6 +1,6 @@
-'use client';
+﻿'use client';
 
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import LoginUser from '@/components/auth/loginUser';
 import Register from '@/components/auth/register';
@@ -8,7 +8,7 @@ import { TabGroup, TabList, Tab, TabPanels, TabPanel } from '@/components/animat
 import { Heart, Shield, Users } from 'lucide-react';
 import { useAuthStore, useUIStore } from '@/store';
 
-export default function ClientPage() {
+function ClientPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab') || 'login';
@@ -17,28 +17,28 @@ export default function ClientPage() {
   const { login, register } = useAuthStore();
   const { activeTabIndex, setActiveTabIndex } = useUIStore();
 
-  // Inicializar tab según query param
+  // Inicializar tab segÃºn query param
   useEffect(() => {
     const tabIndex = initialTab === 'register' ? 1 : 0;
     setActiveTabIndex(tabIndex);
   }, [initialTab, setActiveTabIndex]);
 
-  const handleLoginSubmit = async (data: { email: string; password: string }) => {
+  const handleLoginSubmit = async (data: { username: string; password: string }) => {
     try {
-      // Usar el store de autenticación para login
+      // Usar el store de autenticaciÃƒÂ³n para login
       await login({
-        username: data.email,
+        username: data.username,
         password: data.password,
       });
       
-      // Generar hash del cliente usando su email
+      // Generar hash del cliente usando su username
       const { generateTempClientHash } = await import('@/lib/clientHash');
-      const clientHash = generateTempClientHash(data.email);
+      const clientHash = generateTempClientHash(data.username);
       
-      // Redireccionar al dashboard del cliente con su hash único
+      // Redireccionar al dashboard del cliente con su hash Ãºnico
       router.push(`/client/${clientHash}`);
     } catch (error) {
-      // El error ya está manejado en el store
+      // El error ya estÃ¡ manejado en el store
       console.error('Error en login:', error);
       throw error;
     }
@@ -48,11 +48,11 @@ export default function ClientPage() {
     firstName: string;
     lastName: string;
     email: string;
-    phone: string;
     password: string;
+    username?: string;
   }) => {
     try {
-      // Usar el store de autenticación para registro
+      // Usar el store de autenticaciÃ³n para registro
       await register({
         username: data.email,
         email: data.email,
@@ -65,10 +65,10 @@ export default function ClientPage() {
       const { generateTempClientHash } = await import('@/lib/clientHash');
       const clientHash = generateTempClientHash(data.email);
       
-      // Redireccionar al dashboard del cliente después del registro
+      // Redireccionar al dashboard del cliente despuÃ©s del registro
       router.push(`/client/${clientHash}`);
     } catch (error) {
-      // El error ya está manejado en el store
+      // El error ya estÃ¡ manejado en el store
       console.error('Error en registro:', error);
       throw error;
     }
@@ -100,14 +100,14 @@ export default function ClientPage() {
       </header>
 
       <div className="flex flex-col lg:flex-row min-h-[calc(100vh-4rem)]">
-        {/* Panel Izquierdo - Información */}
+        {/* Panel Izquierdo - InformaciÃ³n */}
         <div className="lg:w-1/2 bg-gradient-to-br from-blue-600 to-blue-800 text-white p-8 lg:p-12 flex flex-col justify-center">
           <div className="max-w-md mx-auto lg:mx-0">
             <h1 className="text-4xl lg:text-5xl font-bold mb-6">
-              Tu salud es lo más importante
+              Tu salud es lo mÃ¡s importante
             </h1>
             <p className="text-xl lg:text-2xl text-blue-100 mb-8">
-              Accede a los mejores planes de seguro médico para ti y tu familia
+              Accede a los mejores planes de seguro mÃ©dico para ti y tu familia
             </p>
             
             <div className="space-y-6">
@@ -117,7 +117,7 @@ export default function ClientPage() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-lg">Cobertura Completa</h3>
-                  <p className="text-blue-100">Protección integral para toda tu familia</p>
+                  <p className="text-blue-100">ProtecciÃ³n integral para toda tu familia</p>
                 </div>
               </div>
               
@@ -127,7 +127,7 @@ export default function ClientPage() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-lg">Red de Especialistas</h3>
-                  <p className="text-blue-100">Acceso a miles de médicos y hospitales</p>
+                  <p className="text-blue-100">Acceso a miles de mÃ©dicos y hospitales</p>
                 </div>
               </div>
               
@@ -136,8 +136,8 @@ export default function ClientPage() {
                   <Heart className="h-6 w-6" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-lg">Atención 24/7</h3>
-                  <p className="text-blue-100">Soporte médico cuando lo necesites</p>
+                  <h3 className="font-semibold text-lg">AtenciÃ³n 24/7</h3>
+                  <p className="text-blue-100">Soporte mÃ©dico cuando lo necesites</p>
                 </div>
               </div>
             </div>
@@ -153,7 +153,7 @@ export default function ClientPage() {
               className="w-full"
             >
               <TabList className="grid w-full grid-cols-2 mb-8">
-                <Tab className='hover:cursor-pointer'>Iniciar Sesión</Tab>
+                <Tab className='hover:cursor-pointer'>Iniciar SesiÃ³n</Tab>
                 <Tab className='hover:cursor-pointer'>Registrarse</Tab>
               </TabList>
               
@@ -189,7 +189,7 @@ export default function ClientPage() {
                 Privacidad
               </a>
               <a href="/terms" className="hover:text-white transition-colors">
-                Términos
+                TÃ©rminos
               </a>
               <a href="/help" className="hover:text-white transition-colors">
                 Ayuda
@@ -202,5 +202,13 @@ export default function ClientPage() {
         </div>
       </footer>
     </div>
+  );
+}
+
+export default function ClientPage() {
+  return (
+    <Suspense fallback={<div>Cargando...</div>}>
+      <ClientPageContent />
+    </Suspense>
   );
 }

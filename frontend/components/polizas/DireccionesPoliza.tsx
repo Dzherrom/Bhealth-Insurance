@@ -23,7 +23,7 @@ export function DireccionesPoliza({ poliza }: any) {
                <h3 className="font-bold mb-2 flex items-center"><ArrowRight className="w-4 h-4 mr-1 text-blue-500"/> Física</h3>
                {fis.calle ? (
                   <div className="text-sm space-y-1">
-                     <p>{fis.calle} {fis.apartamento && Apt: }</p>
+                     <p>{fis.calle} {fis.apartamento && `Apt: ${fis.apartamento}`}</p>
                      <p>{fis.ciudad}, {fis.estado} {fis.codigo_postal}</p>
                      <p className="font-semibold mt-2 border-t pt-1">Condado: <span className="text-muted-foreground">{fis.condado_details?.nombre || 'N/A'}</span></p>
                   </div>
@@ -34,7 +34,7 @@ export function DireccionesPoliza({ poliza }: any) {
                <h3 className="font-bold mb-2 flex items-center"><ArrowRight className="w-4 h-4 mr-1 text-purple-500"/> Postal</h3>
                {pos.calle ? (
                   <div className="text-sm space-y-1">
-                     <p>{pos.calle} {pos.apartamento && Apt: }</p>
+                     <p>{pos.calle} {pos.apartamento && `Apt: ${pos.apartamento}`}</p>
                      <p>{pos.ciudad}, {pos.estado} {pos.codigo_postal}</p>
                      <p className="font-semibold mt-2 border-t pt-1">Condado: <span className="text-muted-foreground">{pos.condado_details?.nombre || 'N/A'}</span></p>
                   </div>
@@ -45,7 +45,7 @@ export function DireccionesPoliza({ poliza }: any) {
                <h3 className="font-bold mb-2 flex items-center"><ArrowRight className="w-4 h-4 mr-1 text-green-500"/> Facturación</h3>
                {fac.calle ? (
                   <div className="text-sm space-y-1">
-                     <p>{fac.calle} {fac.apartamento && Apt: }</p>
+                     <p>{fac.calle} {fac.apartamento && `Apt: ${fac.apartamento}`}</p>
                      <p>{fac.ciudad}, {fac.estado} {fac.codigo_postal}</p>
                      <p className="font-semibold mt-2 border-t pt-1">Condado: <span className="text-muted-foreground">{fac.condado_details?.nombre || 'N/A'}</span></p>
                   </div>

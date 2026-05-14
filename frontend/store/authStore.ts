@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import { authApi } from '@/lib/api';
-import { extractRoleFromToken, decodeJwtPayload } from '@/lib/jwt';
+import { extractRoleFromToken, decodeJwtPayload, isTokenExpired } from '@/lib/jwt';
 import type { User, LoginData, RegisterData, UserRole } from '@/types';
 
 // -----------------------------------------------
@@ -16,7 +16,7 @@ function setAuthCookie(token: string): void {
   const expStr = payload?.exp
     ? `; expires=${new Date(payload.exp * 1000).toUTCString()}`
     : '';
-  document.cookie = `access_token=${token}${expStr}; path=/; SameSite=Strict`;
+  document.cookie = `access_token=${token}${expStr}; path=/; SameSite=Lax`;
 }
 
 function clearAuthCookie(): void {
@@ -201,6 +201,15 @@ export const useAuthStore = create<AuthState>()(
           role: state.role,
           isAuthenticated: state.isAuthenticated,
         }),
+        onRehydrateStorage: () => (state) => {
+          if (state && state.accessToken) {
+            if (isTokenExpired(state.accessToken)) {
+              state.logout();
+            } else {
+              setAuthCookie(state.accessToken);
+            }
+          }
+        },
       }
     ),
     { name: 'AuthStore' }

@@ -39,8 +39,8 @@ export function CrearPolizaModal({ isOpen, onClose }: CrearPolizaModalProps) {
   const { register, handleSubmit, reset } = useForm<PolizaFormValues>();
 
   const onSubmit = (data: PolizaFormValues) => {
-    console.log("Nueva PÃ³liza data: ", data);
-    // onSave(data) -> llamar mÃ©todo del store o API
+    console.log("Nueva Póliza data: ", data);
+    // onSave(data) -> llamar método del store o API
     reset();
     onClose();
   };
@@ -49,9 +49,9 @@ export function CrearPolizaModal({ isOpen, onClose }: CrearPolizaModalProps) {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Crear Nueva PÃ³liza</DialogTitle>
+          <DialogTitle>Crear Nueva Póliza</DialogTitle>
           <DialogDescription>
-            Llene la informaciÃ³n base para registrar una nueva pÃ³liza.
+            Llene la información base para registrar una nueva póliza.
           </DialogDescription>
         </DialogHeader>
 
@@ -104,7 +104,7 @@ export function CrearPolizaModal({ isOpen, onClose }: CrearPolizaModalProps) {
             </div>
 
             <div className="space-y-2">
-              <Label>Costo PÃ³liza</Label>
+              <Label>Costo Póliza</Label>
               <Input type="number" step="0.01" {...register('costo_poliza')} placeholder="0.00" />
             </div>
 
@@ -120,7 +120,7 @@ export function CrearPolizaModal({ isOpen, onClose }: CrearPolizaModalProps) {
               Cancelar
             </Button>
             <Button type="submit">
-              Guardar PÃ³liza
+              Guardar Póliza
             </Button>
           </div>
         </form>

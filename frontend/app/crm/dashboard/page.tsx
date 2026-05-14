@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useEffect, useState } from "react";
 import {
   PieChart, Pie, Cell,
@@ -113,7 +113,7 @@ export default function DashboardPage() {
                                         label
                                     >
                                         {stats.polizas_tipo_producto.map((entry: any, index: number) => (
-                                            <Cell key={cell-} fill={COLORS[index % COLORS.length]} />
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                         ))}
                                     </Pie>
                                     <RechartsTooltip />

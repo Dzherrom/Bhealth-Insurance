@@ -22,7 +22,9 @@ import {
   Eye,
   EyeOff,
   Copy,
-  MessageSquare
+  MessageSquare,
+  Save,
+  Lock
 } from 'lucide-react';
 
 interface PolizaResumenProps {

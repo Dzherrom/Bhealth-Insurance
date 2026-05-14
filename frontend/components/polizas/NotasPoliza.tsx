@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Plus, User, Clock, Edit2, Trash2 } from 'lucide-react';
+import { MessageSquare, Plus, User, Clock, Edit2, Trash2, Paperclip, Image as ImageIcon, AtSign } from 'lucide-react';
 import { notasApi } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from '@/hooks/use-toast';
@@ -14,6 +14,7 @@ import { toast } from '@/hooks/use-toast';
 interface Nota {
   id: number;
   contenido: string;
+  archivo?: string;
   usuario: {
     nombre: string;
     apellido: string;
@@ -32,6 +33,7 @@ export function NotasPoliza({ polizaId }: NotasPolizaProps) {
   const [notas, setNotas] = useState<Nota[]>([]);
   const [isLoadingNotas, setIsLoadingNotas] = useState(false);
   const [nuevaNota, setNuevaNota] = useState('');
+  const [archivoAdjunto, setArchivoAdjunto] = useState<File | null>(null);
   const [agregandoNota, setAgregandoNota] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContenido, setEditContenido] = useState('');
@@ -56,6 +58,7 @@ export function NotasPoliza({ polizaId }: NotasPolizaProps) {
       setNotas(dePoliza.map((n: any) => ({
         id: n.id ?? Date.now(),
         contenido: n.contenido,
+        archivo: n.archivo,
         usuario: {
           nombre: 'Usuario',
           apellido: `#${n.usuario}`,
@@ -98,14 +101,29 @@ export function NotasPoliza({ polizaId }: NotasPolizaProps) {
   const handleAgregarNota = async () => {
     if (!nuevaNota.trim()) return;
     try {
-      await notasApi.create({
-        titulo: nuevaNota.trim().slice(0, 50),
-        contenido: nuevaNota.trim(),
-        poliza: polizaId ? Number(polizaId) : undefined,
-        usuario: user?.id ?? 1,
-      } as any);
+      const formData = new FormData();
+      formData.append('titulo', nuevaNota.trim().slice(0, 50));
+      formData.append('contenido', nuevaNota.trim());
+      if (polizaId) formData.append('poliza', String(polizaId));
+      formData.append('usuario', String(user?.id ?? 1));
+      if (archivoAdjunto) formData.append('archivo', archivoAdjunto);
+
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
+      const token = localStorage.getItem('access_token');
+      
+      const res = await fetch(`${API_BASE_URL}/notas/`, {
+        method: 'POST',
+        headers: {
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error('Error guardando nota');
+
       toast({ title: 'Nota agregada' });
       setNuevaNota('');
+      setArchivoAdjunto(null);
       setAgregandoNota(false);
       loadNotas();
     } catch (err) {
@@ -163,32 +181,71 @@ export function NotasPoliza({ polizaId }: NotasPolizaProps) {
         {agregandoNota && (
           <div className="p-4 border rounded-lg bg-gray-50 space-y-3">
             <Textarea
-              placeholder="Escribe una nueva nota..."
-              value={nuevaNota}
-              onChange={(e) => setNuevaNota(e.target.value)}
-              className="min-h-20 bg-white"
-            />
-            <div className="flex justify-end space-x-2">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => {
-                  setAgregandoNota(false);
-                  setNuevaNota('');
-                }}
-              >
-                Cancelar
-              </Button>
-              <Button 
-                size="sm"
-                onClick={handleAgregarNota}
-                disabled={!nuevaNota.trim()}
-              >
-                Guardar
-              </Button>
+                placeholder="Escribe una nueva nota... Usa @ para mencionar a alguien"
+                value={nuevaNota}
+                onChange={(e) => setNuevaNota(e.target.value)}
+                className="min-h-20 bg-white"
+              />
+              {archivoAdjunto && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground p-2 bg-slate-100 rounded-md truncate max-w-full">
+                  <Paperclip className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{archivoAdjunto.name}</span>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 ml-auto shrink-0" onClick={() => setArchivoAdjunto(null)}>
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+              <div className="flex flex-col sm:flex-row justify-between gap-2">
+                <div className="flex space-x-2">
+                  <Button variant="outline" size="sm" type="button" onClick={() => document.getElementById('archivo-nota')?.click()}>
+                    <Paperclip className="h-4 w-4 mr-2" />
+                    Adjuntar
+                  </Button>
+                  <input 
+                    id="archivo-nota" 
+                    type="file" 
+                    className="hidden" 
+                    onChange={(e) => setArchivoAdjunto(e.target.files?.[0] ?? null)} 
+                  />
+                  <Button variant="outline" size="sm" type="button" onClick={() => {
+                    const input = document.getElementById('archivo-nota');
+                    if (input) {
+                      input.setAttribute('accept', 'image/*');
+                      input.click();
+                      input.removeAttribute('accept');
+                    }
+                  }}>
+                    <ImageIcon className="h-4 w-4 mr-2" />
+                    Imagen
+                  </Button>
+                  <Button variant="outline" size="sm" type="button" onClick={() => setNuevaNota(prev => prev + '@')}>
+                    <AtSign className="h-4 w-4 mr-2" />
+                    Mencionar
+                  </Button>
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => {
+                      setAgregandoNota(false);
+                      setNuevaNota('');
+                      setArchivoAdjunto(null);
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    onClick={handleAgregarNota}
+                    disabled={!nuevaNota.trim()}
+                  >
+                    Guardar
+                  </Button>
+                </div>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
         <div className="space-y-4">
           {isLoadingNotas ? (
@@ -241,9 +298,27 @@ export function NotasPoliza({ polizaId }: NotasPolizaProps) {
                       </div>
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                      {nota.contenido}
-                    </p>
+                    <div className="space-y-2">
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                        {nota.contenido.split(/(@\w+)/g).map((part: string, i: number) => 
+                          part.startsWith('@') ? <span key={i} className="text-blue-600 font-medium bg-blue-50 px-1 rounded-sm">{part}</span> : part
+                        )}
+                      </p>
+                      {nota.archivo && (
+                        <div className="mt-2">
+                          {nota.archivo.match(/\.(jpeg|jpg|gif|png|webp|svg)/i) ? (
+                            <a href={nota.archivo} target="_blank" rel="noopener noreferrer" className="block max-w-xs rounded-md overflow-hidden border">
+                              <img src={nota.archivo} alt="Archivo adjunto" className="w-full h-auto" />
+                            </a>
+                          ) : (
+                            <a href={nota.archivo} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 p-2 rounded-md transition-colors">
+                              <Paperclip className="h-4 w-4 mr-2" />
+                              Descargar archivo
+                            </a>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

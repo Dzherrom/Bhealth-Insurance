@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from '@/components/ui/skeleton';
 import { PolizaResponse } from '@/types/polizas';
 import { InfoCard, InfoRow } from '@/components/polizas/InfoCard';
@@ -17,7 +18,6 @@ import { NotasPoliza } from '@/components/polizas/NotasPoliza';
 import { DocumentosPoliza } from '@/components/polizas/DocumentosPoliza';
 import { RecordatoriosPoliza } from '@/components/recordatorios';
 import { usePolizaStore } from '@/store/polizaStore';
-import { HistorialPoliza } from '@/components/polizas/HistorialPoliza';
 import { InfoPagoPoliza } from '@/components/polizas/InfoPagoPoliza';
 import { DireccionesPoliza } from '@/components/polizas/DireccionesPoliza';
 import { MetadatosPoliza } from '@/components/polizas/MetadatosPoliza';
@@ -155,11 +155,21 @@ const formatDate = (dateString: string) => {
   });
 };
 
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+
 export default function PolizaDetailsPage() {
   const router = useRouter();
   const params = useParams();
   const { polizaSeleccionada: poliza, isLoading: loading, fetchPolizaById } = usePolizaStore();
   const [activeSection, setActiveSection] = useState('poliza');
+
+  const [isBasicInfoModalOpen, setIsBasicInfoModalOpen] = useState(false);
+  const [isFinancialModalOpen, setIsFinancialModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isFamilyModalOpen, setIsFamilyModalOpen] = useState(false);
+  const [currentFamilyMember, setCurrentFamilyMember] = useState<any>(null);
 
   useEffect(() => {
     if (params.id) {
@@ -214,7 +224,11 @@ export default function PolizaDetailsPage() {
 
   // Handlers para familiares
   const handleEditFamiliar = (id: number) => {
-    console.log('Editar familiar', id);
+    const member = poliza.clientes_info.find(ci => ci.id === id);
+    if (member) {
+      setCurrentFamilyMember(member);
+      setIsFamilyModalOpen(true);
+    }
   };
   const handleDeleteFamiliar = (id: number) => {
     console.log('Eliminar familiar', id);
@@ -281,7 +295,7 @@ export default function PolizaDetailsPage() {
               <FileText className="w-4 h-4 text-muted-foreground" />
               <span>Información Básica</span>
             </CardTitle>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => setIsBasicInfoModalOpen(true)}>
               Editar
             </Button>
           </CardHeader>
@@ -301,7 +315,7 @@ export default function PolizaDetailsPage() {
               <DollarSign className="w-4 h-4 text-muted-foreground" />
               <span>Información Financiera</span>
             </CardTitle>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => setIsFinancialModalOpen(true)}>
               Editar
             </Button>
           </CardHeader>
@@ -461,7 +475,7 @@ export default function PolizaDetailsPage() {
             <CreditCard className="w-5 h-5" />
             <span>Información de pago</span>
           </CardTitle>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => setIsPaymentModalOpen(true)}>
             Editar
           </Button>
         </CardHeader>
@@ -548,6 +562,200 @@ export default function PolizaDetailsPage() {
             )}
         </div>
       </div>
+
+      {/* Modals */}
+      <EditBasicInfoModal 
+        open={isBasicInfoModalOpen} 
+        onOpenChange={setIsBasicInfoModalOpen} 
+        data={poliza} 
+      />
+      <EditFinancialModal 
+        open={isFinancialModalOpen} 
+        onOpenChange={setIsFinancialModalOpen} 
+        data={poliza} 
+      />
+      <EditFamilyModal 
+        open={isFamilyModalOpen} 
+        onOpenChange={setIsFamilyModalOpen} 
+        member={currentFamilyMember} 
+      />
+      <EditPaymentModal 
+        open={isPaymentModalOpen} 
+        onOpenChange={setIsPaymentModalOpen} 
+      />
+
     </div>
+  );
+}
+
+
+function EditBasicInfoModal({ open, onOpenChange, data }: { open: boolean, onOpenChange: (open: boolean) => void, data: any }) {
+  const { updatePoliza } = usePolizaStore();
+  const { toast } = useToast();
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const updates = {
+      id_mercado: formData.get("id_mercado")?.toString(),
+      id_miembro: formData.get("id_miembro")?.toString(),
+      id_interno: formData.get("id_interno")?.toString(),
+    };
+    try {
+        if(data?.id) await updatePoliza(data.id, updates);
+        toast({
+            title: "Éxito",
+            description: "Información básica actualizada correctamente.",
+        });
+        onOpenChange(false);
+    } catch (error) {
+        toast({
+            title: "Error",
+            description: "Error al actualizar la póliza.",
+            variant: "destructive",
+        });
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Editar Información Básica</DialogTitle></DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid gap-2">
+            <Label htmlFor="id_mercado">ID Mercado</Label>
+            <Input id="id_mercado" name="id_mercado" defaultValue={data?.id_mercado || ''} />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="id_miembro">ID Miembro</Label>
+            <Input id="id_miembro" name="id_miembro" defaultValue={data?.id_miembro || ''} />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="id_interno">ID Interno</Label>
+            <Input id="id_interno" name="id_interno" defaultValue={data?.id_interno || ''} />
+          </div>
+          <DialogFooter><Button type="submit">Guardar Cambios</Button></DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditFinancialModal({ open, onOpenChange, data }: { open: boolean, onOpenChange: (open: boolean) => void, data: any }) {
+  const { updatePoliza } = usePolizaStore();
+  const { toast } = useToast();
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const updates = {
+      costo_poliza: formData.get("costo_poliza") ? Number(formData.get("costo_poliza")) : undefined,
+      prima_mensual: formData.get("prima_mensual") ? Number(formData.get("prima_mensual")) : undefined,
+      subsidio: formData.get("subsidio") ? Number(formData.get("subsidio")) : undefined,
+    };
+    try {
+        if(data?.id) await updatePoliza(data.id, updates);
+        toast({
+            title: "Éxito",
+            description: "Información financiera actualizada correctamente.",
+        });
+        onOpenChange(false);
+    } catch (error) {
+        toast({
+            title: "Error",
+            description: "Error al actualizar la póliza.",
+            variant: "destructive",
+        });
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Editar Información Financiera</DialogTitle></DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid gap-2">
+            <Label htmlFor="costo_poliza">Costo Total</Label>
+            <Input id="costo_poliza" name="costo_poliza" type="number" step="0.01" defaultValue={data?.costo_poliza} />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="prima_mensual">Prima Mensual</Label>
+            <Input id="prima_mensual" name="prima_mensual" type="number" step="0.01" defaultValue={data?.prima_mensual} />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="subsidio">Subsidio</Label>
+            <Input id="subsidio" name="subsidio" type="number" step="0.01" defaultValue={data?.subsidio} />
+          </div>
+          <DialogFooter><Button type="submit">Guardar Cambios</Button></DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditFamilyModal({ open, onOpenChange, member }: { open: boolean, onOpenChange: (open: boolean) => void, member: any }) {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    console.log("Updating Family Member:", member, formData.get("nombre"));
+    // Implement API call for family member
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>{member ? 'Editar Familiar' : 'Agregar Familiar'}</DialogTitle></DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid gap-2">
+            <Label htmlFor="nombre">Nombre</Label>
+            <Input id="nombre" name="nombre" defaultValue={member?.cliente_details?.primer_nombre} />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="apellido_paterno">Apellido</Label>
+            <Input id="apellido_paterno" name="apellido_paterno" defaultValue={member?.cliente_details?.apellido_paterno} />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="relacion">Relación</Label>
+            <Input id="relacion" name="relacion" defaultValue={member?.relacion} />
+          </div>
+          <DialogFooter><Button type="submit">Guardar Cambios</Button></DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditPaymentModal({ open, onOpenChange }: { open: boolean, onOpenChange: (open: boolean) => void }) {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    console.log("Updating Payment Info");
+    // Implement API call for payment info
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Editar Información de Pago</DialogTitle></DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <p className="text-sm text-muted-foreground italic">Configuración de pagos recurrentes y tarjetas.</p>
+          <div className="grid gap-2">
+            <Label htmlFor="pagos_recurrentes">Pago Recurrente</Label>
+            <select id="pagos_recurrentes" name="pagos_recurrentes" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                <option value="true">Sí</option>
+                <option value="false">No</option>
+            </select>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="fecha_primer_pago">Fecha Primer Pago</Label>
+            <Input id="fecha_primer_pago" name="fecha_primer_pago" type="date" />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="dia_pago">Día de pago preferido</Label>
+            <Input id="dia_pago" name="dia_pago" type="number" placeholder="1-31" min={1} max={31} />
+          </div>
+          <DialogFooter><Button type="submit">Actualizar Pago</Button></DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

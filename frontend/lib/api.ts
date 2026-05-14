@@ -297,6 +297,26 @@ interface Documento extends OptionalBaseEntity {
   fecha_subida?: string;
 }
 
+interface ManagedUserProfile {
+  role?: string;
+  status?: string;
+  avatar?: string | null;
+  telefono?: string | null;
+  agente?: number | null;
+}
+
+interface ManagedUser extends OptionalBaseEntity {
+  username: string;
+  email: string;
+  first_name?: string;
+  last_name?: string;
+  groups?: string[];
+  profile?: ManagedUserProfile;
+  is_active?: boolean;
+  date_joined?: string;
+  last_login?: string | null;
+}
+
 // =============================================================================
 // 📋 APIS PARA CADA RECURSO
 // =============================================================================
@@ -326,6 +346,9 @@ export const aseguradorasApi = createCrudApi<Aseguradora>('aseguradoras');
 
 // 📄 Planes
 export const planesApi = createCrudApi<Plan>('planes');
+
+// 👤 Gestión de Usuarios (CRM)
+export const usersApi = createCrudApi<ManagedUser, Partial<ManagedUser>, Partial<ManagedUser>>('users');
 
 // 📊 Estados de Póliza
 export const estadosPolizaApi = createCrudApi<EstadoPoliza>('estados-poliza');
@@ -423,11 +446,11 @@ export const setupTokenInterceptor = () => {
 };
 
 // Exportar todas las APIs como un objeto principal
-export const notasApi = createCrudApi<any>('notas');
 export const recordatoriosApi = createCrudApi<any>('recordatorios');
 
 export const api = {
   auth: authApi,
+  users: usersApi,
   agencias: agenciasApi,
   direcciones: direccionesApi,
   agentes: agentesApi,

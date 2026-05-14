@@ -39,7 +39,7 @@ export function EtiquetasConfig() {
   const handleSave = async () => {
     try {
       if (editingId) {
-        const res = await api.put(/etiquetas/ + editingId + /, formData);
+        const res = await api.put(`/etiquetas/${editingId}/`, formData);
         setEtiquetas(prev => prev.map(e => e.id === editingId ? res.data : e));
         toast({ title: 'Éxito', description: 'Etiqueta actualizada' });
       } else {
@@ -56,7 +56,7 @@ export function EtiquetasConfig() {
   const handleDelete = async (id: number) => {
     if (!confirm('¿Seguro que desea eliminar esta etiqueta?')) return;
     try {
-      await api.delete(/etiquetas/ + id + /);
+      await api.delete(`/etiquetas/${id}/`);
       setEtiquetas(prev => prev.filter(e => e.id !== id));
       toast({ title: 'Éxito', description: 'Etiqueta eliminada' });
     } catch (error) {

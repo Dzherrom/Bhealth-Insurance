@@ -77,7 +77,7 @@ export function InfoPagoPoliza({ poliza }: any) {
                        <TableCell className="font-semibold">{b.nombre_banco}</TableCell>
                        <TableCell>{b.tipo_cuenta}</TableCell>
                        <TableCell className="font-mono text-xs">
-                          {b.numero_rutina ? R: *** : ''} <br/>
+                          {b.numero_rutina ? 'R: ***' : ''} <br/>
                           C: ****{b.numero_cuenta.slice(-4)}
                        </TableCell>
                      </TableRow>

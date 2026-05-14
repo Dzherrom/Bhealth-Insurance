@@ -19,7 +19,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { MoreHorizontal, Eye, Edit, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Eye, Edit, Trash2, ArrowUpDown } from 'lucide-react';
 import { Poliza } from './types';
 
 interface PolizasDataTableProps {
@@ -39,6 +39,35 @@ export function PolizasDataTable({
   onEditPoliza,
   onDeletePoliza,
 }: PolizasDataTableProps) {
+
+  const [sortConfig, setSortConfig] = React.useState<{key: keyof Poliza | 'cliente_principal', direction: 'asc' | 'desc'} | null>(null);
+
+  const requestSort = (key: keyof Poliza | 'cliente_principal') => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedPolizas = React.useMemo(() => {
+    let sortableItems = [...polizas];
+    if (sortConfig !== null) {
+      sortableItems.sort((a, b) => {
+        const aVal = a[sortConfig.key] ?? '';
+        const bVal = b[sortConfig.key] ?? '';
+        if (aVal === bVal) return 0;
+        if (aVal < bVal) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aVal > bVal) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [polizas, sortConfig]);
   
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-ES', {
@@ -118,18 +147,32 @@ export function PolizasDataTable({
                   onCheckedChange={handleSelectAll}
                 />
               </TableHead>
-              <TableHead>ID Mercado</TableHead>
-              <TableHead>Cliente Principal</TableHead>
-              <TableHead>Agente</TableHead>
-              <TableHead>Plan</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead>Prima Mensual</TableHead>
-              <TableHead>Fecha Efectiva</TableHead>
+              <TableHead onClick={() => requestSort('id_mercado')} className="cursor-pointer hover:bg-muted/50">
+                ID Mercado <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+              </TableHead>
+              <TableHead onClick={() => requestSort('cliente_principal')} className="cursor-pointer hover:bg-muted/50">
+                Cliente Principal <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+              </TableHead>
+              <TableHead onClick={() => requestSort('agente_nombre')} className="cursor-pointer hover:bg-muted/50">
+                Agente <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+              </TableHead>
+              <TableHead onClick={() => requestSort('plan_nombre')} className="cursor-pointer hover:bg-muted/50">
+                Plan <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+              </TableHead>
+              <TableHead onClick={() => requestSort('estado_nombre')} className="cursor-pointer hover:bg-muted/50">
+                Estado <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+              </TableHead>
+              <TableHead onClick={() => requestSort('prima_mensual')} className="cursor-pointer hover:bg-muted/50">
+                Prima Mensual <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+              </TableHead>
+              <TableHead onClick={() => requestSort('fecha_efectiva')} className="cursor-pointer hover:bg-muted/50">
+                Fecha Efectiva <ArrowUpDown className="ml-2 h-4 w-4 inline" />
+              </TableHead>
               <TableHead className="w-12">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {polizas.map((poliza) => (
+            {sortedPolizas.map((poliza) => (
               <TableRow key={poliza.id}>
                 <TableCell>
                   <Checkbox
@@ -139,7 +182,9 @@ export function PolizasDataTable({
                     }
                   />
                 </TableCell>
-                <TableCell className="font-medium">{poliza.id_mercado}</TableCell>
+                <TableCell className="font-medium cursor-pointer text-primary hover:underline" onClick={() => onViewPoliza(poliza.id)}>
+                  {poliza.id_mercado}
+                </TableCell>
                 <TableCell>
                   {poliza.cliente_principal || 'No asignado'}
                 </TableCell>

@@ -3,8 +3,8 @@ export interface User {
   name: string;
   email: string;
   phone: string;
-  role: 'admin' | 'agente' | 'cliente';
-  status: 'activo' | 'inactivo' | 'pendiente';
+  role: string;
+  status: string;
   avatar?: string;
   lastLogin: string;
   createdAt: string;

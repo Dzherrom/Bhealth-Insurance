@@ -127,16 +127,23 @@ export default function PolizasPage() {
 
   // Filtrar pólizas
   const filteredPolizas = polizas.filter(poliza => {
+    const searchLower = filters.search.toLowerCase();
+    const primaStr = poliza.prima_mensual ? poliza.prima_mensual.toString() : '';
+    
     const matchesSearch = 
-      poliza.id_mercado.toLowerCase().includes(filters.search.toLowerCase()) ||
-      poliza.cliente_principal?.toLowerCase().includes(filters.search.toLowerCase()) ||
-      poliza.agente_nombre.toLowerCase().includes(filters.search.toLowerCase());
+      (poliza.id_mercado && poliza.id_mercado.toLowerCase().includes(searchLower)) ||
+      (poliza.cliente_principal && poliza.cliente_principal.toLowerCase().includes(searchLower)) ||
+      (poliza.agente_nombre && poliza.agente_nombre.toLowerCase().includes(searchLower)) ||
+      (primaStr.includes(searchLower));
     
     const matchesStatus = filters.status === 'all' || poliza.estado_nombre === filters.status;
     const matchesPlan = filters.plan === 'all' || poliza.plan_nombre === filters.plan;
     
     return matchesSearch && matchesStatus && matchesPlan;
   });
+
+  const uniqueStatuses = Array.from(new Set(polizas.map(p => p.estado_nombre))).filter(Boolean) as string[];
+  const uniquePlans = Array.from(new Set(polizas.map(p => p.plan_nombre))).filter(Boolean) as string[];
 
   // Handlers para acciones de la tabla
   const handleViewPoliza = (id: number) => {
@@ -199,6 +206,8 @@ export default function PolizasPage() {
       <PolizasFilters
         filters={filters}
         onFiltersChange={setFilters}
+        uniqueStatuses={uniqueStatuses}
+        uniquePlans={uniquePlans}
       />
 
       <PolizasDataTable

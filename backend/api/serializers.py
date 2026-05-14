@@ -533,7 +533,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def get_token(cls, user):
         token = super().get_token(user)
         # Añadir custom claims al token en si mismo
-        token['role'] = user.profile.role
+        token['role'] = user.profile.role if hasattr(user, 'profile') else ('admin' if user.is_superuser else 'cliente')
         token['username'] = user.username
         
         return token
@@ -541,7 +541,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs) 
         
-        data['role'] = self.user.profile.role
+        data['role'] = self.user.profile.role if hasattr(self.user, 'profile') else ('admin' if self.user.is_superuser else 'cliente')
         data['username'] = self.user.username
         data['id'] = self.user.id
         data['email'] = self.user.email
@@ -556,3 +556,9 @@ class ConfiguracionNotificacionSerializer(serializers.ModelSerializer):
     class Meta:
         model = ConfiguracionNotificacion
         fields = '__all__'
+
+
+
+
+
+

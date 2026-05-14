@@ -6,12 +6,12 @@ import { Plus, Settings } from 'lucide-react';
 
 interface FormulariosFirmasHeaderProps {
   onNuevoFormulario: () => void;
-  onAdvanzado: () => void;
+  onAvanzado: () => void;
 }
 
 export function FormulariosFirmasHeader({ 
   onNuevoFormulario, 
-  onAdvanzado 
+  onAvanzado 
 }: FormulariosFirmasHeaderProps) {
   return (
     <div className="flex flex-col space-y-4">
@@ -30,7 +30,7 @@ export function FormulariosFirmasHeader({
           </Button>
           
           <Button 
-            onClick={onAdvanzado}
+            onClick={onAvanzado}
             variant="outline"
             className="border-blue-600 text-blue-600 hover:bg-blue-50"
           >

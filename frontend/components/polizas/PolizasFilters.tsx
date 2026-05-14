@@ -14,11 +14,15 @@ import { PolizaFilters } from './types';
 interface PolizasFiltersProps {
   filters: PolizaFilters;
   onFiltersChange: (filters: PolizaFilters) => void;
+  uniqueStatuses?: string[];
+  uniquePlans?: string[];
 }
 
 export function PolizasFilters({
   filters,
   onFiltersChange,
+  uniqueStatuses = [],
+  uniquePlans = [],
 }: PolizasFiltersProps) {
   const updateFilter = (key: keyof PolizaFilters, value: string) => {
     onFiltersChange({ ...filters, [key]: value });
@@ -52,25 +56,15 @@ export function PolizasFilters({
                 Estado: {filters.status === 'all' ? 'Todos' : filters.status}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuContent align="end" className="w-48 max-h-[300px] overflow-y-auto">
               <DropdownMenuItem onClick={() => updateFilter('status', 'all')}>
                 Todos los estados
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => updateFilter('status', 'Activo')}>
-                Activo
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => updateFilter('status', 'Inactivo')}>
-                Inactivo
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => updateFilter('status', 'Pendiente')}>
-                Pendiente
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => updateFilter('status', 'Cancelado')}>
-                Cancelado
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => updateFilter('status', 'Renovación')}>
-                Renovación
-              </DropdownMenuItem>
+              {uniqueStatuses.map(status => (
+                <DropdownMenuItem key={status} onClick={() => updateFilter('status', status)}>
+                  {status}
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -82,22 +76,15 @@ export function PolizasFilters({
                 Plan: {filters.plan === 'all' ? 'Todos' : filters.plan}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuContent align="end" className="w-48 max-h-[300px] overflow-y-auto">
               <DropdownMenuItem onClick={() => updateFilter('plan', 'all')}>
                 Todos los planes
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => updateFilter('plan', 'Básico')}>
-                Básico
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => updateFilter('plan', 'Premium')}>
-                Premium
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => updateFilter('plan', 'VIP')}>
-                VIP
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => updateFilter('plan', 'Familiar')}>
-                Familiar
-              </DropdownMenuItem>
+              {uniquePlans.map(plan => (
+                <DropdownMenuItem key={plan} onClick={() => updateFilter('plan', plan)}>
+                  {plan}
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

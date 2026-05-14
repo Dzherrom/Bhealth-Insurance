@@ -9,16 +9,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 export function Familiares({ familiares, onEdit, onDelete, onAdd }: any) {
   // Masker for SSN
-  const maskSSN = (ssn: string) => ssn ? ***-**- + ssn.slice(-4) : 'N/A';
+  const maskSSN = (ssn: string) => ssn ? `***-**-${ssn.slice(-4)}` : 'N/A';
   // Masker for Email
   const maskEmail = (email: string) => {
     if (!email) return 'N/A';
     const [name, domain] = email.split('@');
     if (!domain) return email;
-    return ***@ + domain;
+    return '***@' + domain;
   };
   // Masker for Phone
-  const maskPhone = (phone: string) => phone ? ***-***- + phone.slice(-4) : 'N/A';
+  const maskPhone = (phone: string) => phone ? '***-***-' + phone.slice(-4) : 'N/A';
 
   return (
     <Card>

@@ -40,10 +40,10 @@ export function UserCard({
             <p className="text-sm font-medium leading-none">
               {user.name}
             </p>
-            <Badge variant={getRoleBadgeVariant(user.role)}>
+            <Badge variant={getRoleBadgeVariant(user.role) as any}>
               {user.role}
             </Badge>
-            <Badge variant={getStatusBadgeVariant(user.status)}>
+            <Badge variant={getStatusBadgeVariant(user.status) as any}>
               {user.status}
             </Badge>
           </div>

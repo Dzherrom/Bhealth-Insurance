@@ -46,8 +46,14 @@ export function decodeJwtPayload(token: string): JwtPayload | null {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
 
-    // El payload es Base64URL — reemplazar caracteres y decodificar
-    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    // El payload es Base64URL â€” reemplazar caracteres
+    let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    
+    // Add padding if missing to prevent atob from throwing DOMException in browsers
+    while (base64.length % 4) {
+      base64 += '=';
+    }
+
     const json = decodeURIComponent(
       atob(base64)
         .split('')
