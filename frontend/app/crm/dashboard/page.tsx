@@ -24,7 +24,11 @@ import { Input } from "@/components/ui/input";
 import { getCurrentToken } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (process.env.NODE_ENV === "production"
+    ? "https://bhealth-insurance.onrender.com/api"
+    : "http://127.0.0.1:8000/api");
 const USA_GEO_URL = "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json";
 
 const COLORS = ["#2563eb", "#16a34a", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#f97316", "#6b7280"];

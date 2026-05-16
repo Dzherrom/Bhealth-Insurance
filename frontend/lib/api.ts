@@ -34,9 +34,13 @@ import {
   OptionalBaseEntity
 } from '../types';
 
-// Configuracion base de la API. Lee del entorno local si existe, si no, define el prod o el local.
-// Para probar modo local: NEXT_PUBLIC_API_URL="http://127.0.0.1:8000/api"
-const DEFAULT_API_BASE_URL = 'http://127.0.0.1:8000/api';
+// Configuracion base de la API.
+// En produccion apunta al backend de Render por defecto; en desarrollo mantiene localhost.
+// Para sobrescribir manualmente: NEXT_PUBLIC_API_URL="https://tu-backend/api".
+const DEFAULT_API_BASE_URL =
+  process.env.NODE_ENV === 'production'
+    ? 'https://bhealth-insurance.onrender.com/api'
+    : 'http://127.0.0.1:8000/api';
 
 const normalizeApiBaseUrl = (rawUrl?: string): string => {
   const source = (rawUrl || DEFAULT_API_BASE_URL).trim().replace(/\/+$/, '');

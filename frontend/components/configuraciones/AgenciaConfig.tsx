@@ -89,7 +89,12 @@ export function AgenciaConfig() {
       if (favicon) formData.append('favicon', favicon);
 
       const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api'}/agencias/${agencia.id}/`, {
+      const apiBase =
+        process.env.NEXT_PUBLIC_API_URL ||
+        (process.env.NODE_ENV === 'production'
+          ? 'https://bhealth-insurance.onrender.com/api'
+          : 'http://127.0.0.1:8000/api');
+      const response = await fetch(`${apiBase}/agencias/${agencia.id}/`, {
         method: 'PATCH',
         headers: {
           ...(token && { Authorization: `Bearer ${token}` }),
