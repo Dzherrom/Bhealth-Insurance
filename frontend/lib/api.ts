@@ -36,7 +36,14 @@ import {
 
 // Configuracion base de la API. Lee del entorno local si existe, si no, define el prod o el local.
 // Para probar modo local: NEXT_PUBLIC_API_URL="http://127.0.0.1:8000/api"
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
+const DEFAULT_API_BASE_URL = 'http://127.0.0.1:8000/api';
+
+const normalizeApiBaseUrl = (rawUrl?: string): string => {
+  const source = (rawUrl || DEFAULT_API_BASE_URL).trim().replace(/\/+$/, '');
+  return source.endsWith('/api') ? source : `${source}/api`;
+};
+
+const API_BASE_URL = normalizeApiBaseUrl(process.env.NEXT_PUBLIC_API_URL);
 
 // Utilidad para obtener el token de autenticación
 const getAuthToken = (): string | null => {
@@ -597,7 +604,7 @@ export const resolveApiMediaUrl = (path?: string | null): string | undefined => 
   if (!path) return undefined;
   if (path.startsWith('http://') || path.startsWith('https://')) return path;
 
-  const apiBase = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api').replace(/\/$/, '');
+  const apiBase = normalizeApiBaseUrl(process.env.NEXT_PUBLIC_API_URL);
   const serverBase = apiBase.endsWith('/api') ? apiBase.slice(0, -4) : apiBase;
 
   if (path.startsWith('/')) {
