@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import LoginUser from '@/components/auth/loginUser';
 import { useAuthStore } from '@/store/authStore';
-import { isTokenExpired } from '@/lib/jwt';
 
 const OPEN_CRM_ACCESS = process.env.NEXT_PUBLIC_OPEN_CRM_ACCESS === 'true';
 
@@ -17,12 +16,13 @@ export default function LoginPage() {
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    if (!accessToken || isTokenExpired(accessToken)) {
-      logout();
+    if (OPEN_CRM_ACCESS) {
+      router.push('/crm/dashboard');
       return;
     }
 
-    if (OPEN_CRM_ACCESS) {
+    // Temporary bypass: any authenticated session can enter CRM while client review is active.
+    if (accessToken) {
       router.push('/crm/dashboard');
       return;
     }
@@ -40,7 +40,7 @@ export default function LoginPage() {
         setError(`La cuenta autenticó, pero el rol '${role || 'sin rol'}' no tiene acceso al panel.`);
       }
     }
-  }, [isAuthenticated, accessToken, role, logout, setError, router]);
+  }, [isAuthenticated, accessToken, role, setError, router]);
 
   const handleLogin = async (data: { username: string; password: string }) => {
     setSubmitError(null);
