@@ -4,14 +4,22 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import LoginUser from '@/components/auth/loginUser';
 import { useAuthStore } from '@/store/authStore';
+import { isTokenExpired } from '@/lib/jwt';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, logout, isLoading, isAuthenticated, role, error, clearError, setError } = useAuthStore();
+  const { login, logout, isLoading, isAuthenticated, role, accessToken, error, clearError, setError } = useAuthStore();
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Redirect based on role instead of just isAuthenticated to prevent loops
+  // Avoid loops: if persisted auth state is stale, force logout and keep user on login.
   useEffect(() => {
+    if (!isAuthenticated) return;
+
+    if (!accessToken || isTokenExpired(accessToken)) {
+      logout();
+      return;
+    }
+
     if (isAuthenticated) {
       if (role && ['admin', 'manager', 'asistente', 'sherpa', 'pagos', 'citas'].includes(role)) {
         router.push('/crm/dashboard');
@@ -23,7 +31,7 @@ export default function LoginPage() {
         setError("El usuario no tiene un rol válido para acceder al sistema.");
       }
     }
-  }, [isAuthenticated, role, logout, setError, router]);
+  }, [isAuthenticated, accessToken, role, logout, setError, router]);
 
   const handleLogin = async (data: { username: string; password: string }) => {
     setSubmitError(null);

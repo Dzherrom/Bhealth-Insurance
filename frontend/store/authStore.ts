@@ -204,7 +204,13 @@ export const useAuthStore = create<AuthState>()(
         onRehydrateStorage: () => (state) => {
           if (state && state.accessToken) {
             if (isTokenExpired(state.accessToken)) {
-              state.logout();
+              clearAuthCookie();
+              state.user = null;
+              state.accessToken = null;
+              state.refreshToken = null;
+              state.role = null;
+              state.isAuthenticated = false;
+              state.error = null;
             } else {
               setAuthCookie(state.accessToken);
             }

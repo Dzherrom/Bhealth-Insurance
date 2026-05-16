@@ -6,10 +6,10 @@
  * antes de permitir el acceso a rutas protegidas.
  *
  * Flujo de redirección:
- *  - Sin token o token vencido   → /auth?redirect=<ruta>
+ *  - Sin token o token vencido   → /auth/login?redirect=<ruta>
  *  - Rol insuficiente en /crm/** → /crm/dashboard  (si es usuario CRM)
- *                                → /auth            (si es cliente)
- *  - Rol insuficiente en /client → /auth
+ *                                → /auth/login      (si es cliente)
+ *  - Rol insuficiente en /client → /auth/login
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -65,7 +65,7 @@ export function middleware(request: NextRequest) {
 
   // Sin token o token vencido → login con redirect de vuelta
   if (!token || isTokenExpired(token)) {
-    const loginUrl = new URL('/auth', request.url);
+    const loginUrl = new URL('/auth/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(loginUrl);
   }
@@ -77,7 +77,7 @@ export function middleware(request: NextRequest) {
     // Usuario autenticado sin el rol requerido
     const fallback = hasCRMAccess(role)
       ? new URL(rule.fallbackAuthenticated, request.url)
-      : new URL('/auth', request.url);
+      : new URL('/auth/login', request.url);
     return NextResponse.redirect(fallback);
   }
 

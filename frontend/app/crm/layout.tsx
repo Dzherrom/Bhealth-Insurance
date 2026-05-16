@@ -31,7 +31,7 @@ export default function CRMLayout({ children }: CRMLayoutProps) {
     setIsLoggingOut(true);
     try {
       await logout();
-      router.push('/auth');
+      router.push('/auth/login');
     } finally {
       setIsLoggingOut(false);
     }
