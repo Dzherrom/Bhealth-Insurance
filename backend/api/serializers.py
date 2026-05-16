@@ -10,6 +10,10 @@ from .models import (
     Contrato, ReporteComision, ConfiguracionComision, Notificacion, PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal, ConfiguracionNotificacion
 )
 
+
+def normalize_role(role):
+    return (role or '').strip().upper()
+
 def can_view_sensitive_data(request_user):
     if not request_user or not request_user.is_authenticated:
         return False
@@ -17,7 +21,7 @@ def can_view_sensitive_data(request_user):
         return True
     try:
         if hasattr(request_user, 'profile'):
-            return request_user.profile.role in ['ADMIN', 'MANAGER', 'SHERPA']
+            return normalize_role(request_user.profile.role) in ['ADMIN', 'MANAGER', 'SHERPA']
     except Exception:
         pass
     return False
@@ -567,7 +571,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         if user.is_superuser:
             return 'ADMIN'
         if hasattr(user, 'profile') and getattr(user.profile, 'role', None):
-            return user.profile.role
+            return normalize_role(user.profile.role)
         return 'USER'
 
     @classmethod

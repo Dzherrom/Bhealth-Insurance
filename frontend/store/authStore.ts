@@ -143,8 +143,6 @@ export const useAuthStore = create<AuthState>()(
             });
           } catch (error) {
             console.error('Error al refrescar token:', error);
-            // Si falla el refresh, hacer logout
-            await get().logout();
             throw error;
           }
         },

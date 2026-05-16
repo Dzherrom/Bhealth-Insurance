@@ -1,8 +1,16 @@
 from rest_framework import permissions
 from .models import MatrizPermisoRol
 
+
+def normalize_role(role):
+    return (role or '').strip().upper()
+
 def check_status(request):
-    if not (request.user.is_authenticated and hasattr(request.user, 'profile')):
+    if not request.user.is_authenticated:
+        return False, None
+    if request.user.is_superuser:
+        return True, 'ACTIVE'
+    if not hasattr(request.user, 'profile'):
         return False, None
     return True, request.user.profile.status
 
@@ -10,37 +18,49 @@ class IsAdminRole(permissions.BasePermission):
     def has_permission(self, request, view):
         auth, status = check_status(request)
         if not auth or status != 'ACTIVE': return False
-        return request.user.profile.role == 'ADMIN'
+        if request.user.is_superuser:
+            return True
+        return normalize_role(request.user.profile.role) == 'ADMIN'
 
 class IsManagerRole(permissions.BasePermission):
     def has_permission(self, request, view):
         auth, status = check_status(request)
         if not auth or status != 'ACTIVE': return False
-        return request.user.profile.role in ['ADMIN', 'MANAGER']
+        if request.user.is_superuser:
+            return True
+        return normalize_role(request.user.profile.role) in ['ADMIN', 'MANAGER']
 
 class IsAsistenteRole(permissions.BasePermission):
     def has_permission(self, request, view):
         auth, status = check_status(request)
         if not auth or status != 'ACTIVE': return False
-        return request.user.profile.role in ['ADMIN', 'MANAGER', 'ASISTENTE']
+        if request.user.is_superuser:
+            return True
+        return normalize_role(request.user.profile.role) in ['ADMIN', 'MANAGER', 'ASISTENTE']
 
 class IsSherpaRole(permissions.BasePermission):
     def has_permission(self, request, view):
         auth, status = check_status(request)
         if not auth or status != 'ACTIVE': return False
-        return request.user.profile.role in ['ADMIN', 'MANAGER', 'SHERPA']
+        if request.user.is_superuser:
+            return True
+        return normalize_role(request.user.profile.role) in ['ADMIN', 'MANAGER', 'SHERPA']
 
 class IsPagosRole(permissions.BasePermission):
     def has_permission(self, request, view):
         auth, status = check_status(request)
         if not auth or status != 'ACTIVE': return False
-        return request.user.profile.role in ['ADMIN', 'MANAGER', 'PAGOS']
+        if request.user.is_superuser:
+            return True
+        return normalize_role(request.user.profile.role) in ['ADMIN', 'MANAGER', 'PAGOS']
 
 class IsCitasRole(permissions.BasePermission):
     def has_permission(self, request, view):
         auth, status = check_status(request)
         if not auth or status != 'ACTIVE': return False
-        return request.user.profile.role in ['ADMIN', 'MANAGER', 'CITAS']
+        if request.user.is_superuser:
+            return True
+        return normalize_role(request.user.profile.role) in ['ADMIN', 'MANAGER', 'CITAS']
 
 
 class IsCRMNonBasicRole(permissions.BasePermission):
@@ -51,7 +71,10 @@ class IsCRMNonBasicRole(permissions.BasePermission):
         if not auth or status != 'ACTIVE':
             return False
 
-        role = request.user.profile.role
+        if request.user.is_superuser:
+            return True
+
+        role = normalize_role(request.user.profile.role)
         return role in ['ADMIN', 'MANAGER', 'ASISTENTE', 'SHERPA', 'PAGOS', 'CITAS']
 
 class IsPolicyOwnerOrHigher(permissions.BasePermission):
@@ -62,7 +85,10 @@ class IsPolicyOwnerOrHigher(permissions.BasePermission):
         auth, status = check_status(request)
         if not auth or status != 'ACTIVE': return False
 
-        role = request.user.profile.role
+        if request.user.is_superuser:
+            return True
+
+        role = normalize_role(request.user.profile.role)
 
         if role in ['ADMIN', 'MANAGER', 'SHERPA', 'PAGOS', 'CITAS']:
             return True
@@ -81,7 +107,7 @@ def has_matrix_permission(user, modulo, accion):
     if not hasattr(user, 'profile'):
         return False
 
-    role = user.profile.role
+    role = normalize_role(user.profile.role)
     if role == 'ADMIN':
         return True
 

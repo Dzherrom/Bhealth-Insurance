@@ -446,12 +446,18 @@ class PolizaViewSet(viewsets.ModelViewSet):
     search_fields = ['id_mercado', 'clientes__primer_nombre', 'clientes__apellido_paterno', 'agente__nombre_completo', 'id_miembro']
     ordering_fields = ['fecha_efectiva', 'ultima_actualizacion', 'created_at']
 
+    @staticmethod
+    def _normalize_role(role):
+        return (role or '').strip().upper()
+
     def get_queryset(self):
         user = self.request.user
+        if user.is_superuser:
+            return Poliza.objects.all()
         if not hasattr(user, 'profile'):
             return Poliza.objects.none()
-        
-        role = user.profile.role
+
+        role = self._normalize_role(user.profile.role)
         if role in ['ADMIN', 'MANAGER', 'PAGOS', 'SHERPA', 'CITAS']:
             return Poliza.objects.all()
         elif role in ['ASISTENTE']:
@@ -463,7 +469,7 @@ class PolizaViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         # Auto-assign agent if the creator is an ASISTENTE
         user = self.request.user
-        if hasattr(user, 'profile') and user.profile.role in ['ASISTENTE'] and user.profile.agente:
+        if hasattr(user, 'profile') and self._normalize_role(user.profile.role) in ['ASISTENTE'] and user.profile.agente:
             poliza = serializer.save(agente=user.profile.agente)
         else:
             poliza = serializer.save()
@@ -487,16 +493,21 @@ class PolizaViewSet(viewsets.ModelViewSet):
         )
 
     def _require_role(self, request, allowed_roles):
+        if request.user.is_superuser:
+            return None
         if not hasattr(request.user, 'profile'):
             return Response({"detail": "Usuario sin perfil."}, status=status.HTTP_403_FORBIDDEN)
-        if request.user.profile.role not in allowed_roles:
+        allowed_roles_normalized = {self._normalize_role(role) for role in allowed_roles}
+        if self._normalize_role(request.user.profile.role) not in allowed_roles_normalized:
             return Response({"detail": "No tienes permisos para esta acción."}, status=status.HTTP_403_FORBIDDEN)
         return None
 
     def _require_matrix_permission(self, request, accion):
+        if request.user.is_superuser:
+            return None
         if not hasattr(request.user, 'profile'):
             return Response({"detail": "Usuario sin perfil."}, status=status.HTTP_403_FORBIDDEN)
-        role = request.user.profile.role
+        role = self._normalize_role(request.user.profile.role)
         if role == 'ADMIN':
             return None
         if not has_matrix_permission(request.user, 'POLIZA_FLUJO', accion):

@@ -149,11 +149,6 @@ export default function DashboardPage() {
       let token = accessToken || getCurrentToken();
 
       if (!token) {
-        await refreshAccessToken();
-        token = useAuthStore.getState().accessToken || getCurrentToken();
-      }
-
-      if (!token) {
         throw new Error("No hay sesión activa. Inicia sesión nuevamente.");
       }
 
@@ -167,7 +162,11 @@ export default function DashboardPage() {
       });
 
       if (response.status === 401) {
-        await refreshAccessToken();
+        try {
+          await refreshAccessToken();
+        } catch {
+          throw new Error("No hay sesión activa. Inicia sesión nuevamente.");
+        }
         const refreshedToken = useAuthStore.getState().accessToken || getCurrentToken();
 
         if (!refreshedToken) {
