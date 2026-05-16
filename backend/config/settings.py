@@ -15,6 +15,7 @@ from decouple import config
 from datetime import timedelta
 import os
 import dj_database_url
+from urllib.parse import urlparse
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -29,22 +30,47 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-e%=k^uahb6h2#!7rm9ni5
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'b-health-test.netlify.app']
+DEFAULT_FRONTEND_ORIGINS = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'https://b-health-test.netlify.app',
+    'https://bhealth-insurance99326.netlify.app',
+]
+
+frontend_origins_env = config('FRONTEND_ORIGINS', default='')
+FRONTEND_ORIGINS = DEFAULT_FRONTEND_ORIGINS.copy()
+
+if frontend_origins_env:
+    FRONTEND_ORIGINS.extend([
+        origin.strip()
+        for origin in frontend_origins_env.split(',')
+        if origin.strip()
+    ])
+
+# Remove duplicates while preserving order.
+FRONTEND_ORIGINS = list(dict.fromkeys(FRONTEND_ORIGINS))
+
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+
+backend_public_url = config('BACKEND_PUBLIC_URL', default='')
+if backend_public_url:
+    backend_hostname = urlparse(backend_public_url).hostname
+    if backend_hostname and backend_hostname not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(backend_hostname)
+
+for origin in FRONTEND_ORIGINS:
+    hostname = urlparse(origin).hostname
+    if hostname and hostname not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(hostname)
+
 RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "https://b-health-test.netlify.app",
-]
+CORS_ALLOWED_ORIGINS = FRONTEND_ORIGINS
+CORS_ALLOW_CREDENTIALS = True
 
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "https://b-health-test.netlify.app",
-]
+CSRF_TRUSTED_ORIGINS = FRONTEND_ORIGINS
 
 
 # Application definition
