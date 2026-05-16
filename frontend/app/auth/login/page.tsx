@@ -20,15 +20,17 @@ export default function LoginPage() {
       return;
     }
 
+    const normalizedRole = role?.toLowerCase();
+    const crmRoles = ['admin', 'manager', 'asistente', 'sherpa', 'pagos', 'citas'];
+
     if (isAuthenticated) {
-      if (role && ['admin', 'manager', 'asistente', 'sherpa', 'pagos', 'citas'].includes(role)) {
+      if (normalizedRole && crmRoles.includes(normalizedRole)) {
         router.push('/crm/dashboard');
-      } else if (role === 'cliente') {
+      } else if (normalizedRole === 'cliente') {
         router.push('/client');
       } else {
-        // Unknown role or null (like 'user' default from backend that is not allowed)
-        logout();
-        setError("El usuario no tiene un rol válido para acceder al sistema.");
+        // Do not auto-logout here; show explicit role mismatch and keep session for debugging.
+        setError(`La cuenta autenticó, pero el rol '${role || 'sin rol'}' no tiene acceso al panel.`);
       }
     }
   }, [isAuthenticated, accessToken, role, logout, setError, router]);

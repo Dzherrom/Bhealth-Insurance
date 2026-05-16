@@ -561,11 +561,20 @@ class ZipCodeSerializer(serializers.Serializer):
     country_code = serializers.CharField(max_length=2, required=False, default='us')
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @staticmethod
+    def _resolve_user_role(user):
+        # Superuser must always map to ADMIN for CRM access in frontend.
+        if user.is_superuser:
+            return 'ADMIN'
+        if hasattr(user, 'profile') and getattr(user.profile, 'role', None):
+            return user.profile.role
+        return 'USER'
+
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
         # Añadir custom claims al token en si mismo
-        token['role'] = user.profile.role if hasattr(user, 'profile') else ('admin' if user.is_superuser else 'cliente')
+        token['role'] = cls._resolve_user_role(user)
         token['username'] = user.username
         
         return token
@@ -573,7 +582,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs) 
         
-        data['role'] = self.user.profile.role if hasattr(self.user, 'profile') else ('admin' if self.user.is_superuser else 'cliente')
+        data['role'] = self._resolve_user_role(self.user)
         data['username'] = self.user.username
         data['id'] = self.user.id
         data['email'] = self.user.email
