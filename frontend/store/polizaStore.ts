@@ -10,7 +10,7 @@ import type {
 
 export interface PolizaState {
   // Estado
-  polizas: PolizaResponse[];
+  polizas: PolizaListResponse[];
   polizaSeleccionada: PolizaResponse | null;
   isLoading: boolean;
   isCreating: boolean;
@@ -35,7 +35,7 @@ export interface PolizaState {
   totalPolizas: number;
 
   // Acciones - CRUD
-  fetchPolizas: (filtros?: { cliente_id?: string; [key: string]: any }) => Promise<void>;
+  fetchPolizas: (filtros?: { cliente_id?: string; page?: number; page_size?: number; [key: string]: any }) => Promise<void>;
   fetchPolizaById: (id: number) => Promise<void>;
   createPoliza: (data: PolizaCreateRequest) => Promise<PolizaResponse>;
   updatePoliza: (id: number, data: PolizaUpdateRequest) => Promise<PolizaResponse>;
@@ -83,13 +83,21 @@ export const usePolizaStore = create<PolizaState>()(
       ...initialState,
 
       // Obtener todas las pólizas
-      fetchPolizas: async () => {
+      fetchPolizas: async (filtros = {}) => {
         set({ isLoading: true, error: null });
         try {
-          const polizas = await polizasApi.list();
+          const { page, pageSize } = get();
+          const requestedPage = filtros.page ?? (filtros.cliente_id ? 1 : page);
+          const requestedPageSize = filtros.page_size ?? (filtros.cliente_id ? 200 : pageSize);
+          const response = await polizasApi.listPaginated({
+            page: requestedPage,
+            page_size: requestedPageSize,
+            ...filtros,
+          });
+
           set({ 
-            polizas, 
-            totalPolizas: polizas.length,
+            polizas: response.results,
+            totalPolizas: response.count,
             isLoading: false 
           });
         } catch (error) {

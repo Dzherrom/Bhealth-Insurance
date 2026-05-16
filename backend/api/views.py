@@ -4,6 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import ValidationError
+from rest_framework.pagination import PageNumberPagination
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth.models import User
@@ -18,7 +19,7 @@ import requests
 import csv
 from django.db import transaction
 from rest_framework.parsers import MultiPartParser, FormParser
-from django.db.models import Sum, Count, F
+from django.db.models import Sum, Count, F, Prefetch
 from django.db.models.functions import TruncMonth, TruncYear
 from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
@@ -28,6 +29,12 @@ from .models import (
     PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal, registrar_auditoria_global
 )
 from .serializers import *
+
+
+class PolizaPagination(PageNumberPagination):
+    page_size = 25
+    page_size_query_param = 'page_size'
+    max_page_size = 200
 
 class DashboardStatsView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsCRMNonBasicRole]
@@ -440,6 +447,7 @@ class EstadoPolizaViewSet(viewsets.ModelViewSet):
 
 class PolizaViewSet(viewsets.ModelViewSet):
     serializer_class = PolizaSerializer
+    pagination_class = PolizaPagination
     permission_classes = [permissions.IsAuthenticated, IsPolicyOwnerOrHigher]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['estado', 'agente', 'plan', 'id_mercado', 'fecha_efectiva']
@@ -450,21 +458,46 @@ class PolizaViewSet(viewsets.ModelViewSet):
     def _normalize_role(role):
         return (role or '').strip().upper()
 
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return PolizaListSerializer
+        return PolizaSerializer
+
     def get_queryset(self):
+        base_queryset = Poliza.objects.select_related(
+            'agente', 'plan', 'estado', 'plan__aseguradora'
+        )
+
+        if self.action == 'list':
+            base_queryset = base_queryset.prefetch_related(
+                Prefetch(
+                    'polizacliente_set',
+                    queryset=PolizaCliente.objects.select_related('cliente').filter(es_solicitante_principal=True),
+                )
+            )
+
         user = self.request.user
         if user.is_superuser:
-            return Poliza.objects.all()
-        if not hasattr(user, 'profile'):
+            queryset = base_queryset
+        elif not hasattr(user, 'profile'):
             return Poliza.objects.none()
+        else:
+            role = self._normalize_role(user.profile.role)
+            if role in ['ADMIN', 'MANAGER', 'PAGOS', 'SHERPA', 'CITAS']:
+                queryset = base_queryset
+            elif role in ['ASISTENTE']:
+                if user.profile.agente:
+                    queryset = base_queryset.filter(agente=user.profile.agente)
+                else:
+                    return Poliza.objects.none()
+            else:
+                return Poliza.objects.none()
 
-        role = self._normalize_role(user.profile.role)
-        if role in ['ADMIN', 'MANAGER', 'PAGOS', 'SHERPA', 'CITAS']:
-            return Poliza.objects.all()
-        elif role in ['ASISTENTE']:
-            if user.profile.agente:
-                return Poliza.objects.filter(agente=user.profile.agente)
-            return Poliza.objects.none()
-        return Poliza.objects.none()
+        cliente_id = self.request.query_params.get('cliente_id')
+        if cliente_id:
+            queryset = queryset.filter(clientes__id=cliente_id).distinct()
+
+        return queryset
 
     def perform_create(self, serializer):
         # Auto-assign agent if the creator is an ASISTENTE

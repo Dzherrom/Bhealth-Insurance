@@ -6,13 +6,23 @@ import { PolizasHeader } from '@/components/polizas/PolizasHeader';
 import { PolizasFilters } from '@/components/polizas/PolizasFilters';
 import { PolizasDataTable } from '@/components/polizas/PolizasDataTable';
 import BoxComponent from '@/components/boxes/BoxComponent';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Poliza, PolizaFilters } from '@/components/polizas/types';
 import { usePolizaStore } from '@/store/polizaStore';
 
 export default function PolizasPage() {
   const router = useRouter();
-  const { polizas: polizasData, isLoading, fetchPolizas, deletePoliza } = usePolizaStore();
+  const {
+    polizas: polizasData,
+    isLoading,
+    fetchPolizas,
+    deletePoliza,
+    page,
+    pageSize,
+    totalPolizas,
+    setPage,
+  } = usePolizaStore();
   const [selectedPolizas, setSelectedPolizas] = useState<number[]>([]);
   const [filters, setFilters] = useState<PolizaFilters>({
     search: '',
@@ -24,7 +34,7 @@ export default function PolizasPage() {
   // Cargar pólizas al montar
   useEffect(() => {
     fetchPolizas();
-  }, [fetchPolizas]);
+  }, [fetchPolizas, page, pageSize]);
 
   // Mapear PolizaResponse → Poliza local (normalizar tipos numéricos y extraer cliente principal)
   const polizas: Poliza[] = polizasData.map(p => ({
@@ -37,9 +47,7 @@ export default function PolizasPage() {
     prima_mensual: parseFloat(p.prima_mensual ?? '0'),
     fecha_efectiva: p.fecha_efectiva,
     costo_poliza: parseFloat(p.costo_poliza ?? '0'),
-    cliente_principal: p.clientes_info?.find(c => c.es_solicitante_principal)
-      ? `${p.clientes_info.find(c => c.es_solicitante_principal)!.cliente_details.primer_nombre} ${p.clientes_info.find(c => c.es_solicitante_principal)!.cliente_details.apellido_paterno}`
-      : undefined,
+    cliente_principal: p.cliente_principal,
     fecha_creacion: p.fecha_creacion ?? '',
   }));
 
@@ -77,11 +85,12 @@ export default function PolizasPage() {
   };
 
   // Calcular estadísticas
-  const totalPolizas = polizas.length;
+  const totalPages = Math.max(1, Math.ceil(totalPolizas / pageSize));
+  const totalPolizasPagina = polizas.length;
   const polizasActivas = polizas.filter(p => p.estado_nombre === 'Activo').length;
   const polizasPendientes = polizas.filter(p => p.estado_nombre === 'Pendiente').length;
-  const primaPromedio = totalPolizas > 0
-    ? polizas.reduce((sum, p) => sum + p.prima_mensual, 0) / totalPolizas
+  const primaPromedio = totalPolizasPagina > 0
+    ? polizas.reduce((sum, p) => sum + p.prima_mensual, 0) / totalPolizasPagina
     : 0;
 
   if (isLoading && polizas.length === 0) {
@@ -136,6 +145,30 @@ export default function PolizasPage() {
         onEditPoliza={handleEditPoliza}
         onDeletePoliza={handleDeletePoliza}
       />
+
+      <div className="flex items-center justify-between rounded-lg border bg-background p-3">
+        <p className="text-sm text-muted-foreground">
+          Pagina {page} de {totalPages} • Mostrando {polizas.length} de {totalPolizas} polizas
+        </p>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1 || isLoading}
+            onClick={() => setPage(page - 1)}
+          >
+            Anterior
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages || isLoading}
+            onClick={() => setPage(page + 1)}
+          >
+            Siguiente
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

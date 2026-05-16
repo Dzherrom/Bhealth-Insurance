@@ -17,6 +17,7 @@ import {
   PolizaCreate,
   PolizaUpdate,
   PolizaResponse,
+  PolizaListResponse,
   Plan,
   EstadoPoliza,
   Aseguradora,
@@ -439,6 +440,13 @@ interface ManagedUser extends OptionalBaseEntity {
   last_login?: string | null;
 }
 
+interface PaginatedResponse<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+}
+
 // =============================================================================
 // 📋 APIS PARA CADA RECURSO
 // =============================================================================
@@ -517,6 +525,35 @@ export const estadosPolizaApi = createCrudApi<EstadoPoliza>('estados-poliza');
 // 📜 Pólizas - Con funciones especializadas
 export const polizasApi = {
   ...createCrudApi<PolizaResponse, PolizaCreate, PolizaUpdate>('polizas'),
+
+  listPaginated: async (
+    params?: { page?: number; page_size?: number; [key: string]: string | number | boolean | undefined }
+  ): Promise<PaginatedResponse<PolizaListResponse>> => {
+    const searchParams = new URLSearchParams();
+
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value === undefined || value === null || value === '') return;
+        searchParams.append(key, String(value));
+      });
+    }
+
+    const query = searchParams.toString();
+    const url = `${API_BASE_URL}/polizas/${query ? `?${query}` : ''}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+
+    return handleApiResponse<PaginatedResponse<PolizaListResponse>>(response);
+  },
+
+  // Compatibilidad para pantallas antiguas que esperan arreglo directo.
+  list: async (): Promise<PolizaListResponse[]> => {
+    const page = await polizasApi.listPaginated({ page: 1, page_size: 200 });
+    return page.results;
+  },
   
   // Descargar documentos de póliza
   downloadDocuments: async (id: number): Promise<Blob> => {

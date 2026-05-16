@@ -79,22 +79,24 @@ export interface PolizaListResponse {
   id: number;
   id_mercado: string;
   id_miembro: string;
-  estado: string;
+  id_interno?: string;
+  estado: number;
+  agente?: number;
+  plan?: number;
   agente_nombre: string;
   plan_nombre: string;
   estado_nombre: string;
   prima_mensual: string;
+  subsidio?: string;
   fecha_efectiva: string;
+  fecha_envio?: string;
   costo_poliza: string;
+  total_miembros?: number;
+  total_aplicantes?: number;
+  total_dependientes?: number;
+  ultima_actualizacion?: string;
   cliente_principal?: string;
-  plan?: {
-    id: number;
-    nombre: string;
-    aseguradora?: {
-      id: number;
-      nombre: string;
-    };
-  };
+  fecha_creacion?: string;
   fecha_inicio?: string;
   fecha_fin?: string;
   numero_poliza?: string;

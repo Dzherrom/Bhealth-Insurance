@@ -418,6 +418,52 @@ class RecordatorioSerializer(serializers.ModelSerializer):
         model = Recordatorio
         fields = '__all__'
 
+
+class PolizaListSerializer(serializers.ModelSerializer):
+    agente_nombre = serializers.ReadOnlyField(source='agente.nombre_completo')
+    plan_nombre = serializers.ReadOnlyField(source='plan.nombre')
+    estado_nombre = serializers.ReadOnlyField(source='estado.nombre')
+    cliente_principal = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Poliza
+        fields = [
+            'id',
+            'id_mercado',
+            'id_miembro',
+            'id_interno',
+            'agente',
+            'agente_nombre',
+            'plan',
+            'plan_nombre',
+            'estado',
+            'estado_nombre',
+            'prima_mensual',
+            'costo_poliza',
+            'subsidio',
+            'fecha_efectiva',
+            'fecha_envio',
+            'total_miembros',
+            'total_aplicantes',
+            'total_dependientes',
+            'cliente_principal',
+            'ultima_actualizacion',
+        ]
+
+    def get_cliente_principal(self, obj):
+        principal_link = next(
+            (pc for pc in obj.polizacliente_set.all() if pc.es_solicitante_principal and pc.cliente_id),
+            None,
+        )
+        if not principal_link:
+            return None
+
+        cliente = principal_link.cliente
+        nombre = (cliente.primer_nombre or '').strip()
+        apellido = (cliente.apellido_paterno or '').strip()
+        full_name = f"{nombre} {apellido}".strip()
+        return full_name or str(cliente)
+
 class PolizaSerializer(serializers.ModelSerializer):
     clientes_info = PolizaClienteSerializer(source='polizacliente_set', many=True, read_only=True)
     # To allow creating relationships on create/update

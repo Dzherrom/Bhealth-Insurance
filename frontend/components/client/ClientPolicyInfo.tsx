@@ -141,7 +141,7 @@ export default function ClientPolicyInfo({ clientId }: ClientPolicyInfoProps) {
               <Label>Beneficiarios</Label>
               <p className="text-sm font-medium mt-1 flex items-center gap-2">
                 <User className="h-4 w-4" />
-                {policy.clientes_info?.length || 0} personas
+                {policy.total_miembros || 0} personas
               </p>
             </div>
           </div>
