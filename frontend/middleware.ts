@@ -17,6 +17,8 @@ import { extractRoleFromToken, isTokenExpired } from '@/lib/jwt';
 import { hasCRMAccess, CONFIG_ROLES, USERS_ADMIN_ROLES, CRM_ROLES } from '@/lib/permissions';
 import type { UserRole } from '@/types/auth';
 
+const OPEN_CRM_ACCESS = process.env.NEXT_PUBLIC_OPEN_CRM_ACCESS === 'true';
+
 // -----------------------------------------------
 // Reglas de acceso: orden importa (más específico primero)
 // -----------------------------------------------
@@ -53,6 +55,10 @@ const ROUTE_RULES: RouteRule[] = [
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (OPEN_CRM_ACCESS && pathname.startsWith('/crm')) {
+    return NextResponse.next();
+  }
 
   // Buscar la regla aplicable (la primera que coincida gana)
   const rule = ROUTE_RULES.find((r) => pathname.startsWith(r.prefix));

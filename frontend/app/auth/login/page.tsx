@@ -6,6 +6,8 @@ import LoginUser from '@/components/auth/loginUser';
 import { useAuthStore } from '@/store/authStore';
 import { isTokenExpired } from '@/lib/jwt';
 
+const OPEN_CRM_ACCESS = process.env.NEXT_PUBLIC_OPEN_CRM_ACCESS === 'true';
+
 export default function LoginPage() {
   const router = useRouter();
   const { login, logout, isLoading, isAuthenticated, role, accessToken, error, clearError, setError } = useAuthStore();
@@ -17,6 +19,11 @@ export default function LoginPage() {
 
     if (!accessToken || isTokenExpired(accessToken)) {
       logout();
+      return;
+    }
+
+    if (OPEN_CRM_ACCESS) {
+      router.push('/crm/dashboard');
       return;
     }
 
