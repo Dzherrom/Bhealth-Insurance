@@ -10,88 +10,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Poliza, PolizaFilters } from '@/components/polizas/types';
 import { usePolizaStore } from '@/store/polizaStore';
 
-// Mock data restaurada como fallback para desarrollo
-const mockPolizas: Poliza[] = [
-  {
-    id: 1,
-    id_mercado: 'POL-2024-001',
-    id_miembro: 'MEM-001',
-    agente_nombre: 'Ana García',
-    plan_nombre: 'Premium',
-    estado_nombre: 'Activo',
-    prima_mensual: 89.99,
-    fecha_efectiva: '2024-01-15',
-    costo_poliza: 1079.88,
-    cliente_principal: 'Juan Pérez',
-    fecha_creacion: '2024-01-10'
-  },
-  {
-    id: 2,
-    id_mercado: 'POL-2024-002',
-    id_miembro: 'MEM-002',
-    agente_nombre: 'Carlos Rodríguez',
-    plan_nombre: 'Básico',
-    estado_nombre: 'Activo',
-    prima_mensual: 45.50,
-    fecha_efectiva: '2024-02-01',
-    costo_poliza: 546.00,
-    cliente_principal: 'María López',
-    fecha_creacion: '2024-01-25'
-  },
-  {
-    id: 3,
-    id_mercado: 'POL-2024-003',
-    id_miembro: 'MEM-003',
-    agente_nombre: 'Laura Martínez',
-    plan_nombre: 'VIP',
-    estado_nombre: 'Pendiente',
-    prima_mensual: 159.99,
-    fecha_efectiva: '2024-01-20',
-    costo_poliza: 1919.88,
-    cliente_principal: 'Antonio Silva',
-    fecha_creacion: '2024-01-18'
-  },
-  {
-    id: 4,
-    id_mercado: 'POL-2024-004',
-    id_miembro: 'MEM-004',
-    agente_nombre: 'Ana García',
-    plan_nombre: 'Familiar',
-    estado_nombre: 'Inactivo',
-    prima_mensual: 120.00,
-    fecha_efectiva: '2023-12-01',
-    costo_poliza: 1440.00,
-    cliente_principal: 'Carmen Ruiz',
-    fecha_creacion: '2023-11-25'
-  },
-  {
-    id: 5,
-    id_mercado: 'POL-2024-005',
-    id_miembro: 'MEM-005',
-    agente_nombre: 'Carlos Rodríguez',
-    plan_nombre: 'Premium',
-    estado_nombre: 'Renovación',
-    prima_mensual: 95.00,
-    fecha_efectiva: '2024-03-01',
-    costo_poliza: 1140.00,
-    cliente_principal: 'Roberto Díaz',
-    fecha_creacion: '2024-02-15'
-  },
-  {
-    id: 6,
-    id_mercado: 'POL-2024-006',
-    id_miembro: 'MEM-006',
-    agente_nombre: 'Laura Martínez',
-    plan_nombre: 'Básico',
-    estado_nombre: 'Cancelado',
-    prima_mensual: 42.99,
-    fecha_efectiva: '2024-01-05',
-    costo_poliza: 515.88,
-    cliente_principal: 'Sofia Morales',
-    fecha_creacion: '2023-12-30'
-  }
-];
-
 export default function PolizasPage() {
   const router = useRouter();
   const { polizas: polizasData, isLoading, fetchPolizas, deletePoliza } = usePolizaStore();
@@ -109,7 +27,7 @@ export default function PolizasPage() {
   }, [fetchPolizas]);
 
   // Mapear PolizaResponse → Poliza local (normalizar tipos numéricos y extraer cliente principal)
-  let polizas: Poliza[] = polizasData && polizasData.length > 0 ? polizasData.map(p => ({
+  const polizas: Poliza[] = polizasData.map(p => ({
     id: p.id!,
     id_mercado: p.id_mercado,
     id_miembro: p.id_miembro,
@@ -123,7 +41,7 @@ export default function PolizasPage() {
       ? `${p.clientes_info.find(c => c.es_solicitante_principal)!.cliente_details.primer_nombre} ${p.clientes_info.find(c => c.es_solicitante_principal)!.cliente_details.apellido_paterno}`
       : undefined,
     fecha_creacion: p.fecha_creacion ?? '',
-  })) : mockPolizas;
+  }));
 
   // Filtrar pólizas
   const filteredPolizas = polizas.filter(poliza => {

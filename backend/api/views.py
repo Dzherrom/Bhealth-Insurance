@@ -58,15 +58,15 @@ class DashboardStatsView(APIView):
             except ValueError:
                 return Response({"detail": "end_date inválida. Usa YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Si no mandan fechas explícitas, derivar ventana por periodo predefinido.
-        if not start_date and not end_date:
+        # Si no mandan fechas explícitas, solo aplicar periodo si fue solicitado.
+        if not start_date and not end_date and period:
             period_days = {
                 'last_year': 365,
                 'last_6_months': 183,
                 'last_3_months': 92,
                 'last_month': 31,
             }
-            selected_days = period_days.get(period or 'last_month', 31)
+            selected_days = period_days.get(period, 31)
             end_date = today
             start_date = today - timedelta(days=selected_days)
 

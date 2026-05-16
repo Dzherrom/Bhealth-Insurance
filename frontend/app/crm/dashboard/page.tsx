@@ -119,18 +119,10 @@ const getMapColor = (count: number, max: number) => {
   return "#93c5fd";
 };
 
-const getDefaultRange = () => {
-  const end = new Date();
-  const start = new Date();
-  start.setMonth(start.getMonth() - 1);
-
-  const toISODate = (date: Date) => date.toISOString().split("T")[0];
-
-  return {
-    startDate: toISODate(start),
-    endDate: toISODate(end),
-  };
-};
+const getDefaultRange = () => ({
+  startDate: "",
+  endDate: "",
+});
 
 export default function DashboardPage() {
   const accessToken = useAuthStore((state) => state.accessToken);
