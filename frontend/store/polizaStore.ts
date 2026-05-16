@@ -95,9 +95,12 @@ export const usePolizaStore = create<PolizaState>()(
             ...filtros,
           });
 
+          const safeResults = Array.isArray(response.results) ? response.results : [];
+          const safeCount = typeof response.count === 'number' ? response.count : safeResults.length;
+
           set({ 
-            polizas: response.results,
-            totalPolizas: response.count,
+            polizas: safeResults,
+            totalPolizas: safeCount,
             isLoading: false 
           });
         } catch (error) {

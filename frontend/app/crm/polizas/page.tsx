@@ -37,7 +37,8 @@ export default function PolizasPage() {
   }, [fetchPolizas, page, pageSize]);
 
   // Mapear PolizaResponse → Poliza local (normalizar tipos numéricos y extraer cliente principal)
-  const polizas: Poliza[] = polizasData.map(p => ({
+  const safePolizasData = Array.isArray(polizasData) ? polizasData : [];
+  const polizas: Poliza[] = safePolizasData.map(p => ({
     id: p.id!,
     id_mercado: p.id_mercado,
     id_miembro: p.id_miembro,

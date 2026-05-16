@@ -546,7 +546,33 @@ export const polizasApi = {
       headers: getAuthHeaders(),
     });
 
-    return handleApiResponse<PaginatedResponse<PolizaListResponse>>(response);
+    const payload = await handleApiResponse<any>(response);
+
+    // Compatibilidad: backend con paginación DRF o lista plana.
+    if (Array.isArray(payload)) {
+      return {
+        count: payload.length,
+        next: null,
+        previous: null,
+        results: payload,
+      };
+    }
+
+    if (payload && Array.isArray(payload.results)) {
+      return {
+        count: typeof payload.count === 'number' ? payload.count : payload.results.length,
+        next: payload.next ?? null,
+        previous: payload.previous ?? null,
+        results: payload.results,
+      };
+    }
+
+    return {
+      count: 0,
+      next: null,
+      previous: null,
+      results: [],
+    };
   },
 
   // Compatibilidad para pantallas antiguas que esperan arreglo directo.
