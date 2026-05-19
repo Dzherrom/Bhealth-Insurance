@@ -548,7 +548,7 @@ export default function CitasPage() {
                 <SelectTrigger id="polizaCodigo">
                   <SelectValue placeholder="Selecciona una póliza existente" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-[560px] overflow-y-auto">
                   {polizas.map((poliza) => (
                     <SelectItem key={poliza.id} value={poliza.id_mercado}>
                       {poliza.id_mercado}

@@ -136,6 +136,13 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hoveredState, setHoveredState] = useState<{
+    name: string;
+    count: number;
+    percentage: number;
+    x: number;
+    y: number;
+  } | null>(null);
 
   const fetchStats = async () => {
     setLoading(true);
@@ -206,6 +213,8 @@ export default function DashboardPage() {
     if (!stats?.polizas_por_estado?.length) return 0;
     return Math.max(...stats.polizas_por_estado.map((row) => row.count));
   }, [stats]);
+
+  const totalPolicyCount = stats?.total_polizas || 0;
 
   const canApplyRange = !!startDate && !!endDate && startDate <= endDate;
 
@@ -431,23 +440,56 @@ export default function DashboardPage() {
             <CardTitle>Mapa de pólizas por estado (EEUU)</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="w-full overflow-x-auto rounded-md border bg-slate-50 p-2">
+            <div className="relative w-full overflow-x-auto rounded-md border bg-slate-50 p-2">
+              {hoveredState ? (
+                <div
+                  className="pointer-events-none fixed z-20 rounded-md border bg-white px-3 py-2 text-xs shadow-lg"
+                  style={{ left: hoveredState.x, top: hoveredState.y, transform: 'translate(12px, 12px)' }}
+                >
+                  <div className="font-semibold text-slate-900">{hoveredState.name}</div>
+                  <div className="text-slate-600">{hoveredState.count} pólizas</div>
+                  <div className="text-slate-600">{hoveredState.percentage.toFixed(1)}% del total</div>
+                </div>
+              ) : null}
               <ComposableMap projection="geoAlbersUsa" width={980} height={540}>
                 <Geographies geography={USA_GEO_URL}>
                   {({ geographies }: { geographies: Array<{ rsmKey: string; properties: { name?: string } }> }) =>
                     geographies.map((geo: { rsmKey: string; properties: { name?: string } }) => {
                       const stateName = String((geo.properties as { name?: string })?.name || "");
                       const count = stateCountMap.get(normalizeState(stateName)) || 0;
+                      const percentage = totalPolicyCount > 0 ? (count / totalPolicyCount) * 100 : 0;
                       return (
                         <Geography
                           key={geo.rsmKey}
                           geography={geo}
+                          title={`${stateName}: ${percentage.toFixed(1)}% (${count})`}
                           fill={getMapColor(count, maxStateCount)}
                           stroke="#ffffff"
                           strokeWidth={0.8}
+                          onMouseEnter={(event: { clientX: number; clientY: number }) => {
+                            setHoveredState({
+                              name: stateName,
+                              count,
+                              percentage,
+                              x: event.clientX,
+                              y: event.clientY,
+                            });
+                          }}
+                          onMouseMove={(event: { clientX: number; clientY: number }) => {
+                            setHoveredState((current) =>
+                              current
+                                ? {
+                                    ...current,
+                                    x: event.clientX,
+                                    y: event.clientY,
+                                  }
+                                : current
+                            );
+                          }}
+                          onMouseLeave={() => setHoveredState(null)}
                           style={{
-                            default: { outline: "none" },
-                            hover: { outline: "none", fill: "#1d4ed8" },
+                            default: { outline: "none", cursor: "pointer" },
+                            hover: { outline: "none", fill: "#1d4ed8", cursor: "pointer" },
                             pressed: { outline: "none" },
                           }}
                         />
