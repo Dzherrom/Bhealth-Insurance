@@ -33,8 +33,6 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 DEFAULT_FRONTEND_ORIGINS = [
     'http://localhost:3000',
     'http://localhost:3001',
-    'https://b-health-test.netlify.app',
-    'https://bhealth-insurance99326.netlify.app',
 ]
 
 frontend_origins_env = config('FRONTEND_ORIGINS', default='')
@@ -68,9 +66,12 @@ if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
 CORS_ALLOWED_ORIGINS = FRONTEND_ORIGINS
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://.*\.vercel\.app$",
+]
 CORS_ALLOW_CREDENTIALS = True
 
-CSRF_TRUSTED_ORIGINS = FRONTEND_ORIGINS
+CSRF_TRUSTED_ORIGINS = FRONTEND_ORIGINS + ["https://*.vercel.app"]
 
 
 # Application definition
@@ -124,7 +125,7 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
+'''
 DATABASES = {
     'default': dj_database_url.config(
         default=config('DATABASE_URL', default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
@@ -147,7 +148,7 @@ DATABASES = {
         }
     }
 }
-'''
+
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
