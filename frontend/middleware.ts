@@ -13,9 +13,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { extractRoleFromToken, isTokenExpired } from '@/lib/jwt';
-import { hasCRMAccess, CONFIG_ROLES, USERS_ADMIN_ROLES, CRM_ROLES } from '@/lib/permissions';
-import type { UserRole } from '@/types/auth';
+import { extractRoleFromToken, isTokenExpired } from './lib/jwt';
+import { hasCRMAccess, CONFIG_ROLES, USERS_ADMIN_ROLES, CRM_ROLES } from './lib/permissions';
+import type { UserRole } from './types/auth';
 
 const OPEN_CRM_ACCESS = process.env.NEXT_PUBLIC_OPEN_CRM_ACCESS !== 'false';
 
