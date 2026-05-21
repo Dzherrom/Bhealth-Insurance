@@ -33,6 +33,9 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 DEFAULT_FRONTEND_ORIGINS = [
     'http://localhost:3000',
     'http://localhost:3001',
+    'https://bhealth-insurance-azqw-git-main-dzherroms-projects.vercel.app',
+    'https://bhealth-insurance-git-main-dzherroms-projects.vercel.app',
+    'https://bhealth-insurance.vercel.app',
 ]
 
 frontend_origins_env = config('FRONTEND_ORIGINS', default='')
