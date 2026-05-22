@@ -28,7 +28,21 @@ export default function PolizasPage() {
     search: '',
     status: 'all',
     plan: 'all',
-    agente: 'all'
+    agente: 'all',
+    user: 'all',
+    groupOfUsers: 'all',
+    assignedTo: 'all',
+    role: 'all',
+    referredByAgency: 'all',
+    referredToAgency: 'all',
+    state: 'all',
+    zipCode: '',
+    carrier: 'all',
+    memberId: 'all',
+    productType: 'all',
+    documentsStatus: 'all',
+    paymentStatus: 'all',
+    saleType: 'all',
   });
 
   // Cargar pólizas al montar
@@ -136,6 +150,7 @@ export default function PolizasPage() {
         onFiltersChange={setFilters}
         uniqueStatuses={uniqueStatuses}
         uniquePlans={uniquePlans}
+        uniqueAgents={Array.from(new Set(polizas.map(p => p.agente_nombre))).filter(Boolean) as string[]}
       />
 
       <PolizasDataTable

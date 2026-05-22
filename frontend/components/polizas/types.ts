@@ -23,4 +23,18 @@ export interface PolizaFilters {
   status: string;
   plan: string;
   agente: string;
+  user?: string;
+  groupOfUsers?: string;
+  assignedTo?: string;
+  role?: string;
+  referredByAgency?: string;
+  referredToAgency?: string;
+  state?: string;
+  zipCode?: string;
+  carrier?: string;
+  memberId?: string;
+  productType?: string;
+  documentsStatus?: string;
+  paymentStatus?: string;
+  saleType?: string;
 }
