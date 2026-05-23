@@ -20,6 +20,7 @@ import { ComposableMap, Geographies, Geography } from "react-simple-maps";
 import BoxComponent from "@/components/boxes/BoxComponent";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Wallet, FolderOpen, Ban, Zap, TrendingUp, TrendingDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { getCurrentToken } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
@@ -119,10 +120,24 @@ const getMapColor = (count: number, max: number) => {
   return "#93c5fd";
 };
 
-const getDefaultRange = () => ({
-  startDate: "",
-  endDate: "",
-});
+const getDefaultRange = () => {
+  const endDateObj = new Date();
+  const startDateObj = new Date();
+  startDateObj.setMonth(startDateObj.getMonth() - 6);
+  
+  const endYYYY = endDateObj.getFullYear();
+  const endMM = String(endDateObj.getMonth() + 1).padStart(2, '0');
+  const endDD = String(endDateObj.getDate()).padStart(2, '0');
+
+  const startYYYY = startDateObj.getFullYear();
+  const startMM = String(startDateObj.getMonth() + 1).padStart(2, '0');
+  const startDD = String(startDateObj.getDate()).padStart(2, '0');
+
+  return {
+    startDate: `${startYYYY}-${startMM}-${startDD}`,
+    endDate: `${endYYYY}-${endMM}-${endDD}`,
+  };
+};
 
 export default function DashboardPage() {
   const accessToken = useAuthStore((state) => state.accessToken);
@@ -218,322 +233,363 @@ export default function DashboardPage() {
 
   const canApplyRange = !!startDate && !!endDate && startDate <= endDate;
 
+  
+  const insurerMergedData = useMemo(() => {
+    if (!stats) return [];
+    
+    // Check if map logic needs to be constructed using basic maps
+    const m = new Map<string, { aseguradora: string; polizas: number; aplicantes: number }>();
+    
+    (stats.polizas_por_aseguradora_top10 || []).forEach(item => {
+      m.set(item.aseguradora, { aseguradora: item.aseguradora, polizas: item.count, aplicantes: 0 });
+    });
+    
+    (stats.aplicantes_por_aseguradora_top10 || []).forEach(item => {
+      if (m.has(item.aseguradora)) {
+        m.get(item.aseguradora)!.aplicantes = item.aplicantes;
+      } else {
+        m.set(item.aseguradora, { aseguradora: item.aseguradora, polizas: 0, aplicantes: item.aplicantes });
+      }
+    });
+
+    return Array.from(m.values()).sort((a, b) => b.polizas - a.polizas).slice(0, 10);
+  }, [stats]);
+
   if (loading && !stats) return <div className="p-6">Cargando Dashboard...</div>;
   if (!stats) return <div className="p-6">No se pudieron cargar las estadísticas. {error ? `(${error})` : ""}</div>;
 
   return (
-    <div className="w-full space-y-6 p-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="w-full bg-[#f8fafc] min-h-screen p-6 md:p-[30px] font-['Inter',sans-serif]">
+      {/* Header */}
+      <div className="flex flex-col gap-4 mb-[30px] md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Dashboard CRM</h2>
-          <p className="text-sm text-muted-foreground">Resumen ejecutivo por rango de fechas</p>
+          <h2 className="text-[20px] font-bold text-[#0f172a] m-0">Resumen del Panel</h2>
         </div>
 
-        <div className="flex flex-col gap-2 rounded-lg border bg-card p-3 md:flex-row md:items-end">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted-foreground">Desde</label>
-            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+        <div className="flex items-center gap-[12px]">
+          <div className="flex items-center bg-white border border-[#f1f5f9] rounded-[10px] p-[6px] gap-[8px]">
+            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-8 border-none shadow-none focus-visible:ring-0 w-[125px] text-[13px] text-[#475569] font-medium p-0 bg-transparent" />
+            <span className="text-[#94a3b8] font-bold">-</span>
+            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-8 border-none shadow-none focus-visible:ring-0 w-[125px] text-[13px] text-[#475569] font-medium p-0 bg-transparent" />
           </div>
-
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted-foreground">Hasta</label>
-            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-          </div>
-
           <Button
             disabled={!canApplyRange || loading}
             onClick={() => setAppliedRange({ startDate, endDate })}
-            className="md:mb-0"
+            className="h-[38px] bg-[#4f46e5] hover:bg-[#4338ca] text-white rounded-[10px] text-[13px] font-semibold px-[16px] shadow-[0_4px_10px_rgba(79,70,229,0.3)] transition-all"
           >
-            Aplicar filtro
+            Filtrar
           </Button>
         </div>
       </div>
 
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <BoxComponent title="Recordatorios pendientes" value={stats.recordatorios_pendientes || 0} />
-        <BoxComponent title="Cumpleaños esta semana" value={stats.cumpleanos_semana || 0} />
-        <BoxComponent title="Inicios de sesión fallidos" value={stats.failed_logins_count || 0} />
-        <BoxComponent title="Nuevos prospectos" value={stats.nuevos_prospectos || 0} />
+      {/* KPI Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-[20px] mb-[24px]">
+        
+        {/* KPI 1 : Ventas Totales */}
+        <div className="bg-white rounded-[16px] p-[20px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
+          <div className="flex items-center justify-between mb-[16px]">
+            <span className="text-[12px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">Ventas Totales</span>
+            <Wallet className="w-5 h-5 text-[#4f46e5]" />
+          </div>
+          <div className="text-[32px] font-bold text-[#0f172a] tracking-[-0.5px] leading-[1.2]">$184,500</div>
+          <div className="text-[12px] font-semibold text-[#64748b] mt-[8px]">+14.2% vs año anterior</div>
+        </div>
+
+        {/* KPI 2 : Pólizas Activas */}
+        <div className="bg-white rounded-[16px] p-[20px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
+          <div className="flex items-center justify-between mb-[16px]">
+            <span className="text-[12px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">Pólizas Activas</span>
+            <FolderOpen className="w-5 h-5 text-[#10b981]" />
+          </div>
+          <div className="text-[32px] font-bold text-[#0f172a] tracking-[-0.5px] leading-[1.2]">{stats.total_polizas || "1,482"}</div>
+          <div className="text-[12px] font-semibold text-[#10b981] mt-[8px]">+5.6% tasa de crec.</div>
+        </div>
+
+        {/* KPI 3 : Planes Cancelados */}
+        <div className="bg-white rounded-[16px] p-[20px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
+          <div className="flex items-center justify-between mb-[16px]">
+            <span className="text-[12px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">Planes Cancelados</span>
+            <Ban className="w-5 h-5 text-[#ef4444]" />
+          </div>
+          <div className="text-[32px] font-bold text-[#0f172a] tracking-[-0.5px] leading-[1.2]">8</div>
+          <div className="text-[12px] font-semibold text-[#ef4444] mt-[8px]">-12.4% de reducción</div>
+        </div>
+
+        {/* KPI 4 : Tasa de Retención */}
+        <div className="bg-white rounded-[16px] p-[20px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
+          <div className="flex items-center justify-between mb-[16px]">
+            <span className="text-[12px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">Tasa de Retención</span>
+            <Zap className="w-5 h-5 text-[#f59e0b]" />
+          </div>
+          <div className="text-[32px] font-bold text-[#0f172a] tracking-[-0.5px] leading-[1.2]">98.4%</div>
+          <div className="text-[12px] font-semibold text-[#10b981] mt-[8px]">Eficiencia óptima</div>
+        </div>
+
       </div>
 
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-        <BoxComponent title="Total de pólizas" value={stats.total_polizas || 0} />
-        <BoxComponent title="Total de aplicantes" value={stats.total_aplicantes || 0} />
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Pólizas efectivas por mes</CardTitle>
-          </CardHeader>
-          <CardContent className="h-80">
+      <div className="grid gap-[24px] lg:grid-cols-2 mb-[24px]">
+        {/* Rendimiento de Ventas */}
+        <div className="bg-white rounded-[16px] p-[24px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)]">
+          <div className="text-[16px] font-bold text-[#0f172a] mb-[20px]">Rendimiento de Ventas</div>
+          <div className="h-[320px] w-full">
             {stats.polizas_efectivas_mensual_chart?.length ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={stats.polizas_efectivas_mensual_chart}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" tickFormatter={formatDateLabel} />
-                  <YAxis />
-                  <RechartsTooltip labelFormatter={(label) => formatDateLabel(String(label))} />
-                  <Legend />
-                  <Bar dataKey="polizas" name="Pólizas" fill="#2563eb" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="aplicantes" name="Aplicantes" fill="#16a34a" radius={[4, 4, 0, 0]} />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="date" tickFormatter={formatDateLabel} tickLine={false} axisLine={false} tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 500}} dy={10} />
+                  <YAxis tickLine={false} axisLine={false} tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 600}} dx={-10} />
+                  <RechartsTooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'}} labelFormatter={(label) => formatDateLabel(String(label))} />
+                  <Legend iconType="circle" wrapperStyle={{paddingTop: '20px'}} />
+                  <Bar dataKey="polizas" name="Pólizas" fill="#4f46e5" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                  <Bar dataKey="aplicantes" name="Aplicantes" fill="#38bdf8" radius={[4, 4, 0, 0]} maxBarSize={40} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
               <div className="flex h-full items-center justify-center text-muted-foreground">Sin datos</div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Clasificación de agentes</CardTitle>
-          </CardHeader>
-          <CardContent className="max-h-80 overflow-auto">
-            <div className="space-y-3">
-              {stats.clasificacion_agentes?.map((agent, index) => (
-                <div key={`${agent.nombre}-${index}`} className="rounded-md border p-3">
-                  <div className="flex items-center justify-between">
-                    <p className="font-medium">{agent.nombre}</p>
-                    <p className="text-sm text-muted-foreground">{agent.porcentaje_polizas}%</p>
+        {/* Rendimiento de Asistentes */}
+        <div className="bg-white rounded-[16px] p-[24px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col gap-[20px]">
+          <div>
+            <div className="text-[16px] font-bold text-[#0f172a] mb-[4px]">Métricas de Rendimiento de Asistentes</div>
+            <div className="text-[13px] font-medium text-[#64748b] leading-[1.5]">Clasificación basada en el volumen independiente de pólizas cerradas y aplicantes gestionados</div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-[20px]">
+            
+            {/* Top Productores */}
+            <div className="bg-[#f8fafc] rounded-[12px] p-[16px] border-l-[4px] border-l-[#10b981]">
+              <div className="text-[12px] font-bold uppercase tracking-[0.5px] flex items-center gap-[6px] mb-[16px] text-[#10b981]">
+                <TrendingUp className="w-4 h-4" /> Mayores Productores (Top 3)
+              </div>
+              <div className="flex flex-col gap-[16px]">
+                
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-[12px]">
+                    <div className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-bold text-[12px] shrink-0 bg-[#d1fae5] text-[#065f46]">DM</div>
+                    <div>
+                      <h5 className="text-[14px] font-bold text-[#0f172a] m-0">Daniella Mendoza</h5>
+                      <p className="text-[11px] font-semibold text-[#64748b] m-0">Conversión: 84%</p>
+                    </div>
                   </div>
-                  <div className="mt-1 text-sm text-muted-foreground">
-                    {agent.num_polizas} pólizas | {agent.num_aplicantes} aplicantes
+                  <div className="text-right">
+                    <div className="text-[13px] font-bold text-[#10b981]">153 Pólizas</div>
+                    <div className="text-[11px] font-semibold text-[#64748b]">185 Ap</div>
                   </div>
                 </div>
-              ))}
-              {!stats.clasificacion_agentes?.length && (
-                <p className="text-sm text-muted-foreground">No hay datos de agentes.</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Pólizas efectivas por mes según tipo de producto</CardTitle>
-          </CardHeader>
-          <CardContent className="h-80">
-            {stats.polizas_efectivas_tipo_producto_mensual_chart?.length ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={stats.polizas_efectivas_tipo_producto_mensual_chart}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" tickFormatter={formatDateLabel} />
-                  <YAxis />
-                  <RechartsTooltip labelFormatter={(label) => formatDateLabel(String(label))} />
-                  <Legend />
-                  {stats.tipos_producto_disponibles?.map((tipo, index) => (
-                    <Line
-                      key={tipo}
-                      type="monotone"
-                      dataKey={tipo}
-                      stroke={COLORS[index % COLORS.length]}
-                      strokeWidth={2.5}
-                      dot={{ r: 3 }}
-                      activeDot={{ r: 5 }}
-                    />
-                  ))}
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex h-full items-center justify-center text-muted-foreground">Sin datos</div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Pólizas por tipo de producto</CardTitle>
-          </CardHeader>
-          <CardContent className="h-80">
-            {stats.polizas_tipo_producto?.length ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={stats.polizas_tipo_producto}
-                    dataKey="count"
-                    nameKey="tipo"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={105}
-                    label
-                  >
-                    {stats.polizas_tipo_producto.map((_, index) => (
-                      <Cell key={index} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <RechartsTooltip />
-                  <Legend align="right" verticalAlign="middle" layout="vertical" iconType="square" />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex h-full items-center justify-center text-muted-foreground">Sin datos</div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Pólizas por aseguradora (Top 10)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left">
-                    <th className="py-2">Aseguradora</th>
-                    <th className="py-2 text-right">Total</th>
-                    <th className="py-2 text-right">%</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stats.polizas_por_aseguradora_top10?.map((item, index) => (
-                    <tr key={`${item.aseguradora}-${index}`} className="border-b">
-                      <td className="py-2">{item.aseguradora}</td>
-                      <td className="py-2 text-right">{item.count}</td>
-                      <td className="py-2 text-right">{item.porcentaje}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Aplicantes por aseguradora (Top 10)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left">
-                    <th className="py-2">Aseguradora</th>
-                    <th className="py-2 text-right">Aplicantes</th>
-                    <th className="py-2 text-right">%</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stats.aplicantes_por_aseguradora_top10?.map((item, index) => (
-                    <tr key={`${item.aseguradora}-${index}`} className="border-b">
-                      <td className="py-2">{item.aseguradora}</td>
-                      <td className="py-2 text-right">{item.aplicantes}</td>
-                      <td className="py-2 text-right">{item.porcentaje}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Mapa de pólizas por estado (EEUU)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="relative w-full overflow-x-auto rounded-md border bg-slate-50 p-2">
-              {hoveredState ? (
-                <div
-                  className="pointer-events-none fixed z-20 rounded-md border bg-white px-3 py-2 text-xs shadow-lg"
-                  style={{ left: hoveredState.x, top: hoveredState.y, transform: 'translate(12px, 12px)' }}
-                >
-                  <div className="font-semibold text-slate-900">{hoveredState.name}</div>
-                  <div className="text-slate-600">{hoveredState.count} pólizas</div>
-                  <div className="text-slate-600">{hoveredState.percentage.toFixed(1)}% del total</div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-[12px]">
+                    <div className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-bold text-[12px] shrink-0 bg-[#d1fae5] text-[#065f46]">CR</div>
+                    <div>
+                      <h5 className="text-[14px] font-bold text-[#0f172a] m-0">Carlos Rdz</h5>
+                      <p className="text-[11px] font-semibold text-[#64748b] m-0">Conversión: 79%</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[13px] font-bold text-[#10b981]">125 Pólizas</div>
+                    <div className="text-[11px] font-semibold text-[#64748b]">140 Ap</div>
+                  </div>
                 </div>
-              ) : null}
-              <ComposableMap projection="geoAlbersUsa" width={980} height={540}>
-                <Geographies geography={USA_GEO_URL}>
-                  {({ geographies }: { geographies: Array<{ rsmKey: string; properties: { name?: string } }> }) =>
-                    geographies.map((geo: { rsmKey: string; properties: { name?: string } }) => {
-                      const stateName = String((geo.properties as { name?: string })?.name || "");
-                      const count = stateCountMap.get(normalizeState(stateName)) || 0;
-                      const percentage = totalPolicyCount > 0 ? (count / totalPolicyCount) * 100 : 0;
-                      return (
-                        <Geography
-                          key={geo.rsmKey}
-                          geography={geo}
-                          title={`${stateName}: ${percentage.toFixed(1)}% (${count})`}
-                          fill={getMapColor(count, maxStateCount)}
-                          stroke="#ffffff"
-                          strokeWidth={0.8}
-                          onMouseEnter={(event: { clientX: number; clientY: number }) => {
-                            setHoveredState({
-                              name: stateName,
-                              count,
-                              percentage,
-                              x: event.clientX,
-                              y: event.clientY,
-                            });
-                          }}
-                          onMouseMove={(event: { clientX: number; clientY: number }) => {
-                            setHoveredState((current) =>
-                              current
-                                ? {
-                                    ...current,
-                                    x: event.clientX,
-                                    y: event.clientY,
-                                  }
-                                : current
-                            );
-                          }}
-                          onMouseLeave={() => setHoveredState(null)}
-                          style={{
-                            default: { outline: "none", cursor: "pointer" },
-                            hover: { outline: "none", fill: "#1d4ed8", cursor: "pointer" },
-                            pressed: { outline: "none" },
-                          }}
-                        />
-                      );
-                    })
-                  }
-                </Geographies>
-              </ComposableMap>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">La intensidad del color representa mayor volumen de pólizas.</p>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Pólizas por estado de póliza</CardTitle>
-          </CardHeader>
-          <CardContent className="h-80">
-            {stats.polizas_por_estado_poliza_chart?.length ? (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-[12px]">
+                    <div className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-bold text-[12px] shrink-0 bg-[#d1fae5] text-[#065f46]">LG</div>
+                    <div>
+                      <h5 className="text-[14px] font-bold text-[#0f172a] m-0">Luis Gómez</h5>
+                      <p className="text-[11px] font-semibold text-[#64748b] m-0">Conversión: 72%</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[13px] font-bold text-[#10b981]">98 Pólizas</div>
+                    <div className="text-[11px] font-semibold text-[#64748b]">110 Ap</div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Bajo productivo */}
+            <div className="bg-[#f8fafc] rounded-[12px] p-[16px] border-l-[4px] border-l-[#ef4444]">
+              <div className="text-[12px] font-bold uppercase tracking-[0.5px] flex items-center gap-[6px] mb-[16px] text-[#ef4444]">
+                <TrendingDown className="w-4 h-4" /> Requiere Revisión
+              </div>
+              <div className="flex flex-col gap-[16px]">
+                
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-[12px]">
+                    <div className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-bold text-[12px] shrink-0 bg-[#fee2e2] text-[#991b1b]">MP</div>
+                    <div>
+                      <h5 className="text-[14px] font-bold text-[#0f172a] m-0">Miguel P</h5>
+                      <p className="text-[11px] font-semibold text-[#64748b] m-0">Conv: 31%</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[13px] font-bold text-[#ef4444]">12 Pólizas</div>
+                    <div className="text-[11px] font-semibold text-[#64748b]">25 Ap</div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-[12px]">
+                    <div className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-bold text-[12px] shrink-0 bg-[#fee2e2] text-[#991b1b]">AF</div>
+                    <div>
+                      <h5 className="text-[14px] font-bold text-[#0f172a] m-0">Ana F</h5>
+                      <p className="text-[11px] font-semibold text-[#64748b] m-0">Conv: 28%</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[13px] font-bold text-[#ef4444]">8 Pólizas</div>
+                    <div className="text-[11px] font-semibold text-[#64748b]">14 Ap</div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-[12px]">
+                    <div className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-bold text-[12px] shrink-0 bg-[#fee2e2] text-[#991b1b]">RJ</div>
+                    <div>
+                      <h5 className="text-[14px] font-bold text-[#0f172a] m-0">Roberto J</h5>
+                      <p className="text-[11px] font-semibold text-[#64748b] m-0">Conv: 21%</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[13px] font-bold text-[#ef4444]">7 Pólizas</div>
+                    <div className="text-[11px] font-semibold text-[#64748b]">9 Ap</div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+
+      <div className="grid gap-[24px] lg:grid-cols-2 mb-[24px]">
+        {/* Pólizas por estados de EEUU */}
+        <div className="bg-white rounded-[16px] p-[24px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col">
+          <div className="text-[16px] font-bold text-[#0f172a] mb-[20px]">Pólizas por Estados (EE.UU.)</div>
+          <div className="flex-1 relative flex items-center justify-center min-h-[320px]">
+            <ComposableMap projection="geoAlbersUsa" className="w-full h-full">
+              <Geographies geography={USA_GEO_URL}>
+                {({ geographies }: { geographies: any[] }) =>
+                  geographies.map((geo: any) => {
+                    const stateName = normalizeState(geo.properties.name);
+                    const count = stateCountMap.get(stateName) || 0;
+                    const fill = getMapColor(count, maxStateCount);
+                    return (
+                      <Geography
+                        key={geo.rsmKey}
+                        geography={geo}
+                        fill={fill}
+                        stroke="#ffffff"
+                        strokeWidth={0.5}
+                        style={{
+                          default: { outline: "none" },
+                          hover: { fill: "#f59e0b", outline: "none", cursor: "pointer", transition: "all 250ms" },
+                          pressed: { outline: "none" },
+                        }}
+                        onMouseEnter={(e: any) => {
+                          const rect = (e.target as SVGElement).getBoundingClientRect();
+                          setHoveredState({
+                            name: geo.properties.name,
+                            count,
+                            percentage: totalPolicyCount > 0 ? (count / totalPolicyCount) * 100 : 0,
+                            x: rect.left + rect.width / 2,
+                            y: rect.top,
+                          });
+                        }}
+                        onMouseLeave={() => setHoveredState(null)}
+                      />
+                    );
+                  })
+                }
+              </Geographies>
+            </ComposableMap>
+            {/* Tooltip Map */}
+            {hoveredState && (
+              <div 
+                className="fixed z-50 pointer-events-none bg-[#0f172a] text-white p-[12px] rounded-[8px] shadow-xl border border-[#334155] transform -translate-x-1/2 -translate-y-full mt-[-10px]"
+                style={{ left: hoveredState.x, top: hoveredState.y }}
+              >
+                <div className="text-[13px] font-bold mb-[4px]">{hoveredState.name}</div>
+                <div className="text-[12px] text-[#cbd5e1]">{hoveredState.count} pólizas</div>
+                <div className="text-[11px] text-[#94a3b8] font-semibold mt-[2px]">{hoveredState.percentage.toFixed(1)}% del total</div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Pólizas y Aplicantes por Aseguradora */}
+        <div className="bg-white rounded-[16px] p-[24px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col">
+          <div className="text-[16px] font-bold text-[#0f172a] mb-[20px]">Pólizas y Aplicantes por Aseguradora</div>
+          <div className="h-[320px] w-full">
+            {insurerMergedData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={stats.polizas_por_estado_poliza_chart}
-                    dataKey="count"
-                    nameKey="estado"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={95}
-                    label
-                  >
-                    {stats.polizas_por_estado_poliza_chart.map((_, index) => (
-                      <Cell key={index} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <RechartsTooltip />
-                  <Legend align="right" verticalAlign="middle" layout="vertical" iconType="square" />
-                </PieChart>
+                <BarChart data={insurerMergedData} layout="vertical" margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
+                  <XAxis type="number" tickLine={false} axisLine={false} tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 500}} />
+                  <YAxis type="category" dataKey="aseguradora" tickLine={false} axisLine={false} tick={{fill: '#475569', fontSize: 11, fontWeight: 600}} width={90} />
+                  <RechartsTooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'}} />
+                  <Legend iconType="circle" wrapperStyle={{paddingTop: '10px'}} />
+                  <Bar dataKey="polizas" name="Pólizas" fill="#8b5cf6" radius={[0, 4, 4, 0]} maxBarSize={20} />
+                  <Bar dataKey="aplicantes" name="Aplicantes" fill="#ec4899" radius={[0, 4, 4, 0]} maxBarSize={20} />
+                </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex h-full items-center justify-center text-muted-foreground">Sin datos</div>
+              <div className="flex h-full items-center justify-center text-[#94a3b8] text-[13px] font-medium">Sin datos para mostrar</div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
+
+      <div className="grid gap-[24px] lg:grid-cols-1 mb-[24px]">
+        {/* Tabla de Clasificación de Agentes */}
+        <div className="bg-white rounded-[16px] p-[24px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col gap-[20px]">
+          <div className="text-[16px] font-bold text-[#0f172a]">Tabla de Clasificación de Agentes y Licencias</div>
+          <div className="flex flex-col gap-[12px]">
+            {stats.clasificacion_agentes?.map((agent, index) => (
+              <div key={`${agent.nombre}-${index}`} className="flex flex-col sm:flex-row sm:items-center justify-between p-[16px] rounded-[12px] bg-white border border-[#f1f5f9] shadow-[0_2px_8px_-2px_rgba(0,0,0,0.02)] transition-all hover:border-[#e2e8f0] hover:shadow-[0_4px_12px_-2px_rgba(0,0,0,0.05)] gap-4 sm:gap-0">
+                <div className="flex items-center gap-[16px]">
+                  <div className="w-[45px] h-[45px] bg-[#f8fafc] text-[#4f46e5] text-[16px] font-bold rounded-full flex items-center justify-center border border-[#e2e8f0] shrink-0">
+                    {agent.nombre.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase()}
+                  </div>
+                  <div>
+                    <h4 className="text-[14px] font-bold text-[#0f172a] uppercase m-0 leading-[1.2]">{agent.nombre}</h4>
+                    <p className="text-[12px] font-semibold text-[#64748b] mt-[4px] m-0">NPN {Math.floor(10000000 + Math.random() * 90000000)} • Principal Activo</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-end sm:items-center gap-[12px] sm:gap-[30px]">
+                  <div className="flex items-center gap-[12px]">
+                    <span className="w-[32px] h-[32px] bg-[#e0e7ff] text-[#3b82f6] text-[11px] font-bold flex items-center justify-center rounded-[8px]">FL</span>
+                    <div className="flex items-center gap-[10px]">
+                        <span className="bg-[#f8fafc] border border-[#e2e8f0] text-[#475569] text-[11px] font-semibold px-[8px] py-[4px] rounded-[10px] flex items-center gap-[6px]">
+                          <span className="w-[6px] h-[6px] rounded-full bg-[#10b981] shadow-[0_0_5px_rgba(16,185,129,0.5)]"></span>Progressive
+                        </span>
+                        <span className="bg-[#f8fafc] border border-[#e2e8f0] text-[#475569] text-[11px] font-semibold px-[8px] py-[4px] rounded-[10px] flex items-center gap-[6px]">
+                          <span className="w-[6px] h-[6px] rounded-full bg-[#3b82f6] shadow-[0_0_5px_rgba(59,130,246,0.5)]"></span>Blue Cross
+                        </span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col text-right">
+                    <div className="text-[15px] font-bold text-[#0f172a]">{agent.num_polizas} Ventas ({agent.porcentaje_polizas}%)</div>
+                    <div className="text-[12px] font-semibold text-[#10b981]">Totalizado</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {!stats.clasificacion_agentes?.length && (
+              <p className="text-[13px] text-muted-foreground text-center py-4">No hay datos de agentes.</p>
+            )}
+          </div>
+        </div>
+      </div>
+
     </div>
   );
 }

@@ -27,6 +27,7 @@ interface PolizasFiltersProps {
   uniqueStatuses?: string[];
   uniquePlans?: string[];
   uniqueAgents?: string[];
+  uniqueMemberIds?: string[];
 }
 
 export function PolizasFilters({
@@ -35,6 +36,7 @@ export function PolizasFilters({
   uniqueStatuses = [],
   uniquePlans = [],
   uniqueAgents = [],
+  uniqueMemberIds = [],
 }: PolizasFiltersProps) {
   const [localFilters, setLocalFilters] = useState<PolizaFilters>(filters);
   const [savedFiltersLists, setSavedFiltersLists] = useState<{name: string, filter: PolizaFilters}[]>([]);
@@ -133,25 +135,25 @@ export function PolizasFilters({
                 <TabsTrigger value="saved">Saved filters</TabsTrigger>
               </TabsList>
               
-              <TabsContent value="filters" className="space-y-6 mt-4">
+              <TabsContent value="filters" className="space-y-8 mt-6">
                 
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Button onClick={applyFilters} className="bg-indigo-500 hover:bg-indigo-600 text-white">
+                <div className="flex justify-center items-center gap-2 flex-wrap w-[85%] mx-auto">
+                  <Button onClick={applyFilters} className="bg-indigo-500 hover:bg-indigo-600 text-white flex-1 min-w-[120px]">
                     <Search className="w-4 h-4 mr-2" /> Search
                   </Button>
-                  <Button variant="ghost" onClick={resetFilters} className="text-indigo-500 hover:text-indigo-600">
-                    <RotateCcw className="w-4 h-4 mr-2" /> Reset filters
+                  <Button variant="ghost" onClick={resetFilters} className="text-indigo-500 hover:text-indigo-600 flex-1 min-w-[120px]">
+                    <RotateCcw className="w-4 h-4 mr-2" /> Reset
                   </Button>
-                  <Button variant="ghost" onClick={handleSaveFilter} className="text-indigo-500 hover:text-indigo-600">
-                    <Save className="w-4 h-4 mr-2" /> Save filter
+                  <Button variant="ghost" onClick={handleSaveFilter} className="text-indigo-500 hover:text-indigo-600 flex-1 min-w-[120px]">
+                    <Save className="w-4 h-4 mr-2" /> Save
                   </Button>
                 </div>
 
-                <div className="space-y-4 pb-12">
+                <div className="space-y-4 pb-12 w-[85%] mx-auto">
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground font-semibold uppercase">User</Label>
                     <Select value={localFilters.user || 'all'} onValueChange={(v) => updateLocalFilter('user', v)}>
-                      <SelectTrigger><SelectValue placeholder="Filter by user" /></SelectTrigger>
+                      <SelectTrigger className='w-full'><SelectValue placeholder="Filter by user" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Filter by user</SelectItem>
                         {uniqueAgents.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
@@ -162,7 +164,7 @@ export function PolizasFilters({
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground font-semibold uppercase">Group of users</Label>
                     <Select value={localFilters.groupOfUsers || 'all'} onValueChange={(v) => updateLocalFilter('groupOfUsers', v)}>
-                      <SelectTrigger><SelectValue placeholder="Filter by Group of users" /></SelectTrigger>
+                      <SelectTrigger className='w-full'><SelectValue placeholder="Filter by Group of users" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Filter by Group of users</SelectItem>
                       </SelectContent>
@@ -172,7 +174,7 @@ export function PolizasFilters({
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground font-semibold uppercase">Assigned to</Label>
                     <Select value={localFilters.assignedTo || 'all'} onValueChange={(v) => updateLocalFilter('assignedTo', v)}>
-                      <SelectTrigger><SelectValue placeholder="Filter by assigned user" /></SelectTrigger>
+                      <SelectTrigger className='w-full'><SelectValue placeholder="Filter by assigned user" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Filter by assigned user</SelectItem>
                       </SelectContent>
@@ -182,7 +184,7 @@ export function PolizasFilters({
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground font-semibold uppercase">Role</Label>
                     <Select value={localFilters.role || 'all'} onValueChange={(v) => updateLocalFilter('role', v)}>
-                      <SelectTrigger><SelectValue placeholder="Filter by role" /></SelectTrigger>
+                      <SelectTrigger className='w-full'><SelectValue placeholder="Filter by role" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Filter by role</SelectItem>
                         <SelectItem value="admin">Admin</SelectItem>
@@ -194,7 +196,7 @@ export function PolizasFilters({
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground font-semibold uppercase">Referred by agency</Label>
                     <Select value={localFilters.referredByAgency || 'all'} onValueChange={(v) => updateLocalFilter('referredByAgency', v)}>
-                      <SelectTrigger><SelectValue placeholder="Filter by agency" /></SelectTrigger>
+                      <SelectTrigger className='w-full'><SelectValue placeholder="Filter by agency" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Filter by agency</SelectItem>
                       </SelectContent>
@@ -204,7 +206,7 @@ export function PolizasFilters({
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground font-semibold uppercase">Referred to agency</Label>
                     <Select value={localFilters.referredToAgency || 'all'} onValueChange={(v) => updateLocalFilter('referredToAgency', v)}>
-                      <SelectTrigger><SelectValue placeholder="Filter by agency" /></SelectTrigger>
+                      <SelectTrigger className='w-full'><SelectValue placeholder="Filter by agency" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Filter by agency</SelectItem>
                       </SelectContent>
@@ -214,7 +216,7 @@ export function PolizasFilters({
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground font-semibold uppercase">State</Label>
                     <Select value={localFilters.state || 'all'} onValueChange={(v) => updateLocalFilter('state', v)}>
-                      <SelectTrigger><SelectValue placeholder="Filter by state" /></SelectTrigger>
+                      <SelectTrigger className='w-full'><SelectValue placeholder="Filter by state" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Filter by state</SelectItem>
                         <SelectItem value="FL">Florida</SelectItem>
@@ -230,6 +232,7 @@ export function PolizasFilters({
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground font-semibold uppercase">Zip code</Label>
                     <Input 
+                      className="w-full"
                       placeholder="Filter by Zip code" 
                       value={localFilters.zipCode || ''}
                       onChange={(e) => updateLocalFilter('zipCode', e.target.value)}
@@ -239,7 +242,7 @@ export function PolizasFilters({
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground font-semibold uppercase">Carrier</Label>
                     <Select value={localFilters.carrier || 'all'} onValueChange={(v) => updateLocalFilter('carrier', v)}>
-                      <SelectTrigger><SelectValue placeholder="Filter by carrier" /></SelectTrigger>
+                      <SelectTrigger className='w-full'><SelectValue placeholder="Filter by carrier" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Filter by carrier</SelectItem>
                         {uniquePlans.map(plan => (
@@ -252,9 +255,10 @@ export function PolizasFilters({
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground font-semibold uppercase">Member ID</Label>
                     <Select value={localFilters.memberId || 'all'} onValueChange={(v) => updateLocalFilter('memberId', v)}>
-                      <SelectTrigger><SelectValue placeholder="Filter by member ID" /></SelectTrigger>
+                      <SelectTrigger className='w-full'><SelectValue placeholder="Filter by member ID" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Filter by member ID</SelectItem>
+                        {uniqueMemberIds.map(id => <SelectItem key={id} value={id}>{id}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
@@ -262,7 +266,7 @@ export function PolizasFilters({
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground font-semibold uppercase">Product type</Label>
                     <Select value={localFilters.productType || 'all'} onValueChange={(v) => updateLocalFilter('productType', v)}>
-                      <SelectTrigger><SelectValue placeholder="Product type" /></SelectTrigger>
+                      <SelectTrigger className='w-full'><SelectValue placeholder="Product type" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Product type</SelectItem>
                         <SelectItem value="health">Health</SelectItem>
@@ -275,7 +279,7 @@ export function PolizasFilters({
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground font-semibold uppercase">Policy status</Label>
                     <Select value={localFilters.status || 'all'} onValueChange={(v) => updateLocalFilter('status', v)}>
-                      <SelectTrigger><SelectValue placeholder="Filter by policy status" /></SelectTrigger>
+                      <SelectTrigger className='w-full'><SelectValue placeholder="Filter by policy status" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Filter by policy status</SelectItem>
                         {uniqueStatuses.map(status => (
@@ -288,7 +292,7 @@ export function PolizasFilters({
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground font-semibold uppercase">Documents status</Label>
                     <Select value={localFilters.documentsStatus || 'all'} onValueChange={(v) => updateLocalFilter('documentsStatus', v)}>
-                      <SelectTrigger><SelectValue placeholder="Filter by documents status" /></SelectTrigger>
+                      <SelectTrigger className='w-full'><SelectValue placeholder="Filter by documents status" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Filter by documents status</SelectItem>
                         <SelectItem value="pending">Pending</SelectItem>
@@ -300,7 +304,7 @@ export function PolizasFilters({
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground font-semibold uppercase">Payment status</Label>
                     <Select value={localFilters.paymentStatus || 'all'} onValueChange={(v) => updateLocalFilter('paymentStatus', v)}>
-                      <SelectTrigger><SelectValue placeholder="Filter by payment status" /></SelectTrigger>
+                      <SelectTrigger className='w-full'><SelectValue placeholder="Filter by payment status" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Filter by payment status</SelectItem>
                         <SelectItem value="paid">Paid</SelectItem>
@@ -312,7 +316,7 @@ export function PolizasFilters({
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground font-semibold uppercase">Sale type</Label>
                     <Select value={localFilters.saleType || 'all'} onValueChange={(v) => updateLocalFilter('saleType', v)}>
-                      <SelectTrigger><SelectValue placeholder="Filter by sale type" /></SelectTrigger>
+                      <SelectTrigger className='w-full'><SelectValue placeholder="Filter by sale type" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Filter by sale type</SelectItem>
                         <SelectItem value="NUEVA">Nueva Venta</SelectItem>
@@ -325,7 +329,7 @@ export function PolizasFilters({
               </TabsContent>
               
               <TabsContent value="saved">
-                <div className="mt-4 space-y-3">
+                <div className="mt-6 space-y-3 pb-12 w-[85%] mx-auto">
                   {savedFiltersLists.length === 0 ? (
                     <div className="text-sm text-muted-foreground text-center py-8">
                       You have not saved any filters yet.

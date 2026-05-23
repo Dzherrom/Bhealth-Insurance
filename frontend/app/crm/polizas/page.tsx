@@ -71,20 +71,29 @@ export default function PolizasPage() {
     const searchLower = filters.search.toLowerCase();
     const primaStr = poliza.prima_mensual ? poliza.prima_mensual.toString() : '';
     
+    // Filtro global
     const matchesSearch = 
       (poliza.id_mercado && poliza.id_mercado.toLowerCase().includes(searchLower)) ||
       (poliza.cliente_principal && poliza.cliente_principal.toLowerCase().includes(searchLower)) ||
       (poliza.agente_nombre && poliza.agente_nombre.toLowerCase().includes(searchLower)) ||
       (primaStr.includes(searchLower));
     
+    // Filtros específicos
     const matchesStatus = filters.status === 'all' || poliza.estado_nombre === filters.status;
-    const matchesPlan = filters.plan === 'all' || poliza.plan_nombre === filters.plan;
+    const matchesCarrier = filters.carrier === 'all' || poliza.plan_nombre === filters.carrier;
+    const matchesUser = filters.user === 'all' || poliza.agente_nombre === filters.user;
     
-    return matchesSearch && matchesStatus && matchesPlan;
+    let matchesMemberId = true;
+    if (filters.memberId && filters.memberId !== 'all') {
+      matchesMemberId = poliza.id_miembro === filters.memberId;
+    }
+
+    return matchesSearch && matchesStatus && matchesCarrier && matchesUser && matchesMemberId;
   });
 
   const uniqueStatuses = Array.from(new Set(polizas.map(p => p.estado_nombre))).filter(Boolean) as string[];
   const uniquePlans = Array.from(new Set(polizas.map(p => p.plan_nombre))).filter(Boolean) as string[];
+  const uniqueMemberIds = Array.from(new Set(polizas.map(p => p.id_miembro))).filter(Boolean) as string[];
 
   // Handlers para acciones de la tabla
   const handleViewPoliza = (id: number) => {
@@ -151,6 +160,7 @@ export default function PolizasPage() {
         uniqueStatuses={uniqueStatuses}
         uniquePlans={uniquePlans}
         uniqueAgents={Array.from(new Set(polizas.map(p => p.agente_nombre))).filter(Boolean) as string[]}
+        uniqueMemberIds={uniqueMemberIds}
       />
 
       <PolizasDataTable

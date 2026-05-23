@@ -55,7 +55,7 @@ export default function CRMLayout({ children }: CRMLayoutProps) {
           <SidebarInset className="flex-1 overflow-hidden">
             <div className="flex h-16 shrink-0 items-center gap-2 px-4 pt-2 justify-between border-b">
               <div className="flex items-center gap-2 flex-1 min-w-0">
-                <SidebarTrigger className="ml-1" />
+                {/* <SidebarTrigger className="ml-1" /> */}
                 <h1 className="text-xl font-semibold truncate">CRM - BHealth Insurance</h1>
               </div>
             </div>
