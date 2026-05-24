@@ -20,7 +20,10 @@ export interface ClienteCreateRequest {
   estado_civil: EstadoCivil;
   pais_nacimiento: string;
   estado_inmigracion: EstadoInmigracion;
-  direccion?: number; // ID de la dirección
+  direccion?: number; // compatibilidad legado
+  direccion_fisica: number;
+  direccion_postal: number;
+  direccion_facturacion: number;
 }
 
 export interface ClienteUpdateRequest extends Partial<ClienteCreateRequest> {}
@@ -59,6 +62,12 @@ export interface Cliente extends BaseEntity {
   estado_inmigracion: EstadoInmigracion;
   direccion?: number;
   direccion_info?: Direccion;
+  direccion_fisica?: number;
+  direccion_postal?: number;
+  direccion_facturacion?: number;
+  direccion_fisica_details?: Direccion;
+  direccion_postal_details?: Direccion;
+  direccion_facturacion_details?: Direccion;
   edad_calculada?: number;
   nombre_completo?: string;
   fecha_creacion?: string;

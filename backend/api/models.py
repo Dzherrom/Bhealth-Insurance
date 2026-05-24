@@ -78,6 +78,32 @@ class Cliente(models.Model):
     categoria_inmigracion = models.CharField(max_length=100, blank=True, null=True, verbose_name="Categoría de Inmigración")
     fecha_creacion = models.DateTimeField(default=timezone.now, verbose_name="Fecha de Creación")
 
+    # Addresses (owned by client)
+    direccion_fisica = models.ForeignKey(
+        'Direccion',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='clientes_direccion_fisica',
+        verbose_name="Dirección Física"
+    )
+    direccion_postal = models.ForeignKey(
+        'Direccion',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='clientes_direccion_postal',
+        verbose_name="Dirección Postal"
+    )
+    direccion_facturacion = models.ForeignKey(
+        'Direccion',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='clientes_direccion_facturacion',
+        verbose_name="Dirección Facturación"
+    )
+
     # Marketplace Login
     marketplace_user = models.CharField(max_length=150, blank=True, null=True, verbose_name="Usuario Mercado")
     marketplace_url = models.URLField(max_length=500, blank=True, null=True, verbose_name="Link Mercado")

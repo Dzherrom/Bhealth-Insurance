@@ -124,10 +124,27 @@ class AgenteSerializer(serializers.ModelSerializer):
 class ClienteSerializer(serializers.ModelSerializer):
     marketplace_password = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     portal_password = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    direccion_fisica = serializers.PrimaryKeyRelatedField(queryset=Direccion.objects.all(), required=False, allow_null=True)
+    direccion_postal = serializers.PrimaryKeyRelatedField(queryset=Direccion.objects.all(), required=False, allow_null=True)
+    direccion_facturacion = serializers.PrimaryKeyRelatedField(queryset=Direccion.objects.all(), required=False, allow_null=True)
+    direccion_fisica_details = DireccionSerializer(source='direccion_fisica', read_only=True)
+    direccion_postal_details = DireccionSerializer(source='direccion_postal', read_only=True)
+    direccion_facturacion_details = DireccionSerializer(source='direccion_facturacion', read_only=True)
 
     class Meta:
         model = Cliente
         fields = '__all__'
+
+    def validate(self, attrs):
+        if self.instance is None:
+            required_on_create = ('direccion_fisica', 'direccion_postal', 'direccion_facturacion')
+            errors = {}
+            for field in required_on_create:
+                if attrs.get(field) is None:
+                    errors[field] = 'Este campo es obligatorio al crear un cliente.'
+            if errors:
+                raise serializers.ValidationError(errors)
+        return attrs
 
     def to_internal_value(self, data):
         if hasattr(data, 'copy'):
@@ -475,10 +492,10 @@ class PolizaSerializer(serializers.ModelSerializer):
     colaboradores_details = UserSerializer(source='colaboradores', many=True, read_only=True)
     active_viewers = serializers.SerializerMethodField()
 
-    # Address Details
-    direccion_fisica_details = DireccionSerializer(source='direccion_fisica', read_only=True)
-    direccion_postal_details = DireccionSerializer(source='direccion_postal', read_only=True)
-    direccion_facturacion_details = DireccionSerializer(source='direccion_facturacion', read_only=True)
+    # Address Details (fallback to main client addresses when policy addresses are empty)
+    direccion_fisica_details = serializers.SerializerMethodField()
+    direccion_postal_details = serializers.SerializerMethodField()
+    direccion_facturacion_details = serializers.SerializerMethodField()
 
     # Payment Info
     info_pago = InfoPagoSerializer(read_only=True)
@@ -518,6 +535,56 @@ class PolizaSerializer(serializers.ModelSerializer):
 
     def get_request_user_role(self, obj):
         return get_request_user_role(self)
+
+    def _get_main_cliente(self, obj):
+        principal = obj.polizacliente_set.filter(es_solicitante_principal=True).select_related(
+            'cliente__direccion_fisica',
+            'cliente__direccion_postal',
+            'cliente__direccion_facturacion',
+        ).first()
+        return principal.cliente if principal and principal.cliente_id else None
+
+    def get_direccion_fisica_details(self, obj):
+        direccion = obj.direccion_fisica
+        if direccion is None:
+            cliente = self._get_main_cliente(obj)
+            direccion = cliente.direccion_fisica if cliente else None
+        return DireccionSerializer(direccion).data if direccion else None
+
+    def get_direccion_postal_details(self, obj):
+        direccion = obj.direccion_postal
+        if direccion is None:
+            cliente = self._get_main_cliente(obj)
+            direccion = cliente.direccion_postal if cliente else None
+        return DireccionSerializer(direccion).data if direccion else None
+
+    def get_direccion_facturacion_details(self, obj):
+        direccion = obj.direccion_facturacion
+        if direccion is None:
+            cliente = self._get_main_cliente(obj)
+            direccion = cliente.direccion_facturacion if cliente else None
+        return DireccionSerializer(direccion).data if direccion else None
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+
+        # Keep compatibility with UIs that still read direccion_* IDs directly from policy.
+        if data.get('direccion_fisica') is None:
+            details = data.get('direccion_fisica_details') or {}
+            if details.get('id'):
+                data['direccion_fisica'] = details['id']
+
+        if data.get('direccion_postal') is None:
+            details = data.get('direccion_postal_details') or {}
+            if details.get('id'):
+                data['direccion_postal'] = details['id']
+
+        if data.get('direccion_facturacion') is None:
+            details = data.get('direccion_facturacion_details') or {}
+            if details.get('id'):
+                data['direccion_facturacion'] = details['id']
+
+        return data
 
     def get_active_viewers(self, obj):
         from django.utils import timezone

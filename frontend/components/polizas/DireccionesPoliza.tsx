@@ -58,6 +58,12 @@ export function DireccionesPoliza({ poliza }: DireccionesPolizaProps) {
 
   const byId = (id?: number) => direcciones.find((d) => Number(d.id) === Number(id));
 
+  const resolveSlotValue = (slotKey: 'direccion_fisica' | 'direccion_postal' | 'direccion_facturacion') => {
+    const fromId = byId(poliza?.[slotKey]);
+    if (fromId) return fromId;
+    return poliza?.[`${slotKey}_details`] || null;
+  };
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return direcciones.filter((d) =>
@@ -119,7 +125,7 @@ export function DireccionesPoliza({ poliza }: DireccionesPolizaProps) {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {slots.map((slot) => {
-              const value = byId(poliza?.[slot.key]);
+              const value = resolveSlotValue(slot.key);
               return (
                 <div key={slot.key} className={`border rounded p-4 border-l-4 ${slot.color}`}>
                   <h3 className="font-bold mb-2">{slot.label}</h3>
