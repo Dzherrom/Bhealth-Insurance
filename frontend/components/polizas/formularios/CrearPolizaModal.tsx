@@ -2,6 +2,9 @@
 
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
+import { usePolizaStore } from '@/store/polizaStore';
+import { useToast } from '@/hooks/use-toast';
+import type { PolizaCreateRequest, RelacionFamiliar } from '@/types';
 
 import {
   Dialog,
@@ -20,33 +23,97 @@ interface PolizaFormValues {
   id_miembro: string;
   id_interno: string;
   fecha_efectiva: string;
+  fecha_envio: string;
   plan: string;
   agente: string;
   estado: string;
   prima_mensual: number;
   costo_poliza: number;
   subsidio: number;
-  cliente_id: string; // <-- Nuevo campo solicitado
+  cliente_id: string;
+  direccion_residencia: string;
+  relacion: RelacionFamiliar;
 }
 
 interface CrearPolizaModalProps {
   isOpen: boolean;
   onClose: () => void;
-  // onSave: (data: PolizaFormValues) => void;
+  onCreated?: (polizaId: number) => void;
 }
 
-export function CrearPolizaModal({ isOpen, onClose }: CrearPolizaModalProps) {
-  const { register, handleSubmit, reset } = useForm<PolizaFormValues>();
+const today = new Date().toISOString().slice(0, 10);
 
-  const onSubmit = (data: PolizaFormValues) => {
-    console.log("Nueva Póliza data: ", data);
-    // onSave(data) -> llamar método del store o API
-    reset();
-    onClose();
+export function CrearPolizaModal({ isOpen, onClose, onCreated }: CrearPolizaModalProps) {
+  const { createPoliza, isCreating } = usePolizaStore();
+  const { toast } = useToast();
+  const { register, handleSubmit, reset } = useForm<PolizaFormValues>({
+    defaultValues: {
+      fecha_envio: today,
+      relacion: 'Self',
+      subsidio: 0,
+      costo_poliza: 0,
+      prima_mensual: 0,
+    },
+  });
+
+  const handleOpenChange = (open: boolean) => {
+    if (!open && !isCreating) {
+      onClose();
+    }
+  };
+
+  const onSubmit = async (data: PolizaFormValues) => {
+    const payload: PolizaCreateRequest = {
+      id_mercado: data.id_mercado.trim(),
+      id_miembro: data.id_miembro.trim(),
+      id_interno: data.id_interno.trim(),
+      fecha_efectiva: data.fecha_efectiva,
+      fecha_envio: data.fecha_envio,
+      plan: Number(data.plan),
+      agente: Number(data.agente),
+      estado: Number(data.estado),
+      prima_mensual: Number(data.prima_mensual),
+      costo_poliza: Number(data.costo_poliza),
+      subsidio: Number(data.subsidio),
+      clientes_data: [
+        {
+          cliente: Number(data.cliente_id),
+          es_solicitante_principal: true,
+          relacion: data.relacion,
+          direccion_residencia: Number(data.direccion_residencia),
+        },
+      ],
+    };
+
+    try {
+      const poliza = await createPoliza(payload);
+      toast({ title: 'Póliza creada', description: `Se registró ${poliza.id_mercado}.` });
+      reset({
+        fecha_envio: today,
+        relacion: 'Self',
+        subsidio: 0,
+        costo_poliza: 0,
+        prima_mensual: 0,
+        id_mercado: '',
+        id_miembro: '',
+        id_interno: '',
+        fecha_efectiva: '',
+        plan: '',
+        agente: '',
+        estado: '',
+        cliente_id: '',
+        direccion_residencia: '',
+      });
+      onClose();
+      onCreated?.(poliza.id);
+    } catch (error) {
+      const description = error instanceof Error ? error.message : 'No se pudo crear la póliza';
+      toast({ title: 'Error', description, variant: 'destructive' });
+    }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Crear Nueva Póliza</DialogTitle>
@@ -60,67 +127,82 @@ export function CrearPolizaModal({ isOpen, onClose }: CrearPolizaModalProps) {
             
             <div className="space-y-2">
               <Label>ID de Mercado</Label>
-              <Input {...register('id_mercado')} placeholder="MKT-..." />
+              <Input {...register('id_mercado', { required: true })} placeholder="MKT-..." />
             </div>
 
             <div className="space-y-2">
               <Label>ID de Miembro</Label>
-              <Input {...register('id_miembro')} placeholder="MEM-..." />
+              <Input {...register('id_miembro', { required: true })} placeholder="MEM-..." />
             </div>
 
             <div className="space-y-2">
               <Label>ID Interno</Label>
-              <Input {...register('id_interno')} placeholder="..." />
+              <Input {...register('id_interno', { required: true })} placeholder="..." />
             </div>
 
             <div className="space-y-2">
               <Label>Cliente Principal (ID)</Label>
-              <Input {...register('cliente_id')} placeholder="ID del Cliente..." />
+              <Input type="number" {...register('cliente_id', { required: true })} placeholder="ID del Cliente..." />
             </div>
 
             <div className="space-y-2">
-              <Label>Plan</Label>
-              <Input {...register('plan')} placeholder="Ej. Ambetter Gold" />
+              <Label>Dirección residencia (ID)</Label>
+              <Input type="number" {...register('direccion_residencia', { required: true })} placeholder="ID de dirección..." />
             </div>
 
             <div className="space-y-2">
-              <Label>Agente (ID / NPN)</Label>
-              <Input {...register('agente')} placeholder="Agente asigando" />
+              <Label>Plan (ID)</Label>
+              <Input type="number" {...register('plan', { required: true })} placeholder="Ej. 12" />
             </div>
 
             <div className="space-y-2">
-              <Label>Estado</Label>
-              <Input {...register('estado')} placeholder="Ej. Activa / Pendiente" />
+              <Label>Agente (ID)</Label>
+              <Input type="number" {...register('agente', { required: true })} placeholder="Agente asignado" />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Estado (ID)</Label>
+              <Input type="number" {...register('estado', { required: true })} placeholder="Ej. 1" />
             </div>
 
             <div className="space-y-2">
               <Label>Fecha Efectiva</Label>
-              <Input type="date" {...register('fecha_efectiva')} />
+              <Input type="date" {...register('fecha_efectiva', { required: true })} />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Fecha Envío</Label>
+              <Input type="date" {...register('fecha_envio', { required: true })} />
             </div>
 
             <div className="space-y-2">
               <Label>Prima Mensual</Label>
-              <Input type="number" step="0.01" {...register('prima_mensual')} placeholder="0.00" />
+              <Input type="number" step="0.01" {...register('prima_mensual', { valueAsNumber: true, required: true })} placeholder="0.00" />
             </div>
 
             <div className="space-y-2">
               <Label>Costo Póliza</Label>
-              <Input type="number" step="0.01" {...register('costo_poliza')} placeholder="0.00" />
+              <Input type="number" step="0.01" {...register('costo_poliza', { valueAsNumber: true, required: true })} placeholder="0.00" />
             </div>
 
             <div className="space-y-2">
               <Label>Subsidio</Label>
-              <Input type="number" step="0.01" {...register('subsidio')} placeholder="0.00" />
+              <Input type="number" step="0.01" {...register('subsidio', { valueAsNumber: true, required: true })} placeholder="0.00" />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Relación del solicitante</Label>
+              <Input {...register('relacion', { required: true })} placeholder="Self" />
             </div>
 
           </div>
 
           <div className="flex justify-end space-x-2 pt-4">
-            <Button variant="outline" type="button" onClick={onClose}>
+            <Button variant="outline" type="button" onClick={onClose} disabled={isCreating}>
               Cancelar
             </Button>
-            <Button type="submit">
-              Guardar Póliza
+            <Button type="submit" disabled={isCreating}>
+              {isCreating ? 'Guardando...' : 'Guardar Póliza'}
             </Button>
           </div>
         </form>

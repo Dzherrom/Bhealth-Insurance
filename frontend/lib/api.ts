@@ -50,6 +50,19 @@ const normalizeApiBaseUrl = (rawUrl?: string): string => {
 
 const API_BASE_URL = normalizeApiBaseUrl(process.env.NEXT_PUBLIC_API_URL);
 
+const clearClientAuthStorage = () => {
+  if (typeof window === 'undefined') return;
+
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('refresh_token');
+  localStorage.removeItem('token');
+  localStorage.removeItem('refresh');
+  localStorage.removeItem('auth-storage');
+
+  // Keep middleware/session cookie in sync when local auth is invalid.
+  document.cookie = 'access_token=; Path=/; Max-Age=0; SameSite=Lax';
+};
+
 // Utilidad para obtener el token de autenticación
 const getAuthToken = (): string | null => {
   if (typeof window !== 'undefined') {
@@ -249,10 +262,7 @@ export const authApi = {
     }
     
     // Limpiar tokens del localStorage
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-    }
+    clearClientAuthStorage();
   },
 };
 
@@ -686,6 +696,14 @@ export const setupTokenInterceptor = () => {
   // Esta función puede ser llamada en el layout principal
   // para configurar la renovación automática de tokens
   if (typeof window !== 'undefined') {
+    const interceptorWindow = window as typeof window & { __bhealthTokenInterceptorSetup?: boolean };
+
+    if (interceptorWindow.__bhealthTokenInterceptorSetup) {
+      return;
+    }
+
+    interceptorWindow.__bhealthTokenInterceptorSetup = true;
+
     const originalFetch = window.fetch;
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const response = await originalFetch(input, init);
@@ -702,7 +720,7 @@ export const setupTokenInterceptor = () => {
           return originalFetch(input, { ...init, headers: newHeaders });
         } catch (error) {
           // Si la renovación falla, redirigir al login
-          await authApi.logout();
+          clearClientAuthStorage();
           window.location.href = '/auth/login';
           throw error;
         }

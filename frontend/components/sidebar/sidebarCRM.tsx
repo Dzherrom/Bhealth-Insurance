@@ -189,6 +189,20 @@ const SidebarCRM = ({ onItemClick, onLogout, isLoggingOut = false }: SidebarCRMP
 
       {/* Footer */}
       <div className="p-[10px_6px] border-t border-[#f3f4f6] text-center">
+        <button
+          onClick={onLogout}
+          disabled={isLoggingOut}
+          className={cn(
+            "w-full flex items-center gap-[8px] py-[6px] px-[8px] rounded-[6px] text-[12px] font-medium transition-all duration-150",
+            "text-[#dc2626] hover:bg-[#fef2f2] hover:text-[#b91c1c] disabled:opacity-60 disabled:cursor-not-allowed",
+            isCollapsed ? "justify-center" : "justify-start"
+          )}
+          title={isLoggingOut ? 'Cerrando sesión...' : 'Cerrar sesión'}
+        >
+          <LogOut className="w-4 h-4" />
+          {!isCollapsed && <span>{isLoggingOut ? 'Cerrando...' : 'Cerrar sesión'}</span>}
+        </button>
+
         {!isCollapsed && <div className="text-[10px] text-[#9ca3af]">BHealth v1.0</div>}
       </div>
     </aside>

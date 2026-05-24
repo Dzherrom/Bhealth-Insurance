@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/sidebar";
 import SidebarCRM from "@/components/sidebar/sidebarCRM";
 import CRMNotificationButton from "@/components/configuraciones/CRMNotificationButton";
 import { CatalogoProvider } from "@/components/providers";
 import { useAuthStore } from "@/store/authStore";
+import { setupTokenInterceptor } from "@/lib/api";
 import { useRouter, usePathname } from "next/navigation";
 
 interface CRMLayoutProps {
@@ -17,6 +18,10 @@ export default function CRMLayout({ children }: CRMLayoutProps) {
   const pathname = usePathname();
   const logout = useAuthStore((state) => state.logout);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  useEffect(() => {
+    setupTokenInterceptor();
+  }, []);
 
   // No mostrar sidebar en la página principal de CRM (login)
   const showSidebar = pathname !== '/crm';
