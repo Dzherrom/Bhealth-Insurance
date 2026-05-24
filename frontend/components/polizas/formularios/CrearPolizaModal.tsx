@@ -246,7 +246,7 @@ export function CrearPolizaModal({ isOpen, onClose, onCreated }: CrearPolizaModa
       id_mercado: data.id_mercado.trim(),
       id_miembro: data.id_miembro.trim(),
       id_interno: data.id_interno.trim(),
-      fecha_efectiva: data.fecha_efectiva,
+      fecha_efectiva: data.fecha_efectiva ? data.fecha_efectiva : null,
       fecha_envio: data.fecha_envio,
       plan: Number(data.plan),
       agente: Number(data.agente),
@@ -430,7 +430,7 @@ export function CrearPolizaModal({ isOpen, onClose, onCreated }: CrearPolizaModa
 
             <div className="space-y-2">
               <Label>Fecha Efectiva</Label>
-              <Input type="date" {...register('fecha_efectiva', { required: true })} />
+              <Input type="date" {...register('fecha_efectiva')} />
             </div>
 
             <div className="space-y-2">

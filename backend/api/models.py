@@ -177,7 +177,7 @@ class Poliza(models.Model):
     total_ahorros = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Total Ahorros")
     plan_era = models.CharField(max_length=255, blank=True, null=True, verbose_name="El Plan Era (Calculado)")
     
-    fecha_efectiva = models.DateField(verbose_name="Fecha Efectiva")
+    fecha_efectiva = models.DateField(null=True, blank=True, verbose_name="Fecha Efectiva")
     estado = models.ForeignKey(EstadoPoliza, on_delete=models.SET_NULL, null=True, verbose_name="Estado")
     fecha_envio = models.DateField(verbose_name="Fecha Envío")
     fecha_cancelacion = models.DateField(null=True, blank=True, verbose_name="Fecha Cancelación")

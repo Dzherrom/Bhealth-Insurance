@@ -512,6 +512,7 @@ class PolizaSerializer(serializers.ModelSerializer):
     recordatorios = RecordatorioSerializer(many=True, read_only=True)
     transferencias = PolizaTransferenciaSerializer(many=True, read_only=True)
     request_user_role = serializers.SerializerMethodField()
+    fecha_efectiva = serializers.DateField(required=False, allow_null=True)
 
     class Meta:
         model = Poliza

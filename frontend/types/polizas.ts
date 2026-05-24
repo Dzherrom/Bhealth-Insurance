@@ -38,7 +38,7 @@ export interface PolizaCreateRequest {
   costo_poliza: number;
   subsidio: number;
   prima_mensual: number;
-  fecha_efectiva: string; // formato YYYY-MM-DD
+  fecha_efectiva?: string | null; // formato YYYY-MM-DD
   fecha_envio: string; // formato YYYY-MM-DD
   id_interno: string;
   plan: number; // ID del plan
