@@ -98,7 +98,7 @@ export default function ComisionesPage() {
   const totalPrima = reportes.reduce((sum, item) => sum + Number(item.prima_total || item.monto_total || 0), 0);
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="app-page space-y-6">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Comisiones</h1>

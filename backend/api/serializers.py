@@ -11,6 +11,16 @@ from .models import (
 )
 
 
+class FlatFileUploadSerializer(serializers.Serializer):
+    archivo = serializers.FileField(required=False)
+    file = serializers.FileField(required=False)
+
+    def validate(self, attrs):
+        if not attrs.get('archivo') and not attrs.get('file'):
+            raise serializers.ValidationError("Debe adjuntar un archivo en 'archivo' o 'file'.")
+        return attrs
+
+
 def normalize_role(role):
     return (role or '').strip().upper()
 

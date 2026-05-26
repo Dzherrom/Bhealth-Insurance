@@ -49,24 +49,24 @@ export default function CRMPage() {
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-purple-50 via-white to-indigo-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-indigo-50 text-[#0f172a]">
       {/* Header Corporativo */}
-      <header className="bg-white border-b-2 border-purple-200 shadow-lg">
+      <header className="bg-white border-b border-[#e2e8f0] shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
-              <div className="bg-purple-600 rounded-lg p-2">
+              <div className="bg-[#4f46e5] rounded-lg p-2">
                 <Building className="h-6 w-6 text-white" />
               </div>
               <div>
                 <span className="text-xl font-bold text-gray-900">Bhealth CRM</span>
-                <p className="text-xs text-purple-600 font-medium">Sistema de Gestión Corporativa</p>
+                <p className="text-xs text-[#4f46e5] font-medium">Sistema de Gestión Corporativa</p>
               </div>
             </div>
             <Button
               variant="ghost"
               onClick={() => router.push('/client')}
-              className="flex items-center space-x-2 text-gray-600 hover:text-purple-600"
+              className="flex items-center space-x-2 text-gray-600 hover:text-[#4f46e5]"
             >
               <ArrowLeft className="h-4 w-4" />
               <span>Portal Cliente</span>
@@ -77,61 +77,61 @@ export default function CRMPage() {
 
       <div className="flex flex-col lg:flex-row min-h-[calc(100vh-4rem)]">
         {/* Panel Izquierdo - Información del Sistema */}
-        <div className="lg:w-1/2 bg-linear-to-br from-purple-600 to-indigo-800 text-white p-8 lg:p-12 flex flex-col justify-center">
+        <div className="lg:w-1/2 bg-gradient-to-br from-[#4f46e5] to-[#1d4ed8] text-white p-8 lg:p-12 flex flex-col justify-center">
           <div className="max-w-md mx-auto lg:mx-0">
             <div className="flex items-center space-x-3 mb-6">
-              <Shield className="h-12 w-12 text-purple-200" />
+              <Shield className="h-12 w-12 text-indigo-200" />
               <div>
                 <h1 className="text-3xl lg:text-4xl font-bold">
                   Portal CRM
                 </h1>
-                <p className="text-purple-200">Sistema de Gestión Corporativa</p>
+                <p className="text-indigo-200">Sistema de Gestión Corporativa</p>
               </div>
             </div>
             
-            <p className="text-xl lg:text-2xl text-purple-100 mb-8">
+            <p className="text-xl lg:text-2xl text-indigo-100 mb-8">
               Herramientas avanzadas para la gestión de seguros y clientes
             </p>
             
             <div className="space-y-6">
               <div className="flex items-center space-x-4">
-                <div className="bg-purple-500 rounded-full p-3">
+                <div className="bg-indigo-500 rounded-full p-3">
                   <Users className="h-6 w-6" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-lg">Gestión de Clientes</h3>
-                  <p className="text-purple-100">Control completo de la cartera de clientes</p>
+                  <p className="text-indigo-100">Control completo de la cartera de clientes</p>
                 </div>
               </div>
               
               <div className="flex items-center space-x-4">
-                <div className="bg-purple-500 rounded-full p-3">
+                <div className="bg-indigo-500 rounded-full p-3">
                   <BarChart3 className="h-6 w-6" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-lg">Analytics Avanzados</h3>
-                  <p className="text-purple-100">Reportes y métricas en tiempo real</p>
+                  <p className="text-indigo-100">Reportes y métricas en tiempo real</p>
                 </div>
               </div>
               
               <div className="flex items-center space-x-4">
-                <div className="bg-purple-500 rounded-full p-3">
+                <div className="bg-indigo-500 rounded-full p-3">
                   <FileText className="h-6 w-6" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-lg">Gestión de Pólizas</h3>
-                  <p className="text-purple-100">Administración completa de seguros</p>
+                  <p className="text-indigo-100">Administración completa de seguros</p>
                 </div>
               </div>
             </div>
 
             {/* Información de Seguridad */}
-            <div className="mt-8 p-4 bg-purple-800/50 rounded-lg border border-purple-500">
+            <div className="mt-8 p-4 bg-indigo-900/45 rounded-lg border border-indigo-400">
               <div className="flex items-start space-x-3">
-                <Lock className="h-5 w-5 text-purple-200 mt-0.5" />
+                <Lock className="h-5 w-5 text-indigo-200 mt-0.5" />
                 <div className="text-sm">
-                  <p className="font-medium text-purple-200">Acceso Restringido</p>
-                  <p className="text-purple-300 mt-1">
+                  <p className="font-medium text-indigo-200">Acceso Restringido</p>
+                  <p className="text-indigo-300 mt-1">
                     Este sistema está destinado exclusivamente para uso del personal autorizado de Bhealth Insurance.
                     Todas las actividades son monitoreadas y registradas.
                   </p>
@@ -145,9 +145,9 @@ export default function CRMPage() {
         <div className="lg:w-1/2 p-8 lg:p-12 flex flex-col justify-center">
           <div className="max-w-md mx-auto w-full">
             {/* Alerta de Información */}
-            <Alert className="mb-6 border-purple-200 bg-purple-50">
-              <Shield className="h-4 w-4 text-purple-600" />
-              <AlertDescription className="text-purple-700">
+            <Alert className="mb-6 border-indigo-200 bg-indigo-50">
+              <Shield className="h-4 w-4 text-indigo-600" />
+              <AlertDescription className="text-indigo-700">
                 <strong>Zona Corporativa:</strong> Ingresa tus credenciales de usuario para acceder al sistema.
               </AlertDescription>
             </Alert>
@@ -156,7 +156,7 @@ export default function CRMPage() {
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center space-x-2 mb-6">
-                  <LogIn className="h-5 w-5 text-purple-600" />
+                  <LogIn className="h-5 w-5 text-indigo-600" />
                   <h2 className="text-xl font-semibold">Acceso al Sistema</h2>
                 </div>
 
@@ -192,7 +192,7 @@ export default function CRMPage() {
                   </div>
                   <Button 
                     type="submit" 
-                    className="w-full bg-purple-600 hover:bg-purple-700"
+                    className="w-full bg-[#4f46e5] hover:bg-[#4338ca]"
                     disabled={isLoading || !username || !password}
                   >
                     {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
@@ -203,13 +203,13 @@ export default function CRMPage() {
 
             {/* Información Adicional */}
             <div className="mt-6 space-y-4">
-              <Card className="bg-linear-to-r from-purple-50 to-indigo-50 border-purple-200">
+              <Card className="bg-linear-to-r from-indigo-50 to-blue-50 border-indigo-200">
                 <CardContent className="p-4">
-                  <h4 className="font-semibold text-purple-900 mb-2 flex items-center">
+                  <h4 className="font-semibold text-indigo-900 mb-2 flex items-center">
                     <Shield className="h-4 w-4 mr-2" />
                     Políticas de Seguridad
                   </h4>
-                  <ul className="text-sm text-purple-700 space-y-1">
+                  <ul className="text-sm text-indigo-700 space-y-1">
                     <li>• Las sesiones expiran automáticamente tras 30 minutos de inactividad</li>
                     <li>• Se requiere autenticación de dos factores para roles administrativos</li>
                     <li>• Todos los accesos quedan registrados en el log de auditoría</li>

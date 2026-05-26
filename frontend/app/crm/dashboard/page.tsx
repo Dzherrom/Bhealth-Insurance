@@ -20,7 +20,7 @@ import { ComposableMap, Geographies, Geography } from "react-simple-maps";
 import BoxComponent from "@/components/boxes/BoxComponent";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Wallet, FolderOpen, Ban, Zap, TrendingUp, TrendingDown } from "lucide-react";
+import { Wallet, FolderOpen, Ban, Zap, TrendingUp, TrendingDown, Users, UserX, FileText } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { getCurrentToken } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
@@ -86,6 +86,8 @@ type DashboardStats = {
   nuevos_prospectos: number;
   total_polizas: number;
   total_aplicantes: number;
+  total_polizas_canceladas: number;
+  total_aplicantes_cancelados: number;
   polizas_efectivas_mensual_chart: MonthlyTotalsRow[];
   clasificacion_agentes: AgentRow[];
   polizas_efectivas_tipo_producto_mensual_chart: ProductMonthlyRow[];
@@ -259,7 +261,7 @@ export default function DashboardPage() {
   if (!stats) return <div className="p-6">No se pudieron cargar las estadísticas. {error ? `(${error})` : ""}</div>;
 
   return (
-    <div className="w-full bg-[#f8fafc] min-h-screen p-6 md:p-[30px] font-['Inter',sans-serif]">
+    <div className="app-page w-full md:p-[30px]">
       {/* Header */}
       <div className="flex flex-col gap-4 mb-[30px] md:flex-row md:items-center md:justify-between">
         <div>
@@ -283,7 +285,7 @@ export default function DashboardPage() {
       </div>
 
       {/* KPI Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-[20px] mb-[24px]">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-[20px] mb-[24px]">
         
         {/* KPI 1 : Ventas Totales */}
         <div className="bg-white rounded-[16px] p-[20px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
@@ -295,27 +297,47 @@ export default function DashboardPage() {
           <div className="text-[12px] font-semibold text-[#64748b] mt-[8px]">+14.2% vs año anterior</div>
         </div>
 
-        {/* KPI 2 : Pólizas Activas */}
+        {/* KPI 2 : Pólizas */}
         <div className="bg-white rounded-[16px] p-[20px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
           <div className="flex items-center justify-between mb-[16px]">
-            <span className="text-[12px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">Pólizas Activas</span>
-            <FolderOpen className="w-5 h-5 text-[#10b981]" />
+            <span className="text-[12px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">Pólizas</span>
+            <FileText className="w-5 h-5 text-[#10b981]" />
           </div>
-          <div className="text-[32px] font-bold text-[#0f172a] tracking-[-0.5px] leading-[1.2]">{stats.total_polizas || "1,482"}</div>
-          <div className="text-[12px] font-semibold text-[#10b981] mt-[8px]">+5.6% tasa de crec.</div>
+          <div className="text-[32px] font-bold text-[#0f172a] tracking-[-0.5px] leading-[1.2]">{stats.total_polizas || "0"}</div>
+          <div className="text-[12px] font-semibold text-[#64748b] mt-[8px]">Número total de pólizas</div>
         </div>
 
-        {/* KPI 3 : Planes Cancelados */}
+        {/* KPI 3 : Aplicantes */}
         <div className="bg-white rounded-[16px] p-[20px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
           <div className="flex items-center justify-between mb-[16px]">
-            <span className="text-[12px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">Planes Cancelados</span>
+            <span className="text-[12px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">Aplicantes</span>
+            <Users className="w-5 h-5 text-[#3b82f6]" />
+          </div>
+          <div className="text-[32px] font-bold text-[#0f172a] tracking-[-0.5px] leading-[1.2]">{stats.total_aplicantes || "0"}</div>
+          <div className="text-[12px] font-semibold text-[#64748b] mt-[8px]">Número total de aplicantes</div>
+        </div>
+
+        {/* KPI 4 : Pólizas Canceladas */}
+        <div className="bg-white rounded-[16px] p-[20px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
+          <div className="flex items-center justify-between mb-[16px]">
+            <span className="text-[12px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">Pólizas Canceladas</span>
             <Ban className="w-5 h-5 text-[#ef4444]" />
           </div>
-          <div className="text-[32px] font-bold text-[#0f172a] tracking-[-0.5px] leading-[1.2]">8</div>
-          <div className="text-[12px] font-semibold text-[#ef4444] mt-[8px]">-12.4% de reducción</div>
+          <div className="text-[32px] font-bold text-[#0f172a] tracking-[-0.5px] leading-[1.2]">{stats.total_polizas_canceladas || "0"}</div>
+          <div className="text-[12px] font-semibold text-[#64748b] mt-[8px]">Total de pólizas canceladas</div>
         </div>
 
-        {/* KPI 4 : Tasa de Retención */}
+        {/* KPI 5 : Aplicantes Cancelados */}
+        <div className="bg-white rounded-[16px] p-[20px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
+          <div className="flex items-center justify-between mb-[16px]">
+            <span className="text-[12px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">Aplicantes Cancelados</span>
+            <UserX className="w-5 h-5 text-[#ef4444]" />
+          </div>
+          <div className="text-[32px] font-bold text-[#0f172a] tracking-[-0.5px] leading-[1.2]">{stats.total_aplicantes_cancelados || "0"}</div>
+          <div className="text-[12px] font-semibold text-[#64748b] mt-[8px]">Total de aplicantes cancelados</div>
+        </div>
+
+        {/* KPI 6 : Tasa de Retención */}
         <div className="bg-white rounded-[16px] p-[20px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
           <div className="flex items-center justify-between mb-[16px]">
             <span className="text-[12px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">Tasa de Retención</span>

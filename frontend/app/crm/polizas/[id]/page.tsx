@@ -182,7 +182,7 @@ export default function PolizaDetailsPage() {
 
   if (loading) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="app-page space-y-6">
         <div className="flex items-center space-x-2">
           <Skeleton className="h-8 w-8" />
           <Skeleton className="h-8 w-48" />
@@ -199,7 +199,7 @@ export default function PolizaDetailsPage() {
 
   if (!poliza) {
     return (
-      <div className="p-6">
+      <div className="app-page">
         <div className="text-center space-y-4">
           <FileText className="w-16 h-16 mx-auto text-gray-400" />
           <h2 className="text-xl font-semibold text-gray-900">Póliza no encontrada</h2>
@@ -241,7 +241,7 @@ export default function PolizaDetailsPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="app-page space-y-6">
       {/* Header - cubriendo todo el ancho */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">

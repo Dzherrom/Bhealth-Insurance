@@ -8,22 +8,17 @@ interface UsersHeaderProps {
 
 export function UsersHeader({ onNewUser, isCreating = false }: UsersHeaderProps) {
   return (
-    <div className="flex flex-col space-y-4 lg:flex-row lg:items-center lg:justify-between lg:space-y-0">
-      <div className="flex items-center space-x-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
-          <Users className="h-5 w-5 text-blue-600" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Gestión de Usuarios</h1>
-          <p className="text-muted-foreground">
-            Administra usuarios del sistema y sus permisos
-          </p>
-        </div>
+    <div className="flex flex-col gap-4 mb-[20px] md:flex-row md:items-center md:justify-between">
+      <div>
+        <h2 className="text-[20px] font-bold text-[#0f172a] m-0">Gestión de Empleados</h2>
+        <p className="text-[13px] text-[#64748b] mt-[4px]">
+          Administra los empleados operativos y sus niveles de acceso al CRM
+        </p>
       </div>
       <div className="flex items-center space-x-2">
-        <Button onClick={onNewUser} disabled={isCreating}>
+        <Button onClick={onNewUser} disabled={isCreating} className="h-[38px] bg-[#4f46e5] hover:bg-[#4338ca] text-white rounded-[10px] text-[13px] font-semibold px-[16px] shadow-[0_4px_10px_rgba(79,70,229,0.3)] transition-all">
           <Plus className="h-4 w-4 mr-2" />
-          {isCreating ? 'Creando...' : 'Nuevo Usuario'}
+          {isCreating ? 'Creando...' : 'Nuevo Empleado'}
         </Button>
       </div>
     </div>

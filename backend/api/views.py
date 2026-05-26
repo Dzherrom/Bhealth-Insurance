@@ -125,11 +125,15 @@ class DashboardStatsView(APIView):
         # 3. Nuevos prospectos (dentro del periodo)
         stats['nuevos_prospectos'] = clientes_qs.count()
 
-        # 4. Total Polizas y Aplicantes
+        # 4. Total Polizas y Aplicantes, y Cancelados
         real_total_aplicantes = polizas_qs.aggregate(t=Sum('total_aplicantes'))['t'] or 0
         total_polizas_count = polizas_qs.count()
         stats['total_aplicantes'] = real_total_aplicantes
         stats['total_polizas'] = total_polizas_count
+
+        polizas_canceladas_qs = polizas_qs.filter(estado__nombre__icontains='cancelad')
+        stats['total_polizas_canceladas'] = polizas_canceladas_qs.count()
+        stats['total_aplicantes_cancelados'] = polizas_canceladas_qs.aggregate(t=Sum('total_aplicantes'))['t'] or 0
 
         # 5. Pólizas efectivas por mes (columnas: pólizas y aplicantes)
         polizas_efectivas_mensual = polizas_qs.annotate(

@@ -41,7 +41,7 @@ const ConfiguracionesPage = () => {
   };
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="app-page">
       <div className="flex space-x-6">
         {/* Sidebar */}
         <SidebarConfiguraciones

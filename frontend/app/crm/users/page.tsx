@@ -23,6 +23,8 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/authStore';
 
+import { Users, UserCheck, UserX, Clock } from 'lucide-react';
+
 const PAGE_SIZE = 25;
 
 interface ApiUserProfile {
@@ -71,7 +73,6 @@ const ROLE_OPTIONS = [
   { value: 'SHERPA', label: 'Sherpa' },
   { value: 'PAGOS', label: 'Pagos' },
   { value: 'CITAS', label: 'Citas' },
-  { value: 'USER', label: 'Usuario' },
 ];
 
 const STATUS_OPTIONS = [
@@ -173,9 +174,14 @@ export default function UsersPage() {
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
     try {
-      const apiUsers = await usersApi.list();
-      setApiUsers(apiUsers as ApiUser[]);
-      setUsers((apiUsers as ApiUser[]).map(mapApiUserToUIUser));
+      const apiUsers = await usersApi.list() as ApiUser[];
+      // Filtramos para que solo pasen empleados (es decir, aquellos cuyo role no sea 'USER' ni 'CLIENTE')
+      const employeeUsers = apiUsers.filter(u => {
+        const role = (u.profile?.role || 'USER').toUpperCase();
+        return role !== 'USER' && role !== 'CLIENTE';
+      });
+      setApiUsers(employeeUsers);
+      setUsers(employeeUsers.map(mapApiUserToUIUser));
     } catch (error) {
       console.error('Error al cargar usuarios:', error);
       setUsers([]);
@@ -402,7 +408,7 @@ export default function UsersPage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col space-y-6 p-6">
+      <div className="app-page flex flex-col space-y-6">
         <Skeleton className="h-10 w-56" />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Skeleton className="h-24" />
@@ -416,25 +422,48 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="flex flex-col space-y-6 p-6">
+    <div className="app-page flex flex-col space-y-6">
       <UsersHeader onNewUser={handleOpenCreateModal} isCreating={isCreating} />
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <BoxComponent 
-          title="Total Usuarios" 
-          value={users.length} 
-        />
-        <BoxComponent 
-          title="Usuarios Activos" 
-          value={users.filter(u => u.status === 'activo').length} 
-        />
-        <BoxComponent 
-          title="Usuarios Inactivos" 
-          value={users.filter(u => u.status === 'inactivo').length} 
-        />
-        <BoxComponent 
-          title="Pendientes" 
-          value={users.filter(u => u.status === 'pendiente').length} 
-        />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-[20px] mb-[24px]">
+        {/* KPI 1 : Total Usuarios */}
+        <div className="bg-white rounded-[16px] p-[20px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
+          <div className="flex items-center justify-between mb-[16px]">
+            <span className="text-[12px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">Total Usuarios</span>
+            <Users className="w-5 h-5 text-[#4f46e5]" />
+          </div>
+          <div className="text-[32px] font-bold text-[#0f172a] tracking-[-0.5px] leading-[1.2]">{users.length}</div>
+          <div className="text-[12px] font-semibold text-[#64748b] mt-[8px]">Empleados en el sistema</div>
+        </div>
+
+        {/* KPI 2 : Usuarios Activos */}
+        <div className="bg-white rounded-[16px] p-[20px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
+          <div className="flex items-center justify-between mb-[16px]">
+            <span className="text-[12px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">Usuarios Activos</span>
+            <UserCheck className="w-5 h-5 text-[#10b981]" />
+          </div>
+          <div className="text-[32px] font-bold text-[#0f172a] tracking-[-0.5px] leading-[1.2]">{users.filter(u => u.status === 'activo').length}</div>
+          <div className="text-[12px] font-semibold text-[#10b981] mt-[8px]">Empleados operativos</div>
+        </div>
+
+        {/* KPI 3 : Usuarios Inactivos */}
+        <div className="bg-white rounded-[16px] p-[20px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
+          <div className="flex items-center justify-between mb-[16px]">
+            <span className="text-[12px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">Usuarios Inactivos</span>
+            <UserX className="w-5 h-5 text-[#ef4444]" />
+          </div>
+          <div className="text-[32px] font-bold text-[#0f172a] tracking-[-0.5px] leading-[1.2]">{users.filter(u => u.status === 'inactivo').length}</div>
+          <div className="text-[12px] font-semibold text-[#ef4444] mt-[8px]">Empleados suspendidos</div>
+        </div>
+
+        {/* KPI 4 : Pendientes */}
+        <div className="bg-white rounded-[16px] p-[20px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
+          <div className="flex items-center justify-between mb-[16px]">
+            <span className="text-[12px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">Pendientes</span>
+            <Clock className="w-5 h-5 text-[#f59e0b]" />
+          </div>
+          <div className="text-[32px] font-bold text-[#0f172a] tracking-[-0.5px] leading-[1.2]">{users.filter(u => u.status === 'pendiente').length}</div>
+          <div className="text-[12px] font-semibold text-[#f59e0b] mt-[8px]">Por activar o validación</div>
+        </div>
       </div>
       <UsersFilters
         searchTerm={searchTerm}

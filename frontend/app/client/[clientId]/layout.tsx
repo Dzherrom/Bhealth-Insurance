@@ -25,11 +25,11 @@ export default function ClientLayout({ children, params }: ClientLayoutProps) {
     <SidebarProvider>
       <div className="flex h-screen w-full overflow-hidden">
         <SidebarClient onItemClick={handleSidebarNavigation} clientId={clientId} />
-        <SidebarInset className="flex-1 overflow-hidden">
-          <div className="flex h-16 shrink-0 items-center gap-2 px-4 pt-2 justify-between border-b">
+        <SidebarInset className="flex-1 overflow-hidden bg-[#f8fafc]">
+          <div className="flex h-16 shrink-0 items-center gap-2 px-6 justify-between border-b border-[#e2e8f0] bg-white">
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <SidebarTrigger className="ml-1" />
-              <h1 className="text-xl font-semibold truncate">BHealth Insurance - Perfil</h1>
+              <h1 className="text-xl font-bold text-[#0f172a] truncate">BHealth Insurance - Perfil</h1>
             </div>
             
             {/* Botón de notificaciones en el header */}

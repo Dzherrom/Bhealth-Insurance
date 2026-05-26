@@ -243,7 +243,7 @@ export default function UserDetailsPage() {
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="app-page space-y-6">
         <div className="flex items-center gap-3">
           <Skeleton className="h-9 w-24" />
           <Skeleton className="h-9 w-64" />
@@ -261,7 +261,7 @@ export default function UserDetailsPage() {
 
   if (!user) {
     return (
-      <div className="p-6 space-y-4">
+      <div className="app-page space-y-4">
         <h1 className="text-2xl font-semibold">Usuario no encontrado</h1>
         <p className="text-muted-foreground">No se pudo cargar la información del usuario solicitado.</p>
         <Button variant="outline" onClick={() => router.push('/crm/users')}>
@@ -273,7 +273,7 @@ export default function UserDetailsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="app-page space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Button variant="outline" onClick={() => router.push('/crm/users')}>

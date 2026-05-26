@@ -24,6 +24,7 @@ from .views import (
     ConfiguracionNotificacionViewSet, CalendarioPrimasPolizaView,
 )
 from .views_consent import ConsentRequestViewSet
+from .views_flat_files import FlatPolicyImportView, FlatPolicyExportView
 
 router = DefaultRouter()
 router.register(r'users', UserManagementViewSet)
@@ -56,6 +57,8 @@ router.register(r'transferencias-poliza', PolizaTransferenciaViewSet, basename='
 router.register(r'consent-requests', ConsentRequestViewSet, basename='consent-requests')
 
 urlpatterns = [
+    path('polizas/flat/import/', FlatPolicyImportView.as_view(), name='flat-policy-import'),
+    path('polizas/flat/export/', FlatPolicyExportView.as_view(), name='flat-policy-export'),
     path('polizas/export/', ExportPolizasView.as_view(), name='export_polizas'),
     path('register/', RegisterView.as_view(), name='register'),
     path('login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),

@@ -120,3 +120,54 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer base {
+  :root {
+    --crm-bg: #f8fafc;
+    --crm-surface: #ffffff;
+    --crm-border: #e2e8f0;
+    --crm-text: #0f172a;
+    --crm-muted: #64748b;
+    --crm-primary: #4f46e5;
+    --crm-primary-hover: #4338ca;
+  }
+}
+
+@layer components {
+  .app-page {
+    background: var(--crm-bg);
+    color: var(--crm-text);
+    min-height: 100%;
+    padding: 1.5rem;
+  }
+
+  .app-panel {
+    background: var(--crm-surface);
+    border: 1px solid var(--crm-border);
+    border-radius: 1rem;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.03), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
+  }
+
+  .app-title {
+    color: var(--crm-text);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .app-subtitle {
+    color: var(--crm-muted);
+    font-size: 0.95rem;
+  }
+
+  .app-btn-primary {
+    background: var(--crm-primary);
+    color: #ffffff;
+    border-radius: 0.625rem;
+    font-weight: 600;
+    transition: background-color 150ms ease;
+  }
+
+  .app-btn-primary:hover {
+    background: var(--crm-primary-hover);
+  }
+}

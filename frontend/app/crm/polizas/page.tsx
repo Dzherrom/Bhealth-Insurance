@@ -96,7 +96,7 @@ export default function PolizasPage() {
   };
 
   return (
-    <div className="w-full h-full bg-[#f8fafc] flex flex-col font-['Inter',sans-serif] overflow-hidden">
+    <div className="app-page w-full h-full flex flex-col overflow-hidden">
       
       {/* Top Navbar */}
       <header className="px-[30px] md:px-[40px] py-[15px] flex items-center justify-end bg-white border-b border-[#f1f5f9] shrink-0 sticky top-0 z-20 shadow-sm">

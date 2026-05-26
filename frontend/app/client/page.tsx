@@ -75,23 +75,23 @@ function ClientPageContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-indigo-50 text-[#0f172a]">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 shadow-sm">
+      <header className="bg-white border-b border-[#e2e8f0] shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-2">
-              <Heart className="h-8 w-8 text-blue-600" />
+              <Heart className="h-8 w-8 text-[#4f46e5]" />
               <span className="text-xl font-bold text-gray-900">Bhealth Insurance</span>
             </div>
             <nav className="flex items-center space-x-6">
-              <a href="/" className="text-gray-600 hover:text-blue-600 transition-colors">
+                <a href="/" className="text-[#64748b] hover:text-[#4f46e5] transition-colors">
                 Inicio
               </a>
-              <a href="/about" className="text-gray-600 hover:text-blue-600 transition-colors">
+                <a href="/about" className="text-[#64748b] hover:text-[#4f46e5] transition-colors">
                 Acerca de
               </a>
-              <a href="/contact" className="text-gray-600 hover:text-blue-600 transition-colors">
+                <a href="/contact" className="text-[#64748b] hover:text-[#4f46e5] transition-colors">
                 Contacto
               </a>
             </nav>
@@ -101,7 +101,7 @@ function ClientPageContent() {
 
       <div className="flex flex-col lg:flex-row min-h-[calc(100vh-4rem)]">
         {/* Panel Izquierdo - InformaciÃ³n */}
-        <div className="lg:w-1/2 bg-gradient-to-br from-blue-600 to-blue-800 text-white p-8 lg:p-12 flex flex-col justify-center">
+        <div className="lg:w-1/2 bg-gradient-to-br from-[#4f46e5] to-[#1d4ed8] text-white p-8 lg:p-12 flex flex-col justify-center">
           <div className="max-w-md mx-auto lg:mx-0">
             <h1 className="text-4xl lg:text-5xl font-bold mb-6">
               Tu salud es lo mÃ¡s importante
@@ -112,7 +112,7 @@ function ClientPageContent() {
             
             <div className="space-y-6">
               <div className="flex items-center space-x-4">
-                <div className="bg-blue-500 rounded-full p-2">
+                <div className="bg-indigo-500 rounded-full p-2">
                   <Shield className="h-6 w-6" />
                 </div>
                 <div>
@@ -122,7 +122,7 @@ function ClientPageContent() {
               </div>
               
               <div className="flex items-center space-x-4">
-                <div className="bg-blue-500 rounded-full p-2">
+                <div className="bg-indigo-500 rounded-full p-2">
                   <Users className="h-6 w-6" />
                 </div>
                 <div>
@@ -132,7 +132,7 @@ function ClientPageContent() {
               </div>
               
               <div className="flex items-center space-x-4">
-                <div className="bg-blue-500 rounded-full p-2">
+                <div className="bg-indigo-500 rounded-full p-2">
                   <Heart className="h-6 w-6" />
                 </div>
                 <div>

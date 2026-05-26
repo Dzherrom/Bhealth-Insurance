@@ -90,7 +90,7 @@ export default function PolizasExportPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] p-6 md:p-10">
+    <div className="app-page md:p-10">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
         <div className="flex flex-col gap-4 rounded-[20px] border border-[#e2e8f0] bg-white p-6 shadow-[0_12px_30px_-12px_rgba(15,23,42,0.18)] md:flex-row md:items-center md:justify-between">
           <div className="space-y-2">

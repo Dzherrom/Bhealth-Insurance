@@ -57,15 +57,15 @@ export default function CRMLayout({ children }: CRMLayoutProps) {
             onLogout={handleLogout}
             isLoggingOut={isLoggingOut}
           />
-          <SidebarInset className="flex-1 overflow-hidden">
-            <div className="flex h-16 shrink-0 items-center gap-2 px-4 pt-2 justify-between border-b">
+          <SidebarInset className="flex-1 overflow-hidden bg-[#f8fafc]">
+            <div className="flex h-16 shrink-0 items-center gap-2 px-6 justify-between border-b border-[#e2e8f0] bg-white">
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 {/* <SidebarTrigger className="ml-1" /> */}
-                <h1 className="text-xl font-semibold truncate">CRM - BHealth Insurance</h1>
+                <h1 className="text-xl font-bold text-[#0f172a] truncate">CRM - BHealth Insurance</h1>
               </div>
             </div>
 
-            <div className="flex-1 overflow-auto">
+            <div className="flex-1 overflow-auto crm-content">
               {children}
             </div>
 

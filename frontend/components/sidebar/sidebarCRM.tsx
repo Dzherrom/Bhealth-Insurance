@@ -7,10 +7,8 @@ import {
   Users,
   Calendar,
   ShieldCheck,
-  CircleDollarSign,
   FileText,
   PenTool,
-  Mail,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -51,7 +49,6 @@ const navGroups: SidebarGroup[] = [
     items: [
       { icon: Calendar, label: 'Citas', href: '/crm/citas', colorClass: 'text-[#0d9488]', shadowClass: 'hover:drop-shadow-[0_0_10px_rgba(13,148,136,0.5)]' },
       { icon: ShieldCheck, label: 'Pólizas', href: '/crm/polizas', colorClass: 'text-[#059669]', shadowClass: 'hover:drop-shadow-[0_0_10px_rgba(5,150,105,0.5)]' },
-      { icon: CircleDollarSign, label: 'Comisiones', href: '/crm/analytics', colorClass: 'text-[#e11d48]', shadowClass: 'hover:drop-shadow-[0_0_10px_rgba(225,29,72,0.5)]' },
     ],
   },
   {
@@ -64,7 +61,6 @@ const navGroups: SidebarGroup[] = [
   {
     label: 'Sistema',
     items: [
-      { icon: Mail, label: 'Correos', href: '/crm/messages', colorClass: 'text-[#7c3aed]', shadowClass: 'hover:drop-shadow-[0_0_10px_rgba(124,58,237,0.5)]' },
       { icon: Settings, label: 'Configuración', href: '/crm/configuraciones', colorClass: 'text-[#475569]', shadowClass: 'hover:drop-shadow-[0_0_10px_rgba(71,85,105,0.5)]' },
     ],
   },
