@@ -48,7 +48,7 @@ const normalizeApiBaseUrl = (rawUrl?: string): string => {
   return source.endsWith('/api') ? source : `${source}/api`;
 };
 
-const API_BASE_URL = normalizeApiBaseUrl(process.env.NEXT_PUBLIC_API_URL);
+export const API_BASE_URL = normalizeApiBaseUrl(process.env.NEXT_PUBLIC_API_URL);
 
 const clearClientAuthStorage = () => {
   if (typeof window === 'undefined') return;

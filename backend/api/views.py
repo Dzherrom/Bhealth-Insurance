@@ -1,5 +1,5 @@
 from rest_framework import generics, permissions, status, viewsets, filters
-from .permissions import IsManagerRole, IsAdminRole, IsPolicyOwnerOrHigher, IsCRMNonBasicRole
+from .permissions import IsManagerRole, IsAdminRole, IsPolicyOwnerOrHigher, IsCRMNonBasicRole, has_matrix_permission
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -29,6 +29,7 @@ from .models import (
     PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal, registrar_auditoria_global
 )
 from .serializers import *
+from .utils import send_activity_webhook, fetch_location_from_zip
 
 
 class PolizaPagination(PageNumberPagination):
@@ -478,7 +479,7 @@ class PolizaViewSet(viewsets.ModelViewSet):
                     'polizacliente_set',
                     queryset=PolizaCliente.objects.select_related('cliente').filter(es_solicitante_principal=True),
                 )
-            )
+            ).exclude(estado__nombre__in=['DRAFT', 'QUOTE', 'Draft', 'Quote', 'draft', 'quote', 'Borrador', 'Cotización'])
 
         user = self.request.user
         if user.is_superuser:
@@ -506,8 +507,24 @@ class PolizaViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         # Auto-assign agent if the creator is an ASISTENTE
         user = self.request.user
+        assigned_agent = None
         if hasattr(user, 'profile') and self._normalize_role(user.profile.role) in ['ASISTENTE'] and user.profile.agente:
-            poliza = serializer.save(agente=user.profile.agente)
+            assigned_agent = user.profile.agente
+
+        # If client did not provide an estado, prefer QUOTE (case-insensitive variants)
+        estado_proporcionado = serializer.validated_data.get('estado') if hasattr(serializer, 'validated_data') else None
+
+        if not estado_proporcionado:
+            quote_estado = EstadoPoliza.objects.filter(nombre__iregex=r'(^quote$|cotiz|cotización|borrador|draft)',).first()
+        else:
+            quote_estado = None
+
+        if assigned_agent and quote_estado:
+            poliza = serializer.save(agente=assigned_agent, estado=quote_estado)
+        elif assigned_agent:
+            poliza = serializer.save(agente=assigned_agent)
+        elif quote_estado:
+            poliza = serializer.save(estado=quote_estado)
         else:
             poliza = serializer.save()
         registrar_auditoria_global(
@@ -766,6 +783,21 @@ class PolizaViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+    @action(detail=False, methods=['get'], url_path='cotizaciones')
+    def cotizaciones(self, request):
+        """
+        List policies that are in DRAFT/QUOTE (cotizaciones) for CRM use.
+        """
+        estados = ['DRAFT', 'QUOTE', 'Cotización', 'Cotizacion', 'Borrador', 'Draft', 'Quote']
+        qs = Poliza.objects.select_related('agente', 'plan', 'estado', 'plan__aseguradora').filter(estado__nombre__in=estados)
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            serializer = PolizaListSerializer(page, many=True, context={'request': request})
+            return self.get_paginated_response(serializer.data)
+
+        serializer = PolizaListSerializer(qs, many=True, context={'request': request})
+        return Response(serializer.data)
+
 class NotaViewSet(viewsets.ModelViewSet):
     queryset = Nota.objects.all()
     serializer_class = NotaSerializer
@@ -978,21 +1010,23 @@ class ZipCodeLookupView(APIView):
                 return Response({"error": "No places found for this zip code"}, status=status.HTTP_404_NOT_FOUND)
 
             place = data['places'][0]
-            
+            # Build base result from external service
             result = {
                 "city": place.get('place name'),
                 "state": place.get('state'),
                 "state_abbr": place.get('state abbreviation'),
-                "county": place.get('place name'), # Zippopotam sometimes puts county in place name or doesn't provide it explicitly separate from city in some contexts, but usually it's city. 
-                # Actually Zippopotam structure: "place name" is city. It doesn't always provide county explicitly in a separate field named 'county', 
-                # but for US it often has 'place name' as city. 
-                # Let's check if we can get county. Zippopotam US response usually:
-                # "places": [{"place name": "Beverly Hills", "longitude": "...", "state": "California", "state abbreviation": "CA", "latitude": "..."}]
-                # It seems it doesn't strictly return "County". 
-                # However, for the purpose of address completion, City and State are the most critical.
                 "country": data.get('country'),
                 "zip_code": data.get('post code')
             }
+
+            # Also attempt to find known counties in our local Direccion table
+            local_counties_qs = Direccion.objects.filter(zip_code__iexact=str(zip_code)).values_list('condado', flat=True).distinct()
+            local_counties = [c for c in local_counties_qs if c]
+
+            # If local counties exist, return them; otherwise include the place name as a single county suggestion
+            counties = local_counties or ([place.get('place name')] if place.get('place name') else [])
+            result['counties'] = counties
+
             return Response(result)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)

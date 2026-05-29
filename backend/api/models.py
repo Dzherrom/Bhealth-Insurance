@@ -76,6 +76,13 @@ class Cliente(models.Model):
     pais_nacimiento = models.CharField(max_length=100, verbose_name="País de Nacimiento")
     estado_inmigracion = models.CharField(max_length=100, verbose_name="Estado de Inmigración")
     categoria_inmigracion = models.CharField(max_length=100, blank=True, null=True, verbose_name="Categoría de Inmigración")
+    
+    # Nuevos campos de salud y estilo de vida
+    usa_tabaco = models.BooleanField(default=False, verbose_name="Usa Tabaco")
+    peso = models.CharField(max_length=50, blank=True, null=True, verbose_name="Peso")
+    estatura = models.CharField(max_length=50, blank=True, null=True, verbose_name="Estatura")
+    condicion_medica = models.TextField(blank=True, null=True, verbose_name="Condición Médica")
+    
     fecha_creacion = models.DateTimeField(default=timezone.now, verbose_name="Fecha de Creación")
 
     # Addresses (owned by client)

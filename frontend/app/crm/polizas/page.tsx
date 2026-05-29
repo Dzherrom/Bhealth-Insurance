@@ -101,7 +101,7 @@ export default function PolizasPage() {
       {/* Top Navbar */}
       <header className="px-[30px] md:px-[40px] py-[15px] flex items-center justify-end bg-white border-b border-[#f1f5f9] shrink-0 sticky top-0 z-20 shadow-sm">
         <div className="flex flex-wrap items-center justify-end gap-[10px]">
-          <button onClick={() => setIsCreateModalOpen(true)} className="bg-[#4f46e5] hover:bg-[#4338ca] text-white border-none py-[8px] px-[16px] text-[13px] font-semibold rounded-[8px] cursor-pointer flex items-center gap-[6px] shadow-sm transition-all focus:ring-2 focus:ring-[#4f46e5] focus:outline-none">
+          <button onClick={() => router.push('/crm/polizas/nueva')} className="bg-[#4f46e5] hover:bg-[#4338ca] text-white border-none py-[8px] px-[16px] text-[13px] font-semibold rounded-[8px] cursor-pointer flex items-center gap-[6px] shadow-sm transition-all focus:ring-2 focus:ring-[#4f46e5] focus:outline-none">
             <Plus className="w-4 h-4" /> New policy
           </button>
           <button onClick={handleRefresh} disabled={isLoading} className="bg-[#4f46e5] hover:bg-[#4338ca] disabled:opacity-60 text-white border-none py-[8px] px-[16px] text-[13px] font-semibold rounded-[8px] cursor-pointer flex items-center gap-[6px] shadow-sm transition-all focus:ring-2 focus:ring-[#4f46e5] focus:outline-none">

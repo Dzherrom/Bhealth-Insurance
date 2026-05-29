@@ -128,7 +128,7 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
+'''
 DATABASES = {
     'default': dj_database_url.config(
         default=config('DATABASE_URL', default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
@@ -151,7 +151,7 @@ DATABASES = {
         }
     }
 }
-'''
+
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
@@ -204,6 +204,14 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
 }
+
+# Force date format throughout the API to MM/DD/YYYY for both input and output
+REST_FRAMEWORK.update({
+    'DATE_FORMAT': '%m/%d/%Y',
+    'DATE_INPUT_FORMATS': ['%m/%d/%Y', '%Y-%m-%d'],
+    'DATETIME_FORMAT': "%m/%d/%Y %H:%M:%S",
+    'DATETIME_INPUT_FORMATS': ['%m/%d/%Y %H:%M:%S', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S'],
+})
 
 from datetime import timedelta
 SIMPLE_JWT = {

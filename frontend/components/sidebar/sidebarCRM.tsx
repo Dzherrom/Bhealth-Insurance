@@ -49,6 +49,7 @@ const navGroups: SidebarGroup[] = [
     items: [
       { icon: Calendar, label: 'Citas', href: '/crm/citas', colorClass: 'text-[#0d9488]', shadowClass: 'hover:drop-shadow-[0_0_10px_rgba(13,148,136,0.5)]' },
       { icon: ShieldCheck, label: 'Pólizas', href: '/crm/polizas', colorClass: 'text-[#059669]', shadowClass: 'hover:drop-shadow-[0_0_10px_rgba(5,150,105,0.5)]' },
+          { icon: FileText, label: 'Cotizaciones', href: '/crm/cotizaciones', colorClass: 'text-[#059669]', shadowClass: 'hover:drop-shadow-[0_0_10px_rgba(5,150,105,0.5)]' },
     ],
   },
   {

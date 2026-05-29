@@ -132,6 +132,7 @@ class AgenteSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class ClienteSerializer(serializers.ModelSerializer):
+    fecha_nacimiento = serializers.DateField(required=False, allow_null=True, format='%m/%d/%Y', input_formats=['%m/%d/%Y', '%Y-%m-%d'])
     marketplace_password = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     portal_password = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     direccion_fisica = serializers.PrimaryKeyRelatedField(queryset=Direccion.objects.all(), required=False, allow_null=True)
@@ -146,14 +147,7 @@ class ClienteSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def validate(self, attrs):
-        if self.instance is None:
-            required_on_create = ('direccion_fisica', 'direccion_postal', 'direccion_facturacion')
-            errors = {}
-            for field in required_on_create:
-                if attrs.get(field) is None:
-                    errors[field] = 'Este campo es obligatorio al crear un cliente.'
-            if errors:
-                raise serializers.ValidationError(errors)
+        # La dirección ahora está ligada a la Póliza, por lo que no es obligatoria para crear Cliente
         return attrs
 
     def to_internal_value(self, data):
@@ -522,7 +516,7 @@ class PolizaSerializer(serializers.ModelSerializer):
     recordatorios = RecordatorioSerializer(many=True, read_only=True)
     transferencias = PolizaTransferenciaSerializer(many=True, read_only=True)
     request_user_role = serializers.SerializerMethodField()
-    fecha_efectiva = serializers.DateField(required=False, allow_null=True)
+    fecha_efectiva = serializers.DateField(required=False, allow_null=True, format='%m/%d/%Y', input_formats=['%m/%d/%Y', '%Y-%m-%d'])
 
     class Meta:
         model = Poliza
