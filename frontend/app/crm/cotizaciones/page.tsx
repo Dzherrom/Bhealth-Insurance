@@ -20,7 +20,11 @@ export default function CotizacionesPage() {
         const res = await fetch(`${API_BASE_URL}/polizas/cotizaciones/`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        if (!res.ok) throw new Error('Error fetching cotizaciones');
+        if (!res.ok) {
+          const body = await res.text().catch(() => '');
+          console.error('Cotizaciones fetch failed', res.status, body);
+          throw new Error(`Error fetching cotizaciones: ${res.status} ${body}`);
+        }
         const data = await res.json();
         setItems(data.results || data);
       } catch (err) {

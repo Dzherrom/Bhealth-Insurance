@@ -787,9 +787,16 @@ class PolizaViewSet(viewsets.ModelViewSet):
     def cotizaciones(self, request):
         """
         List policies that are in DRAFT/QUOTE (cotizaciones) for CRM use.
+        Use case-insensitive partial matching to catch state names like "cotizada 2026".
         """
-        estados = ['DRAFT', 'QUOTE', 'Cotización', 'Cotizacion', 'Borrador', 'Draft', 'Quote']
-        qs = Poliza.objects.select_related('agente', 'plan', 'estado', 'plan__aseguradora').filter(estado__nombre__in=estados)
+        from django.db.models import Q
+
+        qs = Poliza.objects.select_related('agente', 'plan', 'estado', 'plan__aseguradora').filter(
+            Q(estado__nombre__icontains='cotiz') |
+            Q(estado__nombre__icontains='quote') |
+            Q(estado__nombre__icontains='draft') |
+            Q(estado__nombre__icontains='borrad')
+        )
         page = self.paginate_queryset(qs)
         if page is not None:
             serializer = PolizaListSerializer(page, many=True, context={'request': request})
