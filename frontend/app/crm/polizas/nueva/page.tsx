@@ -262,15 +262,58 @@ export default function NuevaPolizaWizard() {
       return;
     }
 
+    // Validate main applicant required fields
+    if (!formData.primerNombre?.trim() || !formData.apellidoPaterno?.trim()) {
+      setError('Complete el nombre y apellido del solicitante principal.');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.fechaNacimiento || !validateDate(formData.fechaNacimiento)) {
+      setError('Ingrese una fecha de nacimiento válida para el solicitante principal.');
+      setLoading(false);
+      return;
+    }
+
     try {
       let token = accessToken || getCurrentToken();
 
-      // Helper to format YYYY-MM-DD -> MM/DD/YYYY
-      const formatToMMDDYYYY = (isoDate: string) => {
-        if (!isoDate) return isoDate;
-        const parts = isoDate.split('T')[0].split('-');
-        if (parts.length !== 3) return isoDate;
-        return `${parts[1]}/${parts[2]}/${parts[0]}`;
+      // Helper to normalize dates to YYYY-MM-DD (ISO date)
+      const formatToISO = (input?: string | Date | null) => {
+        if (!input) return null;
+        // Date object -> ISO date
+        if (input instanceof Date) {
+          if (isNaN(input.getTime())) return null;
+          return input.toISOString().split('T')[0];
+        }
+
+        // String input -> try to normalize
+        const str = String(input).trim();
+        if (!str) return null;
+
+        // If contains 'T', take date part
+        const datePart = str.split('T')[0];
+
+        // If already in YYYY-MM-DD
+        const dashParts = datePart.split('-');
+        if (dashParts.length === 3 && dashParts[0].length === 4) {
+          return `${dashParts[0].padStart(4, '0')}-${dashParts[1].padStart(2, '0')}-${dashParts[2].padStart(2, '0')}`;
+        }
+
+        // If in MM/DD/YYYY
+        if (datePart.includes('/')) {
+          const p = datePart.split('/');
+          if (p.length === 3) {
+            const [m, d, y] = p;
+            return `${y.padStart(4, '0')}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+          }
+        }
+
+        // Fallback: try Date parse
+        const parsed = new Date(str);
+        if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];
+
+        return null;
       };
 
       const createClientPayload = (member: FamilyMember, fallbackPrefix: string) => ({
@@ -278,7 +321,7 @@ export default function NuevaPolizaWizard() {
         segundo_nombre: member.segundoNombre || '',
         apellido_paterno: member.apellidoPaterno,
         apellido_materno: member.apellidoMaterno || '',
-        fecha_nacimiento: member.fechaNacimiento ? formatToMMDDYYYY(member.fechaNacimiento) : null,
+        fecha_nacimiento: formatToISO(member.fechaNacimiento),
         genero: member.sexo,
         telefono: member.telefono || '0000000000',
         email: member.email || `${fallbackPrefix}-${Date.now()}@example.com`,
@@ -290,7 +333,11 @@ export default function NuevaPolizaWizard() {
         peso: member.peso || '',
         estatura: member.estatura || '',
         condicion_medica: member.condicionMedica || '',
-        ssn: `TMP-${fallbackPrefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+        // Generate a short SSN-like temporary string capped to 20 chars to satisfy backend max_length
+        ssn: (() => {
+          const raw = `TMP-${fallbackPrefix}-${Date.now().toString().slice(-6)}-${Math.random().toString(36).slice(2,6)}`;
+          return raw.slice(0, 20);
+        })()
       });
 
       // 1) Crear cliente principal
@@ -316,7 +363,11 @@ export default function NuevaPolizaWizard() {
         body: JSON.stringify(clientBody)
       });
 
-      if (!resCliente.ok) throw new Error('Error al crear el cliente principal');
+      if (!resCliente.ok) {
+        const txt = await resCliente.text();
+        console.error('Create client failed:', resCliente.status, txt, clientBody);
+        throw new Error('Error al crear el cliente principal: ' + txt);
+      }
       const clienteCreado = await resCliente.json();
 
       // 2) Crear dirección (vinculada a la póliza)
@@ -387,14 +438,14 @@ export default function NuevaPolizaWizard() {
 
       const polizaBody = {
         agente: formData.agenteId || null,
-        fecha_efectiva: formData.fechaEfectividad ? formatToMMDDYYYY(formData.fechaEfectividad) : null,
+        fecha_efectiva: formatToISO(formData.fechaEfectividad),
         id_mercado: `QUOTE-${Date.now()}`,
         id_miembro: 'Pendiente',
         plan: Number(formData.planId),
         costo_poliza: 0,
         subsidio: 0,
         prima_mensual: 0,
-        fecha_envio: formatToMMDDYYYY(new Date().toISOString()),
+        fecha_envio: formatToISO(new Date()),
         direccion_fisica: direccionCreada.id,
         clientes_data,
       };
