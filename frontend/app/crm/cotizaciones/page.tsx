@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
-import { API_BASE_URL, getCurrentToken } from '@/lib/api';
+import { API_BASE_URL, getCurrentToken, fetchWithAuth } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 
 export default function CotizacionesPage() {
@@ -17,9 +17,7 @@ export default function CotizacionesPage() {
       setLoading(true);
       try {
         const token = accessToken || getCurrentToken();
-        const res = await fetch(`${API_BASE_URL}/polizas/cotizaciones/`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const res = await fetchWithAuth(`${API_BASE_URL}/polizas/cotizaciones/`, { method: 'GET' });
         if (!res.ok) {
           const body = await res.text().catch(() => '');
           console.error('Cotizaciones fetch failed', res.status, body);

@@ -372,7 +372,7 @@ export default function PolizaDetailsPage() {
                 label="Nombre del Plan" 
                 value={<span className="text-lg text-blue-600">{poliza.plan_nombre}</span>} 
               />
-              <InfoRow label="Plan ID" value={poliza.plan.toString()} />
+              <InfoRow label="Plan ID" value={poliza.plan ? poliza.plan.toString() : 'N/A'} />
             </div>
           </CardContent>
         </Card>
@@ -387,7 +387,7 @@ export default function PolizaDetailsPage() {
           <CardContent>
             <div className="space-y-3">
               <InfoRow label="Nombre del Agente" value={poliza.agente_nombre} />
-              <InfoRow label="Agente ID" value={poliza.agente.toString()} />
+              <InfoRow label="Agente ID" value={poliza.agente ? poliza.agente.toString() : 'N/A'} />
             </div>
           </CardContent>
         </Card>

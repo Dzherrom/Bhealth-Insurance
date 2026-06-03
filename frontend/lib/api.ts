@@ -266,6 +266,32 @@ export const authApi = {
   },
 };
 
+// Fetch wrapper that injects auth headers and attempts a single token refresh on 401/403.
+export const fetchWithAuth = async (input: RequestInfo, init: RequestInit = {}, retry = true): Promise<Response> => {
+  const mergedHeaders: HeadersInit = {
+    ...(init.headers || {}),
+    ...getAuthHeaders(),
+  };
+
+  const response = await fetch(input, { ...init, headers: mergedHeaders });
+
+  if ((response.status === 401 || response.status === 403) && retry) {
+    try {
+      await authApi.refreshToken();
+      const retriedHeaders: HeadersInit = {
+        ...(init.headers || {}),
+        ...getAuthHeaders(),
+      };
+      return await fetch(input, { ...init, headers: retriedHeaders });
+    } catch (err) {
+      clearClientAuthStorage();
+      throw err;
+    }
+  }
+
+  return response;
+};
+
 // =============================================================================
 // 📋 FUNCIONES CRUD GENÉRICAS
 // =============================================================================
@@ -276,78 +302,69 @@ const createCrudApi = <T extends OptionalBaseEntity, TCreate = Omit<T, 'id'>, TU
 ) => ({
   // Listar todos los registros
   list: async (): Promise<T[]> => {
-    const response = await fetch(`${API_BASE_URL}/${endpoint}/`, {
-      method: 'GET',
-      headers: getAuthHeaders(),
-    });
+    const response = await fetchWithAuth(`${API_BASE_URL}/${endpoint}/`, { method: 'GET' });
     return handleApiResponse<T[]>(response);
   },
 
   // Obtener un registro por ID
   get: async (id: number): Promise<T> => {
-    const response = await fetch(`${API_BASE_URL}/${endpoint}/${id}/`, {
-      method: 'GET',
-      headers: getAuthHeaders(),
-    });
+    const response = await fetchWithAuth(`${API_BASE_URL}/${endpoint}/${id}/`, { method: 'GET' });
     return handleApiResponse<T>(response);
   },
 
   // Crear un nuevo registro
   create: async (data: TCreate): Promise<T> => {
-    const response = await fetch(`${API_BASE_URL}/${endpoint}/`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}/${endpoint}/`, {
       method: 'POST',
-      headers: getAuthHeaders(),
       body: JSON.stringify(data),
+      headers: { 'Content-Type': 'application/json' },
     });
     return handleApiResponse<T>(response);
   },
 
   // Crear con multipart/form-data
   createFormData: async (data: FormData): Promise<T> => {
-    const response = await fetch(`${API_BASE_URL}/${endpoint}/`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}/${endpoint}/`, {
       method: 'POST',
-      headers: getAuthHeadersWithoutContentType(),
       body: data,
+      headers: getAuthHeadersWithoutContentType(),
     });
     return handleApiResponse<T>(response);
   },
 
   // Actualizar un registro completo
   update: async (id: number, data: TCreate): Promise<T> => {
-    const response = await fetch(`${API_BASE_URL}/${endpoint}/${id}/`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}/${endpoint}/${id}/`, {
       method: 'PUT',
-      headers: getAuthHeaders(),
       body: JSON.stringify(data),
+      headers: { 'Content-Type': 'application/json' },
     });
     return handleApiResponse<T>(response);
   },
 
   // Actualizar parcialmente un registro
   patch: async (id: number, data: TUpdate): Promise<T> => {
-    const response = await fetch(`${API_BASE_URL}/${endpoint}/${id}/`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}/${endpoint}/${id}/`, {
       method: 'PATCH',
-      headers: getAuthHeaders(),
       body: JSON.stringify(data),
+      headers: { 'Content-Type': 'application/json' },
     });
     return handleApiResponse<T>(response);
   },
 
   // Actualizar parcialmente con multipart/form-data
   patchFormData: async (id: number, data: FormData): Promise<T> => {
-    const response = await fetch(`${API_BASE_URL}/${endpoint}/${id}/`, {
+    const response = await fetchWithAuth(`${API_BASE_URL}/${endpoint}/${id}/`, {
       method: 'PATCH',
-      headers: getAuthHeadersWithoutContentType(),
       body: data,
+      headers: getAuthHeadersWithoutContentType(),
     });
     return handleApiResponse<T>(response);
   },
 
   // Eliminar un registro
   delete: async (id: number): Promise<void> => {
-    const response = await fetch(`${API_BASE_URL}/${endpoint}/${id}/`, {
-      method: 'DELETE',
-      headers: getAuthHeaders(),
-    });
+    const response = await fetchWithAuth(`${API_BASE_URL}/${endpoint}/${id}/`, { method: 'DELETE' });
     return handleApiResponse<void>(response);
   },
 });
@@ -356,19 +373,13 @@ const createCrudApi = <T extends OptionalBaseEntity, TCreate = Omit<T, 'id'>, TU
 const createReadOnlyApi = <T extends OptionalBaseEntity>(endpoint: string) => ({
   // Listar todos los registros
   list: async (): Promise<T[]> => {
-    const response = await fetch(`${API_BASE_URL}/${endpoint}/`, {
-      method: 'GET',
-      headers: getAuthHeaders(),
-    });
+    const response = await fetchWithAuth(`${API_BASE_URL}/${endpoint}/`, { method: 'GET' });
     return handleApiResponse<T[]>(response);
   },
 
   // Obtener un registro por ID
   get: async (id: number): Promise<T> => {
-    const response = await fetch(`${API_BASE_URL}/${endpoint}/${id}/`, {
-      method: 'GET',
-      headers: getAuthHeaders(),
-    });
+    const response = await fetchWithAuth(`${API_BASE_URL}/${endpoint}/${id}/`, { method: 'GET' });
     return handleApiResponse<T>(response);
   },
 });
