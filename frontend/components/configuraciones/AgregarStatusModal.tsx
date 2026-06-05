@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,8 @@ import { StatusPoliza } from './statusTypes';
 interface AgregarStatusModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (status: Omit<StatusPoliza, 'id'>) => void;
+  onSave: (status: StatusPoliza | Omit<StatusPoliza, 'id'>) => void;
+  statusToEdit?: StatusPoliza | null;
 }
 
 // Colores predefinidos para el selector
@@ -33,13 +34,30 @@ const coloresDisponibles = [
 export function AgregarStatusModal({ 
   isOpen, 
   onClose, 
-  onSave 
+  onSave,
+  statusToEdit
 }: AgregarStatusModalProps) {
   const [formData, setFormData] = useState({
     titulo: '',
     color: '#3b82f6',
     habilitadoParaAgentes: false
   });
+
+  useEffect(() => {
+    if (statusToEdit) {
+      setFormData({
+        titulo: statusToEdit.titulo,
+        color: statusToEdit.color,
+        habilitadoParaAgentes: statusToEdit.habilitadoParaAgentes
+      });
+    } else {
+      setFormData({
+        titulo: '',
+        color: '#3b82f6',
+        habilitadoParaAgentes: false
+      });
+    }
+  }, [statusToEdit, isOpen]);
 
   const [errors, setErrors] = useState({
     titulo: false,
@@ -62,12 +80,15 @@ export function AgregarStatusModal({
       return;
     }
 
-    // Crear el nuevo status
-    onSave({
-      titulo: formData.titulo.trim(),
-      color: formData.color,
-      habilitadoParaAgentes: formData.habilitadoParaAgentes
-    });
+    // Crear o actualizar el status
+    if (statusToEdit) {
+      onSave({
+        ...statusToEdit,
+        ...formData
+      });
+    } else {
+      onSave(formData);
+    }
 
     // Limpiar formulario y cerrar
     handleClose();
@@ -110,9 +131,7 @@ export function AgregarStatusModal({
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-lg font-semibold">
-            Agregar estatus de Póliza
-          </DialogTitle>
+          <DialogTitle>{statusToEdit ? 'Editar Estatus' : 'Crear Nuevo Estatus'}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">

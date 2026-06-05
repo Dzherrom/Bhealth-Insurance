@@ -6,7 +6,7 @@ import SidebarCRM from "@/components/sidebar/sidebarCRM";
 import CRMNotificationButton from "@/components/configuraciones/CRMNotificationButton";
 import { CatalogoProvider } from "@/components/providers";
 import { useAuthStore } from "@/store/authStore";
-import { setupTokenInterceptor } from "@/lib/api";
+// import { setupTokenInterceptor } from "@/lib/api";
 import { useRouter, usePathname } from "next/navigation";
 
 interface CRMLayoutProps {
@@ -20,7 +20,7 @@ export default function CRMLayout({ children }: CRMLayoutProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
-    setupTokenInterceptor();
+    // setupTokenInterceptor();
   }, []);
 
   // No mostrar sidebar en la página principal de CRM (login)

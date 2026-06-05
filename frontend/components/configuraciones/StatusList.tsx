@@ -37,6 +37,7 @@ export function StatusList() {
   });
   const [activeTab, setActiveTab] = useState<'poliza' | 'copago'>('poliza');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingStatus, setEditingStatus] = useState<StatusPoliza | null>(null);
 
   // Filtrar los status basado en la búsqueda
   const filteredStatus = useMemo(() => {
@@ -68,6 +69,21 @@ export function StatusList() {
     setIsModalOpen(false);
   };
 
+  const handleEditStatus = (status: StatusPoliza) => {
+    setEditingStatus(status);
+    setIsModalOpen(true);
+  };
+
+  const handleUpdateStatus = (updatedStatus: StatusPoliza) => {
+    setStatusList(statusList.map(s => s.id === updatedStatus.id ? updatedStatus : s));
+    setEditingStatus(null);
+    setIsModalOpen(false);
+  };
+
+  const handleDeleteStatus = (id: number) => {
+    setStatusList(statusList.filter(s => s.id !== id));
+  };
+
   return (
     <div className="space-y-6">
       {/* Header con título y botones */}
@@ -83,22 +99,6 @@ export function StatusList() {
           >
             <Plus className="w-4 h-4 mr-2" />
             Crear
-          </Button>
-          
-          <Button 
-            onClick={() => setActiveTab('poliza')}
-            variant={activeTab === 'poliza' ? 'default' : 'outline'}
-            className={activeTab === 'poliza' ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'border-blue-600 text-blue-600 hover:bg-blue-50'}
-          >
-            Estado de Poliza
-          </Button>
-          
-          <Button 
-            onClick={() => setActiveTab('copago')}
-            variant={activeTab === 'copago' ? 'default' : 'outline'}
-            className={activeTab === 'copago' ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'border-blue-600 text-blue-600 hover:bg-blue-50'}
-          >
-            Estado de Copago
           </Button>
         </div>
       </div>
@@ -160,14 +160,9 @@ export function StatusList() {
                   </div>
                 </td>
                 
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="text-blue-600 border-blue-600 hover:bg-blue-50"
-                  >
-                    Acciones
-                  </Button>
+                <td className="px-5 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <Button variant="ghost" size="sm" onClick={() => handleEditStatus(status)}>Editar</Button>
+                  <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleDeleteStatus(status.id)}>Eliminar</Button>
                 </td>
               </tr>
             ))}
@@ -178,8 +173,12 @@ export function StatusList() {
       {/* Modal para agregar status */}
       <AgregarStatusModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSave={handleSaveStatus}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingStatus(null);
+        }}
+        onSave={editingStatus ? handleUpdateStatus : handleSaveStatus}
+        statusToEdit={editingStatus}
       />
     </div>
   );

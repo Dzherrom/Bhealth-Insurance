@@ -277,27 +277,72 @@ export const authApi = {
   },
 };
 
-// Fetch wrapper that injects auth headers and attempts a single token refresh on 401/403.
-export const fetchWithAuth = async (input: RequestInfo, init: RequestInit = {}, retry = true): Promise<Response> => {
-  const mergedHeaders: HeadersInit = {
-    ...(init.headers || {}),
-    ...getAuthHeaders(),
-  };
+let isRefreshing = false;
+let failedQueue: any[] = [];
 
-  const response = await fetch(input, { ...init, headers: mergedHeaders });
-
-  if ((response.status === 401 || response.status === 403) && retry) {
-    try {
-      await authApi.refreshToken();
-      const retriedHeaders: HeadersInit = {
-        ...(init.headers || {}),
-        ...getAuthHeaders(),
-      };
-      return await fetch(input, { ...init, headers: retriedHeaders });
-    } catch (err) {
-      clearClientAuthStorage();
-      throw err;
+const processQueue = (error: any, token = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
     }
+  });
+  failedQueue = [];
+};
+
+// Fetch wrapper that injects auth headers and attempts a single token refresh on 401/403.
+export const fetchWithAuth = async (input: RequestInfo, init: RequestInit = {}): Promise<Response> => {
+  // Don't intercept refresh token requests
+  if (typeof input === 'string' && input.includes('/login/refresh')) {
+    return fetch(input, init);
+  }
+
+  const token = getAuthToken();
+  const headers = new Headers(init.headers);
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  const response = await fetch(input, { ...init, headers });
+
+  if (response.status === 401) {
+    if (isRefreshing) {
+      return new Promise((resolve, reject) => {
+        failedQueue.push({ resolve, reject });
+      })
+      .then(newToken => {
+        const newHeaders = new Headers(init.headers);
+        newHeaders.set('Authorization', `Bearer ${newToken}`);
+        return fetch(input, { ...init, headers: newHeaders });
+      })
+      .catch(err => {
+        return Promise.reject(err);
+      });
+    }
+
+    isRefreshing = true;
+
+    return new Promise((resolve, reject) => {
+      authApi.refreshToken()
+        .then(res => {
+          const newHeaders = new Headers(init.headers);
+          newHeaders.set('Authorization', `Bearer ${res.access}`);
+          processQueue(null, res.access);
+          resolve(fetch(input, { ...init, headers: newHeaders }));
+        })
+        .catch(err => {
+          processQueue(err, null);
+          clearClientAuthStorage();
+          if (typeof window !== 'undefined') {
+            window.location.href = '/auth/login';
+          }
+          reject(err);
+        })
+        .finally(() => {
+          isRefreshing = false;
+        });
+    });
   }
 
   return response;
