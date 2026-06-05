@@ -69,9 +69,32 @@ A continuaciÃ³n se listan todas las pÃ¡ginas compiladas por Next.js a las que pu
 - **ConexiÃ³n Local vs Render:** En el archivo `frontend/lib/api.ts` y en el Dashboard tenÃ­as quemada la URL de producciÃ³n de Render (`bhealth-insurance.onrender...`). Esto lo modificamos para que en tu entorno local utilice dinÃ¡micamente tu `127.0.0.1:8000/api` mediante un fallback. 
 
 
-## Componentes y Páginas Interactivas Añadidas
-- **\/crm/configuraciones\**: Se activó el panel de ajustes con sub-secciones para Agencia, Notificaciones, Usuarios Facturados y Etiquetas, conectados mediante \/api/agencias/\ y sus correspondientes endpoints.
-- **Detalle de Póliza (\/crm/polizas/[id]\)**: 
-  - **NotasPoliza**: Módulo 100% dinámico con peticiones a la API para agregar, editar y eliminar notas asociadas a la póliza actual.
-  - **DocumentosPoliza**: Ahora provee una vista de 'directorios' que clasifica dinámicamente según categorías de documentos (Consentimiento, ID, Médico) permitiendo subida de archivos real.
-  - **RecordatoriosPoliza**: Reflejando avisos dinámicos en lista asociados a la tabla del backend.
+## Componentes y Pï¿½ginas Interactivas Aï¿½adidas
+- **\/crm/configuraciones\**: Se activï¿½ el panel de ajustes con sub-secciones para Agencia, Notificaciones, Usuarios Facturados y Etiquetas, conectados mediante \/api/agencias/\ y sus correspondientes endpoints.
+- **Detalle de Pï¿½liza (\/crm/polizas/[id]\)**: 
+  - **NotasPoliza**: Mï¿½dulo 100% dinï¿½mico con peticiones a la API para agregar, editar y eliminar notas asociadas a la pï¿½liza actual.
+  - **DocumentosPoliza**: Ahora provee una vista de 'directorios' que clasifica dinï¿½micamente segï¿½n categorï¿½as de documentos (Consentimiento, ID, Mï¿½dico) permitiendo subida de archivos real.
+  - **RecordatoriosPoliza**: Reflejando avisos dinï¿½micos en lista asociados a la tabla del backend.
+
+1. Necesito eliminar el boton de cerrar sesion de la parte inferior izquierda en el sidebar del CRM. 
+
+2. Quiero que los checkboxes de la pagina de polizas esten desmarcados al acceder y que se guarde cual esta marcado en la configuracion de la cuenta. De modo que si el usuario nelson tiene marcado solo 2026, cuando cierre sesion y vuelva a abrir la app este marcado solo 2026 con los ultimos filtros que uso. 
+
+3. Necesito que la pagina de usuarios solo sea visible para los usuarios con el rol MANAGER y ADMIN. 
+
+4. el slidebar del CRM tiene una animacion de relleno en los iconos. Me gustaria eliminar esa animacion de relleno ya que se rellena por completo y muchos iconos pierden el sentido porque no se ve nada. Solo asegurate de que ser mantenga el sombreado leve al tener el cursor encima. 
+
+5. Necesito crear los tipos de producto en el sistema para crear una poliza, agregar un tipo de producto al moidelo de las polizas y verificar que sea obligatorio, las polizas no pueden crearse sin tipo de producto y este dicta los planes . 
+Tipos de producto: 
+5.1 Medicare: seguro de salud del gobierno para personas mayores de 55 aÃ±os con ciertas discapacidades. 
+5.2 Medicaid: Programa estatal y federal que ofrece cobertura medica a personas y familias de bajos ingresos.
+5.3 Health insurance (ACA): Planes del mercado bajo la ley del cuidado de salud asequible con beneficios esenciales y subsidios. 
+5.4 Life insurancec: Proteccion financiera para sus seres queridos en caso de fallecimiento.
+5.5 Private: Planes de salud ofrecidos fuera de programas gubernamentales con opciones de cobertura personalizadas.
+5.6 Dental: Cobertura para limpiezas, tratamientos basicos y servicios dentales mayores. 
+5.7 Vision: Seguro que cubre examenes de la vista, anteojos, lentes de contacto y mas. 
+5.8 Suplemental: Seguro adicional que paga beneficios por eventos especificos como accidentes, enfermedades graves u hospitalizaciones. 
+5.9 Annuities: Productos financieros que brindan ingresos garantizados generalmente para la jubilacion.
+5.10 Final expense: Seguro de vida accesible para cubrir gastos funerarios y de fin de vida. 
+5.11 Travel: Cobertura para emergencias medicas cancelaciones y problemas durante tus viajes. 
+5.12 Property & Casualty (P&C): Proteccion para tus bienes y riesgo de responsabilidad incluyendo seguros de hogar y auto. 

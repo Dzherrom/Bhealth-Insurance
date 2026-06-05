@@ -104,7 +104,36 @@ Cualquier instancia de producciÃ³n requiere las siguientes variables:
 3. Empuja los cambios al branch (`git push origin feature/NuevaCaracteristica`).
 4. Abre un Pull Request contra la rama `dev`.
 
-## Últimas Actualizaciones (Rama Dev)
-- **Notas y Recordatorios de Póliza:** Integración CRUD bidireccional, permitiendo edición en vivo en la página de Detalles.
-- **Directorio de Documentos Dinámico:** Soporte multiformato clasificado por categorías ('CARTA_MERCADO', 'ASEGURANZA', etc.) para subida de achivos (multipart/form-data).
-- **Módulo de Configuraciones de Agencia:** Endpoints y vistas acopladas para configurar variables globales como: Título de Portal, Notificaciones del Sistema y Usuarios Facturados.
+## ï¿½ltimas Actualizaciones (Rama Dev)
+- **Notas y Recordatorios de Pï¿½liza:** Integraciï¿½n CRUD bidireccional, permitiendo ediciï¿½n en vivo en la pï¿½gina de Detalles.
+- **Directorio de Documentos Dinï¿½mico:** Soporte multiformato clasificado por categorï¿½as ('CARTA_MERCADO', 'ASEGURANZA', etc.) para subida de achivos (multipart/form-data).
+- **Mï¿½dulo de Configuraciones de Agencia:** Endpoints y vistas acopladas para configurar variables globales como: Tï¿½tulo de Portal, Notificaciones del Sistema y Usuarios Facturados.
+
+Necesito que 
+1. corrijas el registro de poliza:
+1.1 Informacion de poliza: Se selecciona el tipo de producto, no el plan. Entre los tipos de producto existen medicare, medicaid, health insurance (ACA), life insurance, private, dental, vision, suplemental, annulities, final expense, travel, property & casualty (P&C). Modifica las polizas para que guarden un tipo de producto. En este apartado manten la fecha de efectividad y el agente registrado para este cliente. 
+1.2 Informacion personal, esta correcto como esta.
+1.3 Grupo Familiar, esta correcto como esta. 
+1.4 Direccion: En este apartado se guarda la direccion FISICA. La unica obligatoria para registrar una poliza. He probado el apartado de condado segun el codigo postal y funciona de maravilla. 
+
+2. Verifica que la poliza se cree correctamente desde este apartado y que siempre se cree una poliza con el estatus de poliza QUOTE, para que quede guardada en el apartado de crm/cotizaciones. En el apartado de crm/polizas no se deben mostrar las polizas que tengan el estado de poliza QUOTE. 
+
+3. Verifica que los agentes asignados a una poliza siempre reciban una notificacion al realizarsele cualquier cambio a dicha poliza. 
+
+4. Remueve el apartado de tareas, ya que este no se usa realmente en el sistema original. 
+
+5. En la pagina de detalles de poliza hay un formulario para seleccionar el plan. Este formulario incluye: INFORMACION DE LA COBERTURA: Tipo de producto, aseguradora, nombre del plan (string), Fecha de efectividad (obligatorio), fecha de cancelacion, metal, ID del mercado, ID de miembro, ID del plan CMS, costo de la poliza, credito fiscal/subsidio, prima (pago mensual). INFORMACION DE LA POLIZA: Tipo de venta, FFM usado en el mercado ,NPN usado en el mercado, fecha de inscripcion periodo especial, razon isncripcion periodo especial. 
+
+6. Agrega otra casilla string que sera detalles de poliza. 
+
+7. Verifica que exista en esta pagina de detalles de poliza un apartado de EVENTO DE VIDA, donde se registrara cualquier solicitud de cambio de informacion de parte del cliente. Esta solicitud se guarda como "en proceso" y se puede marcar como completada para que tenga dicho estado. Los cambios de vida son: Nueva direccion (formulario de direccion), Cambio en los ingresos (Formulario: para quien es el cambio de ingresos (seleccionar un miembro de la poliza), Empleador y campo check de si trabaja por cuenta propia, telefono del empleador, cargo/ocupacion, ingresos anuales), cambio en estado migratorio(Formulario: para quien es el cambio y estatus migratorio), nuevo miembro en la familia(El mismo formulario para agregar conyuge o dependiente.), embarazo (Seleccionar el miembro de la familia embarazado), fallecido(Seleccionar el miembro fallecido y un apartado de notas), otros cambios(Campo string). Tambien verifica que exista un log de cambios de vida donde se muestre una lista de cambios realizados, a estos cambios realizados se les puede dar click y se desplegara la informacion editada y una comparacion antes y despues de los datos en texto. 
+
+8. Los estatus de documento son Pendiente, procesado, rechazado, completado, expirado. 
+
+9. Los estados de pago son Pendiente, pago automatico, fallido, pagado, no aplicable. 
+
+10. Crea un boton en el header del dashboard que muesestre tres columnas, una con informacion del portal del usuario registrado, otra que diga HealthCare.gov. Con botones de iniciar sesion, pagina de inicio, para agentes y corredores, informacion fiscal y como pagar tu prima. Estos botones deben redirigir a cada uno de estos apartados en la pagina de healthcare.gov. 
+
+11. Crea un apartado de medico principal y otro de medicamentos necesarios en las polizas y en la base de datos. 
+
+12. Realiza todos los cambios necesarios para completar la implementacion de cada una de estas tareas y luego verifica la funcionalidad de cada una de ellas de modo que funcionen sin errores para el empleado. 

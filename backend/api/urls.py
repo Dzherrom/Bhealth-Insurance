@@ -25,6 +25,7 @@ from .views import (
 )
 from .views_consent import ConsentRequestViewSet
 from .views_flat_files import FlatPolicyImportView, FlatPolicyExportView
+from .views_tipos_producto import TipoProductoViewSet
 
 router = DefaultRouter()
 router.register(r'users', UserManagementViewSet)
@@ -33,6 +34,7 @@ router.register(r'direcciones', DireccionViewSet)
 router.register(r'agentes', AgenteViewSet)
 router.register(r'clientes', ClienteViewSet)
 router.register(r'aseguradoras', AseguradoraViewSet)
+router.register(r'tipos-producto', TipoProductoViewSet)
 router.register(r'planes', PlanViewSet)
 router.register(r'estados-poliza', EstadoPolizaViewSet)
 router.register(r'polizas', PolizaViewSet, basename='poliza')

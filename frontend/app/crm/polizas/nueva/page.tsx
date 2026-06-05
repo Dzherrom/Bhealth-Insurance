@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { getCurrentToken, API_BASE_URL } from '@/lib/api';
 import { ArrowLeft, Plus, ChevronRight, Trash2 } from 'lucide-react';
+import { ProductSelection } from '@/components/polizas/ProductSelection';
 
 interface FamilyMember {
   primerNombre: string;
@@ -36,6 +37,7 @@ export default function NuevaPolizaWizard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
   const [agentes, setAgentes] = useState<any[]>([]);
   const [planes, setPlanes] = useState<PlanCard[]>([]);
   const [conyuge, setConyuge] = useState<FamilyMember | null>(null);
@@ -66,6 +68,11 @@ export default function NuevaPolizaWizard() {
         console.error('ZIP lookup error', err);
       }
     }
+  };
+
+  const handleProductSelect = (productId: number) => {
+    setSelectedProductId(productId);
+    // Aquí puedes añadir lógica para filtrar planes basados en el producto seleccionado
   };
 
   // Form State
@@ -526,25 +533,10 @@ export default function NuevaPolizaWizard() {
 
               <div className="flex flex-col gap-[8px]">
                 <label className="text-[13px] font-semibold text-[#334155]">Selecciona un Producto para Cotizar *</label>
-                {planes.length === 0 ? (
-                  <div className="text-[#64748b] text-sm">Cargando productos o sin planes disponibles.</div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-[16px]">
-                    {planes.map(plan => (
-                      <button
-                        key={plan.id}
-                        type="button"
-                        onClick={() => setFormData(prev => ({ ...prev, planId: String(plan.id), planName: plan.nombre }))}
-                        className={`text-left border p-[16px] rounded-[12px] transition-all min-h-[80px] ${formData.planId === String(plan.id)
-                          ? 'border-[#4f46e5] bg-[#eef2ff] text-[#4f46e5] shadow-sm ring-1 ring-[#4f46e5]'
-                          : 'border-[#cbd5e1] bg-white text-[#475569] hover:border-[#94a3b8] hover:bg-[#f8fafc]'}`}
-                      >
-                        <div className="font-bold text-[14px]">{plan.nombre}</div>
-                        {plan.aseguradora_nombre && <div className="text-[12px] text-[#64748b] mt-[6px]">{plan.aseguradora_nombre}</div>}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                <ProductSelection
+                  onSelect={handleProductSelect}
+                  selectedProductId={selectedProductId}
+                />
               </div>
 
               <div className="pt-4 flex justify-end">

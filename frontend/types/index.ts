@@ -15,3 +15,14 @@ export * from './polizas';
 
 // Agencias, agentes y tareas
 export * from './agencias';
+
+export interface TareaUpdate extends Partial<TareaCreate> {}
+
+export interface TipoProducto extends BaseEntity {
+  nombre: string;
+  descripcion: string;
+}
+
+export interface MisTareasResponse {
+  tareas: Tarea[];
+}

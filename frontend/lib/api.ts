@@ -30,6 +30,7 @@ import {
   Tarea,
   TareaCreate,
   TareaUpdate,
+  TipoProducto,
   MisTareasResponse,
   BaseEntity,
   OptionalBaseEntity
@@ -664,7 +665,10 @@ export const documentosApi = createCrudApi<Documento>('documentos');
 // 📅 Citas
 export const citasApi = createCrudApi<Cita>('citas');
 
-// 💳 Pagos
+// � Tipos de Producto
+export const tiposProductoApi = createCrudApi<TipoProducto>('tipos-producto');
+
+// �💳 Pagos
 export const tarjetasCreditoApi = createCrudApi<any>('tarjetas_credito');
 export const cuentasBancariasApi = createCrudApi<any>('cuentas_bancarias');
 export const infoPagoApi = createCrudApi<any>('info_pago');
@@ -779,6 +783,8 @@ export const api = {
   historial: historialApi,
   etiquetas: etiquetasApi,
   documentos: documentosApi,
+  tiposProducto: tiposProductoApi,
+  recordatorios: recordatoriosApi
 };
 
 export default api;

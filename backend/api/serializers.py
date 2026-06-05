@@ -5,7 +5,7 @@ from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
     EstadoPoliza, Poliza, PolizaCliente, Licencia, Nota, HistorialPoliza,
     NotaAdjunto,
-    Etiqueta, Documento, Tarea, UserProfile,
+    Etiqueta, Documento, Tarea, UserProfile, TipoProducto,
     InfoPago, TarjetaCredito, CuentaBancaria, PolizaViewer, Cita, Medico, Medicamento, Recordatorio,
     Contrato, ReporteComision, ConfiguracionComision, Notificacion, PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal, ConfiguracionNotificacion
 )
@@ -718,6 +718,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 class ConfiguracionNotificacionSerializer(serializers.ModelSerializer):
     class Meta:
         model = ConfiguracionNotificacion
+        fields = '__all__'
+
+class TipoProductoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TipoProducto
         fields = '__all__'
 
 

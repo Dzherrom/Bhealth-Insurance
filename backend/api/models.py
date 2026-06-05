@@ -132,10 +132,18 @@ class Aseguradora(models.Model):
     def __str__(self):
         return self.nombre
 
+class TipoProducto(models.Model):
+    nombre = models.CharField(max_length=100, unique=True, verbose_name="Nombre del Producto")
+    descripcion = models.TextField(verbose_name="Descripción")
+
+    def __str__(self):
+        return self.nombre
+
 class Plan(models.Model):
     id_plan_aseguradora = models.CharField(max_length=100, verbose_name="ID Plan Aseguradora")
     nombre = models.CharField(max_length=255, verbose_name="Nombre Plan")
     aseguradora = models.ForeignKey(Aseguradora, on_delete=models.CASCADE, related_name='planes')
+    tipo_producto = models.ForeignKey(TipoProducto, on_delete=models.PROTECT, related_name='planes')
 
     def __str__(self):
         return self.nombre
@@ -198,6 +206,7 @@ class Poliza(models.Model):
     ultima_actualizacion = models.DateTimeField(auto_now=True, verbose_name="Última Actualización")
     es_duplicado = models.BooleanField(default=False, verbose_name="Es Duplicado")
     ultimo_duplicado = models.CharField(max_length=100, blank=True, null=True, verbose_name="Último Duplicado")
+    tipo_producto = models.ForeignKey(TipoProducto, on_delete=models.PROTECT, related_name='polizas')
     
     ffm_mercado = models.CharField(max_length=100, blank=True, null=True, verbose_name="FFM Usado en Mercado")
     npn_mercado = models.CharField(max_length=50, blank=True, null=True, verbose_name="NPN Mercado")
