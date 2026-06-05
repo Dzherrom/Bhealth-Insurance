@@ -63,6 +63,28 @@ class IsCitasRole(permissions.BasePermission):
         return normalize_role(request.user.profile.role) in ['ADMIN', 'MANAGER', 'CITAS']
 
 
+class IsAdminOrManagerRole(permissions.BasePermission):
+    """
+    Allows access only to users with ADMIN or MANAGER roles.
+    """
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        # Superusers are implicitly admins
+        if request.user.is_superuser:
+            return True
+        
+        # Check profile role
+        try:
+            if hasattr(request.user, 'profile'):
+                return request.user.profile.role.upper() in ['ADMIN', 'MANAGER']
+        except Exception:
+            # In case profile somehow does not exist
+            return False
+
+        return False
+
 class IsCRMNonBasicRole(permissions.BasePermission):
     """Permite acceso a roles CRM excepto USER (usuario básico)."""
 

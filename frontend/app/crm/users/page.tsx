@@ -27,6 +27,8 @@ import { Users, UserCheck, UserX, Clock } from 'lucide-react';
 
 const PAGE_SIZE = 25;
 
+const ROLES_ALLOWED: string[] = ['ADMIN', 'MANAGER'];
+
 interface ApiUserProfile {
   role?: string;
   status?: string;
@@ -136,7 +138,8 @@ const mapApiUserToUIUser = (apiUser: ApiUser): User => {
 export default function UsersPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const currentUserRole = useAuthStore((state) => state.role);
+  const { user: currentUser } = useAuthStore();
+
   const [apiUsers, setApiUsers] = useState<ApiUser[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -170,6 +173,12 @@ export default function UsersPage() {
     role: 'USER',
     status: 'ACTIVE',
   });
+
+  useEffect(() => {
+    if (currentUser && currentUser.profile && !ROLES_ALLOWED.includes(currentUser.profile.role)) {
+      router.push('/crm/dashboard');
+    }
+  }, [currentUser, router]);
 
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);

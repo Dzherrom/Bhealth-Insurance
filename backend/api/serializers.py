@@ -74,7 +74,7 @@ class UserSerializer(serializers.ModelSerializer):
 class ProfileDataSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
-        fields = ('role', 'status', 'avatar', 'telefono', 'agente')
+        fields = ('role', 'status', 'avatar', 'telefono', 'agente', 'settings')
 
 class UserManagementSerializer(serializers.ModelSerializer):
     profile = ProfileDataSerializer()

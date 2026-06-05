@@ -2,6 +2,7 @@
 import { usePathname, useRouter } from 'next/navigation';
 import { useSidebar } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/store/authStore';
 import {
   Home,
   Users,
@@ -69,6 +70,7 @@ const navGroups: SidebarGroup[] = [
 
 const SidebarCRM = ({ onItemClick, onLogout, isLoggingOut = false }: SidebarCRMProps) => {
   const { state, toggleSidebar, setOpen } = useSidebar();
+  const { role } = useAuthStore();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const pathname = usePathname();
 
@@ -84,6 +86,16 @@ const SidebarCRM = ({ onItemClick, onLogout, isLoggingOut = false }: SidebarCRMP
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
+
+  const filteredNavGroups = navGroups.map(group => ({
+    ...group,
+    items: group.items.filter(item => {
+      if (item.href === '/crm/users') {
+        return role === 'ADMIN' || role === 'MANAGER';
+      }
+      return true;
+    })
+  })).filter(group => group.items.length > 0);
 
   return (
     <aside
@@ -153,7 +165,7 @@ const SidebarCRM = ({ onItemClick, onLogout, isLoggingOut = false }: SidebarCRMP
 
       {/* Content */}
       <div className="flex-grow p-[10px_6px] overflow-y-auto">
-        {navGroups.map((group, idx) => (
+        {filteredNavGroups.map((group, idx) => (
           <div key={idx} className={cn("mb-[12px]", isCollapsed ? "mb-[4px] pb-[4px] border-b border-[#f3f4f6] last:border-b-0" : "")}>
             {!isCollapsed && (
               <div className="text-[9.5px] text-[#9ca3af] uppercase tracking-[0.5px] mb-[6px] pl-[8px] font-semibold">
@@ -173,7 +185,7 @@ const SidebarCRM = ({ onItemClick, onLogout, isLoggingOut = false }: SidebarCRMP
                         isCollapsed ? "justify-center" : ""
                       )}
                     >
-                      <item.icon className={cn("w-4 h-4 transition-all duration-300", item.colorClass, "group-hover:fill-current group-hover:drop-shadow-[0_0_8px_currentColor]")} />
+                      <item.icon className={cn("w-4 h-4 transition-all duration-300", item.colorClass, "group-hover:drop-shadow-[0_0_8px_currentColor]")} />
                       {!isCollapsed && <span>{item.label}</span>}
                     </button>
                   </li>
@@ -186,20 +198,6 @@ const SidebarCRM = ({ onItemClick, onLogout, isLoggingOut = false }: SidebarCRMP
 
       {/* Footer */}
       <div className="p-[10px_6px] border-t border-[#f3f4f6] text-center">
-        <button
-          onClick={onLogout}
-          disabled={isLoggingOut}
-          className={cn(
-            "w-full flex items-center gap-[8px] py-[6px] px-[8px] rounded-[6px] text-[12px] font-medium transition-all duration-150",
-            "text-[#dc2626] hover:bg-[#fef2f2] hover:text-[#b91c1c] disabled:opacity-60 disabled:cursor-not-allowed",
-            isCollapsed ? "justify-center" : "justify-start"
-          )}
-          title={isLoggingOut ? 'Cerrando sesión...' : 'Cerrar sesión'}
-        >
-          <LogOut className="w-4 h-4" />
-          {!isCollapsed && <span>{isLoggingOut ? 'Cerrando...' : 'Cerrar sesión'}</span>}
-        </button>
-
         {!isCollapsed && <div className="text-[10px] text-[#9ca3af]">BHealth v1.0</div>}
       </div>
     </aside>

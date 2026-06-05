@@ -42,9 +42,13 @@ export interface AuthState {
   refreshAccessToken: () => Promise<void>;
   getProfile: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
+  updateSettings: (settings: any) => Promise<void>;
+  updateSelectedYears: (years: string[]) => void;
   setError: (error: string | null) => void;
   clearError: () => void;
 }
+
+let settingsUpdateTimeout: NodeJS.Timeout;
 
 export const useAuthStore = create<AuthState>()(
   devtools(
@@ -83,6 +87,18 @@ export const useAuthStore = create<AuthState>()(
               isAuthenticated: false,
             });
             throw error;
+          }
+        },
+
+        // Obtener perfil del usuario
+        getProfile: async () => {
+          set({ isLoading: true, error: null });
+          try {
+            const profileData = await authApi.getProfile();
+            set({ user: profileData, isLoading: false });
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Error al obtener el perfil';
+            set({ error: errorMessage, isLoading: false });
           }
         },
 
@@ -147,25 +163,6 @@ export const useAuthStore = create<AuthState>()(
           }
         },
 
-        // Obtener perfil del usuario
-        getProfile: async () => {
-          set({ isLoading: true, error: null });
-          try {
-            const user = await authApi.getProfile();
-            set({
-              user,
-              isLoading: false,
-            });
-          } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Error al obtener perfil';
-            set({
-              error: errorMessage,
-              isLoading: false,
-            });
-            throw error;
-          }
-        },
-
         // Actualizar perfil del usuario
         updateProfile: async (data: Partial<User>) => {
           set({ isLoading: true, error: null });
@@ -183,6 +180,40 @@ export const useAuthStore = create<AuthState>()(
             });
             throw error;
           }
+        },
+
+        // Actualizar solo los settings
+        updateSettings: async (settings: any) => {
+          set({ isLoading: true, error: null });
+          try {
+            const updatedUser = await authApi.updateSettings(settings);
+            set({ user: updatedUser, isLoading: false });
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Error al guardar la configuración';
+            set({ error: errorMessage, isLoading: false });
+          }
+        },
+
+        updateSelectedYears: (years: string[]) => {
+          // Optimistic update
+          set(state => ({
+            user: state.user ? {
+              ...state.user,
+              profile: {
+                ...(state.user.profile!),
+                settings: {
+                  ...state.user.profile?.settings,
+                  selectedYears: years,
+                }
+              }
+            } : null
+          }));
+
+          // Debounced backend update
+          clearTimeout(settingsUpdateTimeout);
+          settingsUpdateTimeout = setTimeout(() => {
+            get().updateSettings({ selectedYears: years });
+          }, 500);
         },
 
         // Manejo de errores

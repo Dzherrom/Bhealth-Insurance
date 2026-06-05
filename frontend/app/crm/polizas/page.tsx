@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { usePolizaStore } from '@/store/polizaStore';
 import { Poliza, PolizaFilters } from '@/components/polizas/types';
 import { CrearPolizaModal } from '@/components/polizas/formularios/CrearPolizaModal';
+import { useAuthStore } from '@/store/authStore';
 
 import {
   Search,
@@ -25,6 +26,7 @@ import {
 
 export default function PolizasPage() {
   const router = useRouter();
+  const { user, updateSelectedYears } = useAuthStore();
   const {
     polizas: polizasData,
     isLoading,
@@ -35,6 +37,8 @@ export default function PolizasPage() {
     setPage,
   } = usePolizaStore();
   
+  const selectedYears = user?.profile?.settings?.selectedYears || [];
+
   const [filters, setFilters] = useState<PolizaFilters>({
     search: '', status: 'all', plan: 'all', agente: 'all', user: 'all',
     groupOfUsers: 'all', assignedTo: 'all', role: 'all', referredByAgency: 'all',
@@ -46,8 +50,8 @@ export default function PolizasPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   useEffect(() => {
-    fetchPolizas();
-  }, [fetchPolizas, page, pageSize]);
+    fetchPolizas({ effective_years: selectedYears });
+  }, [fetchPolizas, page, pageSize, selectedYears]);
 
   useEffect(() => {
     const handleClickOutside = () => setOpenDropdownId(null);
@@ -83,13 +87,20 @@ export default function PolizasPage() {
   };
 
   const handleRefresh = async () => {
-    await fetchPolizas();
+    await fetchPolizas({ effective_years: selectedYears });
   };
 
   const handleExport = () => {
     router.push('/crm/polizas/export');
   };
   
+  const handleYearChange = (year: string) => {
+    const newYears = selectedYears.includes(year)
+      ? selectedYears.filter(y => y !== year)
+      : [...selectedYears, year];
+    updateSelectedYears(newYears);
+  };
+
   const toggleDropdown = (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
     setOpenDropdownId(prev => prev === id ? null : id);
@@ -150,8 +161,16 @@ export default function PolizasPage() {
           <div className="flex justify-end w-full">
             <div className="flex items-center gap-[14px] text-[13px] font-medium text-[#0f172a]">
               <span className="text-[#64748b] font-semibold">Año de vigencia</span>
-              <label className="flex items-center gap-[5px] cursor-pointer"><input type="checkbox" defaultChecked /> 2024</label>
-              <label className="flex items-center gap-[5px] cursor-pointer"><input type="checkbox" defaultChecked /> 2025</label>
+              {['2024', '2025', '2026'].map(year => (
+                <label key={year} className="flex items-center gap-[5px] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedYears.includes(year)}
+                    onChange={() => handleYearChange(year)}
+                  />
+                  {year}
+                </label>
+              ))}
             </div>
           </div>
           

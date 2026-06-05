@@ -1,5 +1,5 @@
 from rest_framework import generics, permissions, status, viewsets, filters
-from .permissions import IsManagerRole, IsAdminRole, IsPolicyOwnerOrHigher, IsCRMNonBasicRole, has_matrix_permission
+from .permissions import IsManagerRole, IsAdminRole, IsPolicyOwnerOrHigher, IsCRMNonBasicRole, has_matrix_permission, IsAdminOrManagerRole
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -394,11 +394,23 @@ class RegisterView(generics.CreateAPIView):
     serializer_class = UserSerializer
 
 class ProfileView(generics.RetrieveUpdateAPIView):
-    permission_classes = (permissions.IsAuthenticated,)
-    serializer_class = UserProfileSerializer
+    serializer_class = UserManagementSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self):
         return self.request.user
+
+    def patch(self, request, *args, **kwargs):
+        user = self.get_object()
+        profile = user.profile
+        settings = request.data.get('settings')
+        
+        if settings is not None:
+            profile.settings = settings
+            profile.save(update_fields=['settings'])
+            
+        serializer = self.get_serializer(user)
+        return Response(serializer.data)
 
 class LogoutView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
@@ -850,7 +862,7 @@ class DocumentoViewSet(viewsets.ModelViewSet):
 class UserManagementViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserManagementSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdminRole]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrManagerRole]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['is_active', 'profile__status', 'profile__role']
     search_fields = ['username', 'email', 'first_name', 'last_name']

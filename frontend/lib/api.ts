@@ -245,6 +245,16 @@ export const authApi = {
     return handleApiResponse<User>(response);
   },
 
+  // Actualizar solo los settings del perfil
+  updateSettings: async (settings: any): Promise<User> => {
+    const response = await fetch(`${API_BASE_URL}/profile/`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ settings }),
+    });
+    return handleApiResponse<User>(response);
+  },
+
   // Cerrar sesión
   logout: async (): Promise<void> => {
     const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refresh_token') : null;

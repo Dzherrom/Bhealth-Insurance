@@ -280,6 +280,7 @@ class UserProfile(models.Model):
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True, verbose_name="Avatar")
     telefono = models.CharField(max_length=20, null=True, blank=True, verbose_name="Teléfono")
     agente = models.OneToOneField(Agente, on_delete=models.SET_NULL, null=True, blank=True, related_name='user_profile')
+    settings = models.JSONField(default=dict, blank=True, null=True, verbose_name="Configuraciones de UI")
 
     def __str__(self):
         return f"{self.user.username} - {self.get_role_display()}"
