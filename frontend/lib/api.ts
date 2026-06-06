@@ -293,6 +293,24 @@ const processQueue = (error: any, token = null) => {
 
 // Fetch wrapper that injects auth headers and attempts a single token refresh on 401/403.
 export const fetchWithAuth = async (input: RequestInfo, init: RequestInit = {}): Promise<Response> => {
+  // Simple rate limiter: ensure a minimum interval between outgoing requests
+  // Configurable via NEXT_PUBLIC_API_MIN_INTERVAL_MS (milliseconds)
+  const minInterval = Number(process.env.NEXT_PUBLIC_API_MIN_INTERVAL_MS) || 20;
+  if (!(fetchWithAuth as any).__rateLimiter) {
+    (fetchWithAuth as any).__rateLimiter = {
+      last: 0,
+      async wait() {
+        const now = Date.now();
+        const elapsed = now - (fetchWithAuth as any).__rateLimiter.last;
+        const delay = Math.max(0, minInterval - elapsed);
+        if (delay > 0) {
+          await new Promise((r) => setTimeout(r, delay));
+        }
+        (fetchWithAuth as any).__rateLimiter.last = Date.now();
+      },
+    };
+  }
+  await (fetchWithAuth as any).__rateLimiter.wait();
   // Don't intercept refresh token requests
   if (typeof input === 'string' && input.includes('/login/refresh')) {
     return fetch(input, init);

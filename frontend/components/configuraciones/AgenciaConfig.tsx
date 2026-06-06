@@ -1,15 +1,15 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Loader2, Building2, Palette, Upload } from 'lucide-react';
-import { resolveApiMediaUrl } from '@/lib/api';
-import api from '@/services/api';
+import { resolveApiMediaUrl, agenciasApi } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
+import { InfoRow } from './InfoRow';
 
 const emptyBusiness = {
   nombre_legal: '',
@@ -40,8 +40,8 @@ export function AgenciaConfig() {
 
   const fetchAgencia = async () => {
     try {
-      const res = await api.get('/agencias/');
-      const current = res.data.results?.[0] || res.data?.[0] || res.data;
+      const list = await agenciasApi.list();
+      const current = Array.isArray(list) ? list[0] : list;
       if (current) {
         setAgencia(current);
         setBusinessForm({
@@ -55,8 +55,8 @@ export function AgenciaConfig() {
           pie_email: current.pie_email || '',
         });
       } else {
-        const postRes = await api.post('/agencias/', { nombre: 'Mi Agencia' });
-        setAgencia(postRes.data);
+        const created = await agenciasApi.create({ nombre: 'Mi Agencia' } as any);
+        setAgencia(created);
       }
     } catch (e) {
       console.error(e);
@@ -69,8 +69,8 @@ export function AgenciaConfig() {
   const saveBusiness = async () => {
     try {
       const payload = { ...agencia, ...businessForm };
-      const res = await api.put(`/agencias/${agencia.id}/`, payload);
-      setAgencia(res.data);
+      const res = await agenciasApi.update(agencia.id, payload as any);
+      setAgencia(res);
       setBusinessOpen(false);
       toast({ title: 'Guardado', description: 'Información de negocio actualizada.' });
     } catch (e) {
@@ -94,16 +94,7 @@ export function AgenciaConfig() {
         (process.env.NODE_ENV === 'production'
           ? 'https://bhealth-insurance.onrender.com/api'
           : 'http://127.0.0.1:8000/api');
-      const response = await fetch(`${apiBase}/agencias/${agencia.id}/`, {
-        method: 'PATCH',
-        headers: {
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-        body: formData,
-      });
-
-      if (!response.ok) throw new Error('No se pudo guardar branding');
-      const updated = await response.json();
+      const updated = await agenciasApi.patchFormData(agencia.id, formData as any);
       setAgencia(updated);
       setBrandingOpen(false);
       setLogoLight(null);
@@ -130,23 +121,11 @@ export function AgenciaConfig() {
           <CardTitle className='flex items-center gap-2'><Building2 className='h-5 w-5' /> Información de negocio</CardTitle>
           <Button variant='outline' onClick={() => setBusinessOpen(true)}>Editar</Button>
         </CardHeader>
-        <CardContent className='grid gap-4 md:grid-cols-2'>
-          <div>
-            <p className='text-sm text-gray-500'>Nombre legal de la empresa</p>
-            <p className='font-medium'>{agencia.nombre_legal || '—'}</p>
-          </div>
-          <div>
-            <p className='text-sm text-gray-500'>Nombre comercial DBA</p>
-            <p className='font-medium'>{agencia.dba || '—'}</p>
-          </div>
-          <div>
-            <p className='text-sm text-gray-500'>Teléfono</p>
-            <p className='font-medium'>{agencia.telefono || '—'}</p>
-          </div>
-          <div>
-            <p className='text-sm text-gray-500'>Correo electrónico</p>
-            <p className='font-medium'>{agencia.email || '—'}</p>
-          </div>
+        <CardContent>
+          <InfoRow label="Nombre Legal" value={agencia.nombre_legal || '—'} />
+          <InfoRow label="DBA (Nombre Comercial)" value={agencia.dba || '—'} />
+          <InfoRow label="Teléfono" value={agencia.telefono || '—'} />
+          <InfoRow label="Email" value={agencia.email || '—'} />
         </CardContent>
       </Card>
 
@@ -155,27 +134,12 @@ export function AgenciaConfig() {
           <CardTitle className='flex items-center gap-2'><Palette className='h-5 w-5' /> Branding del portal</CardTitle>
           <Button variant='outline' onClick={() => setBrandingOpen(true)}>Editar</Button>
         </CardHeader>
-        <CardContent className='grid gap-4 md:grid-cols-2'>
-          <div className='space-y-2'>
-            <p className='text-sm text-gray-500'>Logotipo en modo claro</p>
-            {agencia.logo_light ? <img src={resolveApiMediaUrl(agencia.logo_light)} alt='Logo claro' className='h-16 object-contain' /> : <p className='text-sm text-muted-foreground'>Sin cargar</p>}
-          </div>
-          <div className='space-y-2'>
-            <p className='text-sm text-gray-500'>Logotipo en modo oscuro</p>
-            {agencia.logo_dark ? <img src={resolveApiMediaUrl(agencia.logo_dark)} alt='Logo oscuro' className='h-16 object-contain bg-slate-900 p-2 rounded' /> : <p className='text-sm text-muted-foreground'>Sin cargar</p>}
-          </div>
-          <div className='space-y-2'>
-            <p className='text-sm text-gray-500'>Favicon</p>
-            {agencia.favicon ? <img src={resolveApiMediaUrl(agencia.favicon)} alt='Favicon' className='h-8 w-8 object-contain' /> : <p className='text-sm text-muted-foreground'>Sin cargar</p>}
-          </div>
-          <div>
-            <p className='text-sm text-gray-500'>Título del portal</p>
-            <p className='font-medium'>{agencia.titulo_portal || '—'}</p>
-          </div>
-          <div className='md:col-span-2'>
-            <p className='text-sm text-gray-500'>Pie de correos electrónicos</p>
-            <p className='text-sm whitespace-pre-wrap border rounded p-3 bg-slate-50'>{agencia.pie_email || '—'}</p>
-          </div>
+        <CardContent>
+          <InfoRow label="Código de portal" value={agencia.titulo_portal || '—'} />
+          <InfoRow label="Pie de Email" value={agencia.pie_email || '—'} />
+          <InfoRow label="Logotipo en modo claro" value={agencia.logo_light ? <img src={resolveApiMediaUrl(agencia.logo_light)} alt='Logo claro' className='h-16 object-contain' /> : <p className='text-sm text-muted-foreground'>Sin cargar</p>} />
+          <InfoRow label="Logotipo en modo oscuro" value={agencia.logo_dark ? <img src={resolveApiMediaUrl(agencia.logo_dark)} alt='Logo oscuro' className='h-16 object-contain bg-slate-900 p-2 rounded' /> : <p className='text-sm text-muted-foreground'>Sin cargar</p>} />
+          <InfoRow label="Favicon" value={agencia.favicon ? <img src={resolveApiMediaUrl(agencia.favicon)} alt='Favicon' className='h-8 w-8 object-contain' /> : <p className='text-sm text-muted-foreground'>Sin cargar</p>} />
         </CardContent>
       </Card>
 

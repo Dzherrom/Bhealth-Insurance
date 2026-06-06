@@ -23,6 +23,12 @@ export interface TipoProducto extends BaseEntity {
   descripcion: string;
 }
 
+export interface Etiqueta extends BaseEntity {
+  nombre: string;
+  color: string;
+  tipo: 'DOCUMENTO' | 'POLIZA';
+}
+
 export interface MisTareasResponse {
   tareas: Tarea[];
 }

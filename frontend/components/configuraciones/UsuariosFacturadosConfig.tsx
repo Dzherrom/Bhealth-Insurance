@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import api from "@/services/api";
+import { API_BASE_URL, fetchWithAuth } from '@/lib/api';
 import { Loader2 } from "lucide-react";
 
 export function UsuariosFacturadosConfig() {
@@ -16,8 +16,10 @@ export function UsuariosFacturadosConfig() {
   const fetchFacturados = async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/reportes/agentes-facturacion/?mes=${mes}&año=${anio}`);
-      setData(res.data);
+      const url = `${API_BASE_URL}/reportes/agentes-facturacion/?mes=${mes}&año=${anio}`;
+      const res = await fetchWithAuth(url, { method: 'GET' });
+      const payload = await res.json().catch(() => null);
+      setData(payload || []);
     } catch (e) {
       toast({ title: "Error", description: "No se pudieron cargar los usuarios facturados", variant: "destructive" });
     } finally {
