@@ -89,7 +89,7 @@ export function StatusList() {
       {/* Header con título y botones */}
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">
-          Estatus de Póliza
+          Estatus de Poliza
         </h1>
         
         <div className="flex space-x-3">
@@ -121,13 +121,13 @@ export function StatusList() {
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Título
+                Titulo
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Color
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                ¿Habilitado para agentes?
+                Habilitado para agentes?
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Acciones

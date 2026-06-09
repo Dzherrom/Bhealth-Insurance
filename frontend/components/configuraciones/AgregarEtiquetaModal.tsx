@@ -83,7 +83,7 @@ export function AgregarEtiquetaModal({ isOpen, onClose, onSave, etiquetaToEdit }
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Campo Título / Nombre */}
+          {/* Campo Titulo / Nombre */}
           <div className="space-y-2">
             <Label htmlFor="nombre" className={`text-sm font-medium ${errors.nombre ? 'text-red-600' : 'text-gray-700'}`}>
               Nombre {errors.nombre && <span className="text-red-600">(obligatorio)</span>}

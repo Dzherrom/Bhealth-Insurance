@@ -29,7 +29,7 @@ const ConfiguracionesPage = () => {
       case 'listado':
         return <ListadoGeneral />;
       case 'etiquetas-polizas':
-        return <EtiquetasConfig tipo="POLIZA" title="Etiquetas de póliza" description="Configura etiquetas para pólizas." />;
+        return <EtiquetasConfig tipo="POLIZA" title="Etiquetas de poliza" description="Configura etiquetas para polizas." />;
       case 'etiquetas-documentos':
         return <EtiquetasConfig tipo="DOCUMENTO" title="Etiquetas de documento" description="Configura etiquetas para documentos." />;
       case 'usuarios-facturados':

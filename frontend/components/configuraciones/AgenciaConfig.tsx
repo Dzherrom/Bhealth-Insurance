@@ -112,19 +112,19 @@ export function AgenciaConfig() {
   return (
     <div className='space-y-6'>
       <div className='mb-6'>
-        <h1 className='text-2xl font-bold text-gray-900 mb-2'>Configuración de Agencia</h1>
+        <h1 className='text-2xl font-bold text-gray-900 mb-2'>Configuracion de Agencia</h1>
         <p className='text-sm text-gray-500'>Cliente desde: {agencia.cliente_desde ? new Date(agencia.cliente_desde).toLocaleDateString() : 'N/A'} | {'Ultima actualizacion'}: {agencia.ultima_actualizacion ? new Date(agencia.ultima_actualizacion).toLocaleDateString() : 'N/A'}</p>
       </div>
 
       <Card>
         <CardHeader className='flex flex-row items-center justify-between'>
-          <CardTitle className='flex items-center gap-2'><Building2 className='h-5 w-5' /> Información de negocio</CardTitle>
+          <CardTitle className='flex items-center gap-2'><Building2 className='h-5 w-5' /> Informacion de negocio</CardTitle>
           <Button variant='outline' onClick={() => setBusinessOpen(true)}>Editar</Button>
         </CardHeader>
         <CardContent>
           <InfoRow label="Nombre Legal" value={agencia.nombre_legal || '—'} />
           <InfoRow label="DBA (Nombre Comercial)" value={agencia.dba || '—'} />
-          <InfoRow label="Teléfono" value={agencia.telefono || '—'} />
+          <InfoRow label="Telefono" value={agencia.telefono || '—'} />
           <InfoRow label="Email" value={agencia.email || '—'} />
         </CardContent>
       </Card>
@@ -145,12 +145,12 @@ export function AgenciaConfig() {
 
       <Dialog open={businessOpen} onOpenChange={setBusinessOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Editar información de negocio</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Editar informacion de negocio</DialogTitle></DialogHeader>
           <div className='space-y-3'>
             <div><label className='text-sm font-medium'>Nombre legal</label><Input value={businessForm.nombre_legal} onChange={(e) => setBusinessForm((p: any) => ({ ...p, nombre_legal: e.target.value }))} /></div>
             <div><label className='text-sm font-medium'>DBA</label><Input value={businessForm.dba} onChange={(e) => setBusinessForm((p: any) => ({ ...p, dba: e.target.value }))} /></div>
-            <div><label className='text-sm font-medium'>Teléfono</label><Input value={businessForm.telefono} onChange={(e) => setBusinessForm((p: any) => ({ ...p, telefono: e.target.value }))} /></div>
-            <div><label className='text-sm font-medium'>Correo electrónico</label><Input type='email' value={businessForm.email} onChange={(e) => setBusinessForm((p: any) => ({ ...p, email: e.target.value }))} /></div>
+            <div><label className='text-sm font-medium'>Telefono</label><Input value={businessForm.telefono} onChange={(e) => setBusinessForm((p: any) => ({ ...p, telefono: e.target.value }))} /></div>
+            <div><label className='text-sm font-medium'>Correo electronico</label><Input type='email' value={businessForm.email} onChange={(e) => setBusinessForm((p: any) => ({ ...p, email: e.target.value }))} /></div>
             <div className='flex justify-end'><Button onClick={saveBusiness}>Guardar</Button></div>
           </div>
         </DialogContent>
@@ -160,7 +160,7 @@ export function AgenciaConfig() {
         <DialogContent>
           <DialogHeader><DialogTitle>Editar branding del portal</DialogTitle></DialogHeader>
           <div className='space-y-3'>
-            <div><label className='text-sm font-medium'>Título del portal</label><Input value={brandingForm.titulo_portal} onChange={(e) => setBrandingForm((p: any) => ({ ...p, titulo_portal: e.target.value }))} /></div>
+            <div><label className='text-sm font-medium'>Titulo del portal</label><Input value={brandingForm.titulo_portal} onChange={(e) => setBrandingForm((p: any) => ({ ...p, titulo_portal: e.target.value }))} /></div>
             <div><label className='text-sm font-medium'>Pie de correos</label><Textarea rows={4} value={brandingForm.pie_email} onChange={(e) => setBrandingForm((p: any) => ({ ...p, pie_email: e.target.value }))} /></div>
             <div className='grid gap-3 md:grid-cols-3'>
               <label className='text-sm font-medium'>Logo claro <Input type='file' accept='image/*' onChange={(e) => setLogoLight(e.target.files?.[0] || null)} /></label>

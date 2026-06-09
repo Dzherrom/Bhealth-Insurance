@@ -62,12 +62,12 @@ export function StatusFilters({
       </CardHeader>
       <CardContent>
         <div className="flex flex-col space-y-4 lg:flex-row lg:items-center lg:space-x-4 lg:space-y-0">
-          {/* Búsqueda */}
+          {/* Busqueda */}
           <div className="flex-1">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Buscar por título de estatus..."
+                placeholder="Buscar por titulo de estatus..."
                 value={filters.search}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 className="pl-10"
@@ -75,7 +75,7 @@ export function StatusFilters({
             </div>
           </div>
 
-          {/* Filtro por habilitación para agentes */}
+          {/* Filtro por habilitacion para agentes */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="w-full lg:w-auto">

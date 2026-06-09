@@ -23,12 +23,12 @@ export function NotificacionesConfig() {
     setSending(true);
     try {
       await notificacionesApi.enviarGeneral({ tipo, mensaje: asunto ? `${asunto}\n\n${mensaje}` : mensaje });
-      toast({ title: 'Enviado', description: 'La notificación general fue enviada a los agentes.' });
+      toast({ title: 'Enviado', description: 'La notificacion general fue enviada a los agentes.' });
       setAsunto('');
       setMensaje('');
       setTipo('SISTEMA');
     } catch (error) {
-      toast({ title: 'Error', description: 'No se pudo enviar la notificación', variant: 'destructive' });
+      toast({ title: 'Error', description: 'No se pudo enviar la notificacion', variant: 'destructive' });
     } finally {
       setSending(false);
     }
@@ -37,8 +37,8 @@ export function NotificacionesConfig() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Enviar notificación general</CardTitle>
-        <CardDescription>Se enviará a todos los agentes activos del sistema.</CardDescription>
+        <CardTitle>Enviar notificacion general</CardTitle>
+        <CardDescription>Se enviara a todos los agentes activos del sistema.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
@@ -46,7 +46,7 @@ export function NotificacionesConfig() {
           <Input value={asunto} onChange={(e) => setAsunto(e.target.value)} placeholder="Mensaje principal" />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium">Tipo de notificación</label>
+          <label className="text-sm font-medium">Tipo de notificacion</label>
           <Select value={tipo} onValueChange={setTipo}>
             <SelectTrigger>
               <SelectValue placeholder="Selecciona tipo" />
@@ -54,7 +54,7 @@ export function NotificacionesConfig() {
             <SelectContent>
               <SelectItem value="SISTEMA">Sistema</SelectItem>
               <SelectItem value="SEGURIDAD">Seguridad</SelectItem>
-              <SelectItem value="ASIGNACION">Asignación</SelectItem>
+              <SelectItem value="ASIGNACION">Asignacion</SelectItem>
               <SelectItem value="TAG">Etiquetado</SelectItem>
             </SelectContent>
           </Select>

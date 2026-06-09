@@ -43,11 +43,11 @@ export function EtiquetasConfig({ tipo, title, description }: EtiquetasConfigPro
       if ('id' in etiqueta) {
         const updated = await etiquetasApi.update(etiqueta.id, { ...etiqueta, tipo });
         setEtiquetas(prev => prev.map(e => e.id === etiqueta.id ? updated : e));
-        toast({ title: 'Éxito', description: 'Etiqueta actualizada' });
+        toast({ title: 'Exito', description: 'Etiqueta actualizada' });
       } else {
         const newEtiqueta = await etiquetasApi.create({ ...etiqueta, tipo });
         setEtiquetas(prev => [...prev, newEtiqueta]);
-        toast({ title: 'Éxito', description: 'Etiqueta creada' });
+        toast({ title: 'Exito', description: 'Etiqueta creada' });
       }
     } catch (error) {
       toast({ title: 'Error', description: 'Error al guardar la etiqueta', variant: 'destructive' });
@@ -59,7 +59,7 @@ export function EtiquetasConfig({ tipo, title, description }: EtiquetasConfigPro
     try {
       await etiquetasApi.delete(id);
       setEtiquetas(prev => prev.filter(e => e.id !== id));
-      toast({ title: 'Éxito', description: 'Etiqueta eliminada' });
+      toast({ title: 'Exito', description: 'Etiqueta eliminada' });
     } catch (error) {
       toast({ title: 'Error', description: 'Error al eliminar', variant: 'destructive' });
     }

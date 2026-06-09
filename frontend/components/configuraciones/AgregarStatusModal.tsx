@@ -135,16 +135,16 @@ export function AgregarStatusModal({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Campo Título */}
+          {/* Campo Titulo */}
           <div className="space-y-2">
             <Label htmlFor="titulo" className={`text-sm font-medium ${errors.titulo ? 'text-red-600' : 'text-gray-700'}`}>
-              Título {errors.titulo && <span className="text-red-600">(obligatorio)</span>}
+              Titulo {errors.titulo && <span className="text-red-600">(obligatorio)</span>}
             </Label>
             <Input
               id="titulo"
               value={formData.titulo}
               onChange={(e) => handleTituloChange(e.target.value)}
-              placeholder="Ingresar el título del estatus"
+              placeholder="Ingresar el titulo del estatus"
               className={`${errors.titulo ? 'border-red-500 focus:border-red-500' : ''}`}
             />
           </div>

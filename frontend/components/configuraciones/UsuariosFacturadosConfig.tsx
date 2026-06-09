@@ -35,7 +35,7 @@ export function UsuariosFacturadosConfig() {
     <Card>
       <CardHeader>
         <CardTitle>Usuarios Facturados</CardTitle>
-        <CardDescription>Visualiza el total facturado por mes y año.</CardDescription>
+        <CardDescription>Visualiza el total facturado por mes y ano.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         
@@ -50,7 +50,7 @@ export function UsuariosFacturadosConfig() {
           </Select>
           
           <Select value={anio.toString()} onValueChange={(val) => setAno(parseInt(val))}>
-            <SelectTrigger className="w-32"><SelectValue placeholder="Año"/></SelectTrigger>
+            <SelectTrigger className="w-32"><SelectValue placeholder="Ano"/></SelectTrigger>
             <SelectContent>
               {[2023, 2024, 2025, 2026].map(a => (
                 <SelectItem key={a} value={a.toString()}>{a}</SelectItem>
