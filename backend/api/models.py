@@ -366,6 +366,7 @@ class Etiqueta(models.Model):
     nombre = models.CharField(max_length=100, unique=True, verbose_name="Nombre Etiqueta")
     tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default="DOCUMENTO", verbose_name="Tipo de Etiqueta")
     descripcion = models.TextField(null=True, blank=True, verbose_name="Descripción")
+    color = models.CharField(max_length=20, null=True, blank=True, default="#6b7280", verbose_name="Color")
 
     def __str__(self):
         return f"{self.nombre} ({self.tipo})"

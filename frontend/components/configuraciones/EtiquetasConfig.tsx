@@ -81,41 +81,36 @@ export function EtiquetasConfig({ tipo, title, description }: EtiquetasConfigPro
         </CardHeader>
         <CardContent>
           <table className="w-full">
-            <thead>
-              <tr className="text-left border-b">
-                <th className="p-4 font-semibold">Nombre</th>
-                <th className="p-4 font-semibold">Color</th>
-                <th className="p-4 font-semibold text-right">Acciones</th>
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Nombre
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Color
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Acciones
+                </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="bg-white divide-y divide-gray-200">
               {etiquetas.map(etiqueta => (
-                <tr key={etiqueta.id} className="border-b">
-                  <td className="p-4">
-                    <Badge style={{ backgroundColor: etiqueta.color, color: 'white' }}>
+                <tr key={etiqueta.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">
                       {etiqueta.nombre}
-                    </Badge>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex items-center gap-2">
-                      {(() => {
-                        const color = etiqueta.color || '#6b7280';
-                        return (
-                          <>
-                            <div className="w-4 h-4 rounded-full" style={{ backgroundColor: color }} />
-                            <span className="font-mono text-sm">{color}</span>
-                          </>
-                        );
-                      })()}
                     </div>
                   </td>
-                  <td className="p-4 text-right">
-                    <Button variant="ghost" size="sm" onClick={() => { setEditingEtiqueta(etiqueta); setIsModalOpen(true); }}>
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleDelete(etiqueta.id)}>
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div 
+                      className="w-4 h-4 rounded-full border border-gray-200"
+                      style={{ backgroundColor: etiqueta.color || '#6b7280' }}
+                    />
+                  </td>
+                  <td className="px-5 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <Button variant="ghost" size="sm" onClick={() => { setEditingEtiqueta(etiqueta); setIsModalOpen(true); }}>Editar</Button>
+                    <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleDelete(etiqueta.id)}>Eliminar</Button>
                   </td>
                 </tr>
               ))}
