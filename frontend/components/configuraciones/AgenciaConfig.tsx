@@ -113,7 +113,7 @@ export function AgenciaConfig() {
     <div className='space-y-6'>
       <div className='mb-6'>
         <h1 className='text-2xl font-bold text-gray-900 mb-2'>Configuración de Agencia</h1>
-        <p className='text-sm text-gray-500'>Cliente desde: {agencia.cliente_desde ? new Date(agencia.cliente_desde).toLocaleDateString() : 'N/A'} | Última actualización: {agencia.ultima_actualizacion ? new Date(agencia.ultima_actualizacion).toLocaleDateString() : 'N/A'}</p>
+        <p className='text-sm text-gray-500'>Cliente desde: {agencia.cliente_desde ? new Date(agencia.cliente_desde).toLocaleDateString() : 'N/A'} | {'Ultima actualizacion'}: {agencia.ultima_actualizacion ? new Date(agencia.ultima_actualizacion).toLocaleDateString() : 'N/A'}</p>
       </div>
 
       <Card>
@@ -135,7 +135,7 @@ export function AgenciaConfig() {
           <Button variant='outline' onClick={() => setBrandingOpen(true)}>Editar</Button>
         </CardHeader>
         <CardContent>
-          <InfoRow label="Código de portal" value={agencia.titulo_portal || '—'} />
+          <InfoRow label="Codigo de portal" value={agencia.titulo_portal || '—'} />
           <InfoRow label="Pie de Email" value={agencia.pie_email || '—'} />
           <InfoRow label="Logotipo en modo claro" value={agencia.logo_light ? <img src={resolveApiMediaUrl(agencia.logo_light)} alt='Logo claro' className='h-16 object-contain' /> : <p className='text-sm text-muted-foreground'>Sin cargar</p>} />
           <InfoRow label="Logotipo en modo oscuro" value={agencia.logo_dark ? <img src={resolveApiMediaUrl(agencia.logo_dark)} alt='Logo oscuro' className='h-16 object-contain bg-slate-900 p-2 rounded' /> : <p className='text-sm text-muted-foreground'>Sin cargar</p>} />
