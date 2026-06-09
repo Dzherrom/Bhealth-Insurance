@@ -457,6 +457,7 @@ class PolizaListSerializer(serializers.ModelSerializer):
             'agente_nombre',
             'plan',
             'plan_nombre',
+            'tipo_producto',
             'estado',
             'estado_nombre',
             'prima_mensual',
@@ -491,6 +492,7 @@ class PolizaSerializer(serializers.ModelSerializer):
     clientes_data = PolizaClienteSerializer(many=True, write_only=True, required=False)
     
     agente_nombre = serializers.ReadOnlyField(source='agente.nombre_completo')
+    plan = serializers.PrimaryKeyRelatedField(queryset=Plan.objects.all(), required=False, allow_null=True)
     plan_nombre = serializers.ReadOnlyField(source='plan.nombre')
     estado_nombre = serializers.ReadOnlyField(source='estado.nombre')
     colaboradores_details = UserSerializer(source='colaboradores', many=True, read_only=True)
@@ -524,7 +526,7 @@ class PolizaSerializer(serializers.ModelSerializer):
             'id', 'id_mercado', 'id_miembro', 'costo_poliza', 'subsidio', 'prima_mensual',
             'total_ahorros', 'plan_era',
             'fecha_efectiva', 'estado', 'estado_nombre', 'flujo_etapa', 'fecha_envio', 'fecha_cancelacion',
-            'id_interno', 'agente', 'agente_nombre', 'plan', 'plan_nombre',
+            'id_interno', 'agente', 'agente_nombre', 'plan', 'plan_nombre', 'tipo_producto',
             'clientes_info', 'clientes_data', 'colaboradores', 'colaboradores_details',
             'ffm_mercado', 'npn_mercado', 'tipo_inscripcion', 'razon_inscripcion_especial', 'fecha_inscripcion_especial',
             'total_miembros', 'total_aplicantes', 'total_dependientes',

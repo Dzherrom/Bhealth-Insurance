@@ -531,14 +531,19 @@ class PolizaViewSet(viewsets.ModelViewSet):
         else:
             quote_estado = None
 
-        if assigned_agent and quote_estado:
-            poliza = serializer.save(agente=assigned_agent, estado=quote_estado)
-        elif assigned_agent:
-            poliza = serializer.save(agente=assigned_agent)
-        elif quote_estado:
-            poliza = serializer.save(estado=quote_estado)
-        else:
-            poliza = serializer.save()
+        save_kwargs = {}
+        if assigned_agent:
+            save_kwargs['agente'] = assigned_agent
+        if quote_estado:
+            save_kwargs['estado'] = quote_estado
+
+        tipo_producto_id = self.request.data.get('tipo_producto')
+        if tipo_producto_id:
+            plan = Plan.objects.filter(tipo_producto_id=tipo_producto_id).first()
+            if plan:
+                save_kwargs['plan'] = plan
+
+        poliza = serializer.save(**save_kwargs)
         registrar_auditoria_global(
             usuario=user,
             accion='CREACION_POLIZA',

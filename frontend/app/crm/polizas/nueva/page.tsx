@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
-import { getCurrentToken, API_BASE_URL } from '@/lib/api';
+import { getCurrentToken, API_BASE_URL, agentesApi } from '@/lib/api';
 import { ArrowLeft, Plus, ChevronRight, Trash2 } from 'lucide-react';
 import { ProductSelection } from '@/components/polizas/ProductSelection';
 
@@ -39,7 +39,6 @@ export default function NuevaPolizaWizard() {
 
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
   const [agentes, setAgentes] = useState<any[]>([]);
-  const [planes, setPlanes] = useState<PlanCard[]>([]);
   const [conyuge, setConyuge] = useState<FamilyMember | null>(null);
   const [dependientes, setDependientes] = useState<FamilyMember[]>([]);
   const [counties, setCounties] = useState<string[]>([]);
@@ -77,11 +76,9 @@ export default function NuevaPolizaWizard() {
 
   // Form State
   const [formData, setFormData] = useState({
-    // Step 1: Info Póliza
+    // Step 1: Info Poliza
     fechaEfectividad: getDefaultEffectiveDate(),
     agenteId: '',
-    planId: '',
-    planName: '',
     // Step 2: Info Personal
     primerNombre: '',
     segundoNombre: '',
@@ -107,36 +104,18 @@ export default function NuevaPolizaWizard() {
     condado: '',
   });
 
-  // Fetch initial data (agentes and planes)
+  // Fetch initial data (agentes)
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const token = accessToken || getCurrentToken();
-
-        const [agentesRes, planesRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/agentes/`, { headers: { Authorization: `Bearer ${token}` } }),
-          fetch(`${API_BASE_URL}/planes/`, { headers: { Authorization: `Bearer ${token}` } }),
-        ]);
-
-        if (agentesRes.ok) {
-          const data = await agentesRes.json();
-          setAgentes(data.results || data);
-        }
-
-        if (planesRes.ok) {
-          const data = await planesRes.json();
-          setPlanes((data.results || data).map((plan: any) => ({
-            id: plan.id,
-            nombre: plan.nombre,
-            aseguradora_nombre: plan.aseguradora_nombre,
-          })));
-        }
+        const data = await agentesApi.list();
+        setAgentes(Array.isArray(data) ? data : (data as any).results || []);
       } catch (err) {
-        console.error("Error fetching agentes or planes", err);
+        console.error("Error fetching agentes", err);
       }
     };
     fetchInitialData();
-  }, [accessToken]);
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -205,8 +184,8 @@ export default function NuevaPolizaWizard() {
 
   const handleNext = () => {
     if (step === 1) {
-      if (!formData.agenteId || !formData.planId) {
-        setError('Por favor seleccione agente y plan antes de continuar.');
+      if (!formData.agenteId || !selectedProductId) {
+        setError('Por favor seleccione agente y producto antes de continuar.');
         return;
       }
     }
@@ -448,7 +427,7 @@ export default function NuevaPolizaWizard() {
         fecha_efectiva: formatToISO(formData.fechaEfectividad),
         id_mercado: `QUOTE-${Date.now()}`,
         id_miembro: 'Pendiente',
-        plan: Number(formData.planId),
+        tipo_producto: selectedProductId,
         costo_poliza: 0,
         subsidio: 0,
         prima_mensual: 0,

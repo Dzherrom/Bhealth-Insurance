@@ -234,7 +234,7 @@ class Poliza(models.Model):
     direccion_facturacion = models.ForeignKey(Direccion, on_delete=models.SET_NULL, null=True, blank=True, related_name='poliza_facturacion', verbose_name="Dirección Facturación")
 
     agente = models.ForeignKey(Agente, on_delete=models.SET_NULL, null=True, related_name='polizas')
-    plan = models.ForeignKey(Plan, on_delete=models.CASCADE, related_name='polizas')
+    plan = models.ForeignKey(Plan, on_delete=models.SET_NULL, null=True, blank=True, related_name='polizas')
     clientes = models.ManyToManyField(Cliente, through='PolizaCliente', related_name='polizas')
     colaboradores = models.ManyToManyField(User, related_name='polizas_colaboracion', blank=True, verbose_name="Colaboradores")
     import_batch = models.ForeignKey(ImportBatch, on_delete=models.SET_NULL, null=True, blank=True, related_name='polizas')
