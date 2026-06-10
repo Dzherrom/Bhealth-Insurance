@@ -102,7 +102,7 @@ export default function ComisionesPage() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Comisiones</h1>
-          <p className="text-muted-foreground">Configura porcentajes por agencia, proveedor y plan, y revisa los agentes.</p>
+          <p className="text-muted-foreground dark:text-gray-400">Configura porcentajes por agencia, proveedor y plan, y revisa los agentes.</p>
         </div>
       </div>
 
@@ -169,11 +169,11 @@ export default function ComisionesPage() {
             <CardDescription>Listado de reglas activas e inactivas.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {loading ? <p className="text-sm text-muted-foreground">Cargando...</p> : filteredConfigs.map((item) => (
+            {loading ? <p className="text-sm text-muted-foreground dark:text-gray-400">Cargando...</p> : filteredConfigs.map((item) => (
               <div key={item.id} className="flex items-center justify-between rounded-lg border p-3">
                 <div>
                   <p className="font-medium">{item.nivel}</p>
-                  <p className="text-xs text-muted-foreground">{item.descripcion || 'Sin descripción'}</p>
+                  <p className="text-xs text-muted-foreground dark:text-gray-400">{item.descripcion || 'Sin descripción'}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant="outline">{item.porcentaje}%</Badge>
@@ -196,11 +196,11 @@ export default function ComisionesPage() {
               <div key={agent.nombre} className="flex items-center justify-between rounded-lg border p-3">
                 <div>
                   <p className="font-medium">{agent.nombre}</p>
-                  <p className="text-xs text-muted-foreground">{agent.registros} registros</p>
+                  <p className="text-xs text-muted-foreground dark:text-gray-400">{agent.registros} registros</p>
                 </div>
                 <div className="text-right">
                   <p className="font-medium">{agent.comision.toLocaleString('es-MX', { style: 'currency', currency: 'USD' })}</p>
-                  <p className="text-xs text-muted-foreground">Prima: {agent.total.toLocaleString('es-MX', { style: 'currency', currency: 'USD' })}</p>
+                  <p className="text-xs text-muted-foreground dark:text-gray-400">Prima: {agent.total.toLocaleString('es-MX', { style: 'currency', currency: 'USD' })}</p>
                 </div>
               </div>
             ))}

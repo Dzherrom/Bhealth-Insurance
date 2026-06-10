@@ -16,7 +16,7 @@ export function InfoCard({ title, icon: Icon, children, className = '' }: InfoCa
     <Card className={className}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className="w-4 h-4 text-muted-foreground" />
+        <Icon className="w-4 h-4 text-muted-foreground dark:text-gray-400" />
       </CardHeader>
       <CardContent>
         {children}

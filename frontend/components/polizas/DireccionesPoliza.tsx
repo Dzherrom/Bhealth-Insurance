@@ -134,10 +134,10 @@ export function DireccionesPoliza({ poliza }: DireccionesPolizaProps) {
                       <p>{value.linea1}</p>
                       {value.linea2 && <p>{value.linea2}</p>}
                       <p>{value.ciudad}, {value.estado} {value.zip_code}</p>
-                      <p className="text-muted-foreground">Condado: {value.condado || 'N/A'}</p>
+                      <p className="text-muted-foreground dark:text-gray-400">Condado: {value.condado || 'N/A'}</p>
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No asignada</p>
+                    <p className="text-sm text-muted-foreground dark:text-gray-400">No asignada</p>
                   )}
                   <select
                     className="mt-3 w-full border rounded px-2 py-1 text-sm"
@@ -178,15 +178,15 @@ export function DireccionesPoliza({ poliza }: DireccionesPolizaProps) {
         </CardHeader>
         <CardContent className="space-y-3">
           {loading ? (
-            <p className="text-sm text-muted-foreground">Cargando...</p>
+            <p className="text-sm text-muted-foreground dark:text-gray-400">Cargando...</p>
           ) : filtered.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sin direcciones</p>
+            <p className="text-sm text-muted-foreground dark:text-gray-400">Sin direcciones</p>
           ) : (
             filtered.map((d) => (
               <div key={d.id} className="border rounded p-3 flex items-center justify-between">
                 <div>
                   <p className="font-medium">{d.linea1}{d.linea2 ? `, ${d.linea2}` : ''}</p>
-                  <p className="text-xs text-muted-foreground">{d.ciudad}, {d.estado} {d.zip_code} - {d.condado}</p>
+                  <p className="text-xs text-muted-foreground dark:text-gray-400">{d.ciudad}, {d.estado} {d.zip_code} - {d.condado}</p>
                 </div>
                 <div className="flex gap-2">
                   <Button

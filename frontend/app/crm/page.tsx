@@ -49,9 +49,9 @@ export default function CRMPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-indigo-50 text-[#0f172a]">
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-indigo-50 text-[#0f172a] dark:text-white">
       {/* Header Corporativo */}
-      <header className="bg-white border-b border-[#e2e8f0] shadow-sm">
+      <header className="bg-white dark:bg-[#1e293b] border-b border-[#e2e8f0] dark:border-[#334155] shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">

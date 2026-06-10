@@ -245,7 +245,7 @@ export function PolizaResumen({ poliza, activeSection = 'poliza', onSectionChang
               <div key={index}>
                 <Button 
                   variant={item.active ? "secondary" : "ghost"} 
-                  className={`w-full justify-between p-3 h-auto ${item.active ? 'bg-blue-50 text-blue-700' : ''}`}
+                  className={`w-full justify-between p-3 h-auto ${item.active ? 'bg-blue-50 dark:bg-[#1e293b] text-blue-700 dark:text-blue-400' : 'hover:bg-gray-100 dark:hover:bg-[#1e293b]'}`}
                   onClick={() => {
                     if (item.isChat) {
                       setIsNotasChatOpen(true);

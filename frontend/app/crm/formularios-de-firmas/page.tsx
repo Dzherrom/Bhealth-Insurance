@@ -250,7 +250,7 @@ export default function FormulariosDeFirmasPage() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Formularios de firmas</h1>
-          <p className="text-muted-foreground">Gestiona formularios, estatus, descargas y duplicados.</p>
+          <p className="text-muted-foreground dark:text-gray-400">Gestiona formularios, estatus, descargas y duplicados.</p>
         </div>
         <Button onClick={openCreate} className="bg-blue-600 text-white hover:bg-blue-700">
           <Plus className="mr-2 h-4 w-4" /> Nuevo formulario
@@ -268,7 +268,7 @@ export default function FormulariosDeFirmasPage() {
         <CardContent className="pt-6">
           <div className="grid gap-3 md:grid-cols-[1fr_220px]">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground dark:text-gray-400" />
               <Input className="pl-10" placeholder="Buscar por nombre, correo o ID" value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
             <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as any)}>
@@ -285,7 +285,7 @@ export default function FormulariosDeFirmasPage() {
       <Card>
         <CardContent className="p-0 overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase text-muted-foreground">
+            <thead className="bg-slate-50 dark:bg-[#0f172a] text-left text-xs uppercase text-muted-foreground dark:text-gray-400">
               <tr>
                 <th className="px-4 py-3">Formulario</th>
                 <th className="px-4 py-3">Poliza</th>
@@ -299,23 +299,23 @@ export default function FormulariosDeFirmasPage() {
               {filtered.map((item) => {
                 const poliza = polizas.find((polizaItem) => polizaItem.id === item.poliza);
                 return (
-                  <tr key={item.id} className="border-t">
+                  <tr key={item.id} className="border-t dark:border-[#334155]">
                     <td className="px-4 py-3">
-                      <div className="font-medium flex items-center gap-2"><FileText className="h-4 w-4 text-muted-foreground" /> Formulario #{item.id}</div>
-                      <div className="text-xs text-muted-foreground">{item.cliente_nombre || 'Sin cliente'}</div>
+                      <div className="font-medium flex items-center gap-2"><FileText className="h-4 w-4 text-muted-foreground dark:text-gray-400" /> Formulario #{item.id}</div>
+                      <div className="text-xs text-muted-foreground dark:text-gray-400">{item.cliente_nombre || 'Sin cliente'}</div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="font-medium">{poliza?.id_mercado || `#${item.poliza}`}</div>
-                      <div className="text-xs text-muted-foreground">{poliza?.cliente || ''} {poliza?.proveedor ? `· ${poliza.proveedor}` : ''}</div>
+                      <div className="text-xs text-muted-foreground dark:text-gray-400">{poliza?.cliente || ''} {poliza?.proveedor ? `· ${poliza.proveedor}` : ''}</div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="font-medium">{item.signer_name}</div>
-                      <div className="text-xs text-muted-foreground">{item.signer_email}</div>
+                      <div className="text-xs text-muted-foreground dark:text-gray-400">{item.signer_email}</div>
                     </td>
                     <td className="px-4 py-3">
                       <Badge className={getStatusBadge(item.status)} variant="outline">{item.status}</Badge>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{item.created_by_username || 'Sistema'}</td>
+                    <td className="px-4 py-3 text-muted-foreground dark:text-gray-400">{item.created_by_username || 'Sistema'}</td>
                     <td className="px-4 py-3 text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>

@@ -19,7 +19,7 @@ export function UsuariosFacturadosConfig() {
       const url = `${API_BASE_URL}/reportes/agentes-facturacion/?mes=${mes}&año=${anio}`;
       const res = await fetchWithAuth(url, { method: 'GET' });
       const payload = await res.json().catch(() => null);
-      setData(payload || []);
+      setData(Array.isArray(payload) ? payload : (payload?.results || []));
     } catch (e) {
       toast({ title: "Error", description: "No se pudieron cargar los usuarios facturados", variant: "destructive" });
     } finally {
@@ -63,7 +63,7 @@ export function UsuariosFacturadosConfig() {
           <div className="flex justify-center p-4"><Loader2 className="h-6 w-6 animate-spin" /></div>
         ) : (
           <div className="border rounded-md">
-            <div className="grid grid-cols-4 font-semibold border-b bg-slate-50 p-2 text-sm">
+            <div className="grid grid-cols-4 font-semibold border-b dark:border-[#334155] bg-slate-50 dark:bg-[#0f172a] p-2 text-sm">
               <span>NPN</span>
               <span>Nombre</span>
               <span>Rol</span>
@@ -71,7 +71,7 @@ export function UsuariosFacturadosConfig() {
             </div>
             {data.length === 0 && <div className="p-4 text-sm text-center text-slate-500">No hay datos.</div>}
             {data.map((user, i) => (
-              <div key={i} className="grid grid-cols-4 p-2 text-sm border-b last:border-0 hover:bg-slate-50 items-center">
+              <div key={i} className="grid grid-cols-4 p-2 text-sm border-b dark:border-[#334155] last:border-0 hover:bg-slate-50 dark:hover:bg-[#0f172a] items-center">
                 <span>{user.npn}</span>
                 <span>{user.nombre}</span>
                 <span>{user.rol}</span>

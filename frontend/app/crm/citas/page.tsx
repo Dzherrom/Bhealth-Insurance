@@ -331,7 +331,7 @@ export default function CitasPage() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground dark:text-gray-400">Total</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">{total}</p>
@@ -340,7 +340,7 @@ export default function CitasPage() {
 
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Programadas</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground dark:text-gray-400">Programadas</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold text-blue-600">{totalProgramadas}</p>
@@ -349,7 +349,7 @@ export default function CitasPage() {
 
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Completadas</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground dark:text-gray-400">Completadas</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold text-emerald-600">{totalCompletadas}</p>
@@ -358,7 +358,7 @@ export default function CitasPage() {
 
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Canceladas</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground dark:text-gray-400">Canceladas</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold text-red-600">{totalCanceladas}</p>
@@ -370,7 +370,7 @@ export default function CitasPage() {
         <CardContent className="pt-6">
           <div className="flex flex-col gap-3 md:flex-row">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground dark:text-gray-400" />
               <Input
                 value={search}
                 onChange={(event) => {
@@ -421,7 +421,7 @@ export default function CitasPage() {
             <TableBody>
               {!isLoading && paginatedCitas.length === 0 && (
                 <TableRow>
-                  <TableCell className="h-24 text-center text-muted-foreground" colSpan={7}>
+                  <TableCell className="h-24 text-center text-muted-foreground dark:text-gray-400" colSpan={7}>
                     No hay citas para los filtros seleccionados.
                   </TableCell>
                 </TableRow>
@@ -432,10 +432,10 @@ export default function CitasPage() {
                   <TableCell className="pl-6">
                     <div className="flex flex-col gap-1">
                       <span className="flex items-center gap-2 font-medium">
-                        <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+                        <CalendarDays className="h-3.5 w-3.5 text-muted-foreground dark:text-gray-400" />
                         {formatDate(cita.fecha_hora)}
                       </span>
-                      <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span className="flex items-center gap-2 text-sm text-muted-foreground dark:text-gray-400">
                         <Clock3 className="h-3.5 w-3.5" />
                         {formatTime(cita.fecha_hora)}
                       </span>
@@ -444,14 +444,14 @@ export default function CitasPage() {
 
                   <TableCell>
                     <span className="flex items-center gap-2">
-                      <User2 className="h-3.5 w-3.5 text-muted-foreground" />
+                      <User2 className="h-3.5 w-3.5 text-muted-foreground dark:text-gray-400" />
                       {cita.proveedor}
                     </span>
                   </TableCell>
 
                   <TableCell>
                     <span className="flex items-center gap-2">
-                      <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                      <MapPin className="h-3.5 w-3.5 text-muted-foreground dark:text-gray-400" />
                       {cita.lugar}
                     </span>
                   </TableCell>
@@ -461,7 +461,7 @@ export default function CitasPage() {
                       href={`/crm/polizas/${cita.poliza}`}
                       className="flex items-center gap-2 text-blue-600 hover:text-blue-700 hover:underline"
                     >
-                      <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                      <FileText className="h-3.5 w-3.5 text-muted-foreground dark:text-gray-400" />
                       {cita.poliza_codigo || `#${cita.poliza}`}
                     </Link>
                   </TableCell>
@@ -502,7 +502,7 @@ export default function CitasPage() {
 
           {filteredCitas.length > ITEMS_PER_PAGE && (
             <div className="flex items-center justify-between border-t px-6 py-4">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground dark:text-gray-400">
                 Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredCitas.length)} de {filteredCitas.length} citas
               </p>
 
@@ -515,7 +515,7 @@ export default function CitasPage() {
                 >
                   Anterior
                 </Button>
-                <span className="text-sm text-muted-foreground">
+                <span className="text-sm text-muted-foreground dark:text-gray-400">
                   Pagina {currentPage} de {totalPages}
                 </span>
                 <Button
@@ -557,7 +557,7 @@ export default function CitasPage() {
                 </SelectContent>
               </Select>
               {selectedPoliza && (
-                <div className="rounded-md border bg-slate-50 px-3 py-2 text-xs text-muted-foreground">
+                <div className="rounded-md border dark:border-[#334155] bg-slate-50 dark:bg-[#0f172a] px-3 py-2 text-xs text-muted-foreground dark:text-gray-400">
                   <div>{selectedPoliza.id_mercado}</div>
                   <div>
                     {(() => {

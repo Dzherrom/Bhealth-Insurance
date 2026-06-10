@@ -295,7 +295,7 @@ export default function PolizaDetailsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium flex items-center space-x-2">
-              <FileText className="w-4 h-4 text-muted-foreground" />
+              <FileText className="w-4 h-4 text-muted-foreground dark:text-gray-400" />
               <span>Información Básica</span>
             </CardTitle>
             <Button variant="outline" size="sm" onClick={() => setIsBasicInfoModalOpen(true)}>
@@ -315,7 +315,7 @@ export default function PolizaDetailsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium flex items-center space-x-2">
-              <DollarSign className="w-4 h-4 text-muted-foreground" />
+              <DollarSign className="w-4 h-4 text-muted-foreground dark:text-gray-400" />
               <span>Información Financiera</span>
             </CardTitle>
             <Button variant="outline" size="sm" onClick={() => setIsFinancialModalOpen(true)}>
@@ -341,7 +341,7 @@ export default function PolizaDetailsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium flex items-center space-x-2">
-              <Calendar className="w-4 h-4 text-muted-foreground" />
+              <Calendar className="w-4 h-4 text-muted-foreground dark:text-gray-400" />
               <span>Fechas Importantes</span>
             </CardTitle>
           </CardHeader>
@@ -362,7 +362,7 @@ export default function PolizaDetailsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium flex items-center space-x-2">
-              <Shield className="w-4 h-4 text-muted-foreground" />
+              <Shield className="w-4 h-4 text-muted-foreground dark:text-gray-400" />
               <span>Plan de Seguro</span>
             </CardTitle>
           </CardHeader>
@@ -380,7 +380,7 @@ export default function PolizaDetailsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium flex items-center space-x-2">
-              <Building className="w-4 h-4 text-muted-foreground" />
+              <Building className="w-4 h-4 text-muted-foreground dark:text-gray-400" />
               <span>Agente Asignado</span>
             </CardTitle>
           </CardHeader>
@@ -396,7 +396,7 @@ export default function PolizaDetailsPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-sm font-medium flex items-center space-x-2">
-            <MapPin className="w-4 h-4 text-muted-foreground" />
+            <MapPin className="w-4 h-4 text-muted-foreground dark:text-gray-400" />
             <span>Direcciones</span>
           </CardTitle>
           <Button variant="outline" size="sm" onClick={() => setActiveSection('direcciones')}>
@@ -404,7 +404,7 @@ export default function PolizaDetailsPage() {
           </Button>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">Administra direcciones fisica, postal y de facturacion en la seccion Direcciones.</p>
+          <p className="text-sm text-muted-foreground dark:text-gray-400">Administra direcciones fisica, postal y de facturacion en la seccion Direcciones.</p>
         </CardContent>
       </Card>
 
@@ -419,7 +419,7 @@ export default function PolizaDetailsPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-sm font-medium flex items-center space-x-2">
-            <CreditCard className="w-4 h-4 text-muted-foreground" />
+            <CreditCard className="w-4 h-4 text-muted-foreground dark:text-gray-400" />
             <span>Pagos y cronograma</span>
           </CardTitle>
           <Button variant="outline" size="sm" onClick={() => setActiveSection('pagos')}>
@@ -427,7 +427,7 @@ export default function PolizaDetailsPage() {
           </Button>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">Gestiona medios de pago, cronograma y tarjetas en la seccion Medios de Pago.</p>
+          <p className="text-sm text-muted-foreground dark:text-gray-400">Gestiona medios de pago, cronograma y tarjetas en la seccion Medios de Pago.</p>
         </CardContent>
       </Card>
 

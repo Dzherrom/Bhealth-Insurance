@@ -43,7 +43,7 @@ export function Familiares({ familiares, onEdit, onDelete, onAdd }: any) {
         </div>
 
         {(!familiares || familiares.length === 0) ? (
-          <div className="text-center text-muted-foreground py-8">
+          <div className="text-center text-muted-foreground dark:text-gray-400 py-8">
             <Users className="w-12 h-12 mx-auto mb-2 text-gray-300" />
             <p>No hay familiares registrados.</p>
           </div>

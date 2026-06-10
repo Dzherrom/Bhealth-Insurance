@@ -130,7 +130,7 @@ export function PolizasDataTable({
         <CardTitle className="text-lg">
           Pólizas ({polizas.length})
           {selectedPolizas.length > 0 && (
-            <span className="ml-2 text-sm font-normal text-muted-foreground">
+            <span className="ml-2 text-sm font-normal text-muted-foreground dark:text-gray-400">
               • {selectedPolizas.length} seleccionadas
             </span>
           )}
@@ -240,7 +240,7 @@ export function PolizasDataTable({
         </Table>
         
         {polizas.length === 0 && (
-          <div className="text-center py-6 text-muted-foreground">
+          <div className="text-center py-6 text-muted-foreground dark:text-gray-400">
             No hay pólizas disponibles
           </div>
         )}

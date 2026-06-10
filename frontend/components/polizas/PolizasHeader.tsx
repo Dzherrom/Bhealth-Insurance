@@ -16,7 +16,7 @@ export function PolizasHeader() {
         </div>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Gestión de Pólizas</h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground dark:text-gray-400">
             Administra las pólizas de seguros y su estado
           </p>
         </div>

@@ -118,7 +118,7 @@ export function StatusList() {
       {/* Tabla */}
       <Card className="overflow-hidden">
         <table className="w-full">
-          <thead className="bg-gray-50">
+          <thead className="bg-gray-50 dark:bg-[#0f172a]">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Titulo
@@ -134,9 +134,9 @@ export function StatusList() {
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-white dark:bg-[#1e293b] divide-y divide-gray-200 dark:divide-[#334155]">
             {filteredStatus.slice(0, filters.itemsPerPage).map((status) => (
-              <tr key={status.id} className="hover:bg-gray-50">
+              <tr key={status.id} className="hover:bg-gray-50 dark:hover:bg-[#0f172a]">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900">
                     {status.titulo}

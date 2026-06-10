@@ -81,7 +81,7 @@ export function EtiquetasConfig({ tipo, title, description }: EtiquetasConfigPro
         </CardHeader>
         <CardContent>
           <table className="w-full">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 dark:bg-[#0f172a]">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Nombre
@@ -94,11 +94,11 @@ export function EtiquetasConfig({ tipo, title, description }: EtiquetasConfigPro
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white dark:bg-[#1e293b] divide-y divide-gray-200 dark:divide-[#334155]">
               {etiquetas.map(etiqueta => (
-                <tr key={etiqueta.id} className="hover:bg-gray-50">
+                <tr key={etiqueta.id} className="hover:bg-gray-50 dark:hover:bg-[#0f172a]">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">
                       {etiqueta.nombre}
                     </div>
                   </td>

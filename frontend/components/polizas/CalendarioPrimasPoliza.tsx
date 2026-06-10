@@ -66,16 +66,16 @@ export function CalendarioPrimasPoliza({ polizaId }: CalendarioPrimasPolizaProps
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="text-sm text-muted-foreground">Cargando...</p>
+            <p className="text-sm text-muted-foreground dark:text-gray-400">Cargando...</p>
           ) : pagos.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No hay pagos programados.</p>
+            <p className="text-sm text-muted-foreground dark:text-gray-400">No hay pagos programados.</p>
           ) : (
             <div className="space-y-2">
               {pagos.map((p: any) => (
                 <div key={p.indice} className="border rounded-md p-3 flex items-center justify-between">
                   <div>
                     <p className="font-medium">Cuota #{p.indice}</p>
-                    <p className="text-sm text-muted-foreground">{new Date(p.fecha).toLocaleDateString('es-ES')}</p>
+                    <p className="text-sm text-muted-foreground dark:text-gray-400">{new Date(p.fecha).toLocaleDateString('es-ES')}</p>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="font-semibold">${Number(p.monto || 0).toFixed(2)}</span>

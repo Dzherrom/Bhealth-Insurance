@@ -435,42 +435,42 @@ export default function UsersPage() {
       <UsersHeader onNewUser={handleOpenCreateModal} isCreating={isCreating} />
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-[20px] mb-[24px]">
         {/* KPI 1 : Total Usuarios */}
-        <div className="bg-white rounded-[16px] p-[20px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
+        <div className="bg-white dark:bg-[#1e293b] rounded-[16px] p-[20px] border border-[#f1f5f9] dark:border-[#334155] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
           <div className="flex items-center justify-between mb-[16px]">
-            <span className="text-[12px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">Total Usuarios</span>
+            <span className="text-[12px] font-bold text-[#94a3b8] dark:text-gray-500 uppercase tracking-[0.5px]">Total Usuarios</span>
             <Users className="w-5 h-5 text-[#4f46e5]" />
           </div>
-          <div className="text-[32px] font-bold text-[#0f172a] tracking-[-0.5px] leading-[1.2]">{users.length}</div>
-          <div className="text-[12px] font-semibold text-[#64748b] mt-[8px]">Empleados en el sistema</div>
+          <div className="text-[32px] font-bold text-[#0f172a] dark:text-white tracking-[-0.5px] leading-[1.2]">{users.length}</div>
+          <div className="text-[12px] font-semibold text-[#64748b] dark:text-gray-400 mt-[8px]">Empleados en el sistema</div>
         </div>
 
         {/* KPI 2 : Usuarios Activos */}
-        <div className="bg-white rounded-[16px] p-[20px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
+        <div className="bg-white dark:bg-[#1e293b] rounded-[16px] p-[20px] border border-[#f1f5f9] dark:border-[#334155] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
           <div className="flex items-center justify-between mb-[16px]">
-            <span className="text-[12px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">Usuarios Activos</span>
+            <span className="text-[12px] font-bold text-[#94a3b8] dark:text-gray-500 uppercase tracking-[0.5px]">Usuarios Activos</span>
             <UserCheck className="w-5 h-5 text-[#10b981]" />
           </div>
-          <div className="text-[32px] font-bold text-[#0f172a] tracking-[-0.5px] leading-[1.2]">{users.filter(u => u.status === 'activo').length}</div>
+          <div className="text-[32px] font-bold text-[#0f172a] dark:text-white tracking-[-0.5px] leading-[1.2]">{users.filter(u => u.status === 'activo').length}</div>
           <div className="text-[12px] font-semibold text-[#10b981] mt-[8px]">Empleados operativos</div>
         </div>
 
         {/* KPI 3 : Usuarios Inactivos */}
-        <div className="bg-white rounded-[16px] p-[20px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
+        <div className="bg-white dark:bg-[#1e293b] rounded-[16px] p-[20px] border border-[#f1f5f9] dark:border-[#334155] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
           <div className="flex items-center justify-between mb-[16px]">
-            <span className="text-[12px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">Usuarios Inactivos</span>
+            <span className="text-[12px] font-bold text-[#94a3b8] dark:text-gray-500 uppercase tracking-[0.5px]">Usuarios Inactivos</span>
             <UserX className="w-5 h-5 text-[#ef4444]" />
           </div>
-          <div className="text-[32px] font-bold text-[#0f172a] tracking-[-0.5px] leading-[1.2]">{users.filter(u => u.status === 'inactivo').length}</div>
+          <div className="text-[32px] font-bold text-[#0f172a] dark:text-white tracking-[-0.5px] leading-[1.2]">{users.filter(u => u.status === 'inactivo').length}</div>
           <div className="text-[12px] font-semibold text-[#ef4444] mt-[8px]">Empleados suspendidos</div>
         </div>
 
         {/* KPI 4 : Pendientes */}
-        <div className="bg-white rounded-[16px] p-[20px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
+        <div className="bg-white dark:bg-[#1e293b] rounded-[16px] p-[20px] border border-[#f1f5f9] dark:border-[#334155] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
           <div className="flex items-center justify-between mb-[16px]">
-            <span className="text-[12px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">Pendientes</span>
+            <span className="text-[12px] font-bold text-[#94a3b8] dark:text-gray-500 uppercase tracking-[0.5px]">Pendientes</span>
             <Clock className="w-5 h-5 text-[#f59e0b]" />
           </div>
-          <div className="text-[32px] font-bold text-[#0f172a] tracking-[-0.5px] leading-[1.2]">{users.filter(u => u.status === 'pendiente').length}</div>
+          <div className="text-[32px] font-bold text-[#0f172a] dark:text-white tracking-[-0.5px] leading-[1.2]">{users.filter(u => u.status === 'pendiente').length}</div>
           <div className="text-[12px] font-semibold text-[#f59e0b] mt-[8px]">Por activar o validación</div>
         </div>
       </div>
@@ -499,7 +499,7 @@ export default function UsersPage() {
       />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground dark:text-gray-400">
           Mostrando {paginatedUsers.length} de {filteredUsers.length} usuarios filtrados
         </p>
         <div className="flex items-center gap-2">
@@ -510,7 +510,7 @@ export default function UsersPage() {
           >
             Anterior
           </Button>
-          <span className="text-sm text-muted-foreground min-w-[120px] text-center">
+          <span className="text-sm text-muted-foreground dark:text-gray-400 min-w-[120px] text-center">
             Página {currentPage} de {totalPages}
           </span>
           <Button

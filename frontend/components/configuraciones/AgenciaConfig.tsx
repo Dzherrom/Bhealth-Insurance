@@ -137,9 +137,9 @@ export function AgenciaConfig() {
         <CardContent>
           <InfoRow label="Codigo de portal" value={agencia.titulo_portal || '—'} />
           <InfoRow label="Pie de Email" value={agencia.pie_email || '—'} />
-          <InfoRow label="Logotipo en modo claro" value={agencia.logo_light ? <img src={resolveApiMediaUrl(agencia.logo_light)} alt='Logo claro' className='h-16 object-contain' /> : <p className='text-sm text-muted-foreground'>Sin cargar</p>} />
-          <InfoRow label="Logotipo en modo oscuro" value={agencia.logo_dark ? <img src={resolveApiMediaUrl(agencia.logo_dark)} alt='Logo oscuro' className='h-16 object-contain bg-slate-900 p-2 rounded' /> : <p className='text-sm text-muted-foreground'>Sin cargar</p>} />
-          <InfoRow label="Favicon" value={agencia.favicon ? <img src={resolveApiMediaUrl(agencia.favicon)} alt='Favicon' className='h-8 w-8 object-contain' /> : <p className='text-sm text-muted-foreground'>Sin cargar</p>} />
+          <InfoRow label="Logotipo en modo claro" value={agencia.logo_light ? <img src={resolveApiMediaUrl(agencia.logo_light)} alt='Logo claro' className='h-16 object-contain' /> : <p className='text-sm text-muted-foreground dark:text-gray-400'>Sin cargar</p>} />
+          <InfoRow label="Logotipo en modo oscuro" value={agencia.logo_dark ? <img src={resolveApiMediaUrl(agencia.logo_dark)} alt='Logo oscuro' className='h-16 object-contain bg-slate-900 p-2 rounded' /> : <p className='text-sm text-muted-foreground dark:text-gray-400'>Sin cargar</p>} />
+          <InfoRow label="Favicon" value={agencia.favicon ? <img src={resolveApiMediaUrl(agencia.favicon)} alt='Favicon' className='h-8 w-8 object-contain' /> : <p className='text-sm text-muted-foreground dark:text-gray-400'>Sin cargar</p>} />
         </CardContent>
       </Card>
 

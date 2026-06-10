@@ -32,7 +32,7 @@ export function ProductSelection({ onSelect, selectedProductId }: ProductSelecti
 
   const getIconForProduct = (productName: string, selected: boolean) => {
     const name = productName.toLowerCase();
-    const className = `w-6 h-6 shrink-0 ${selected ? 'text-[#4f46e5]' : 'text-[#64748b]'}`;
+    const className = `w-6 h-6 shrink-0 ${selected ? 'text-[#4f46e5]' : 'text-[#64748b] dark:text-gray-400'}`;
     
     if (name.includes('medicare')) return <Briefcase className={className} />;
     if (name.includes('medicaid')) return <HeartPulse className={className} />;
@@ -71,18 +71,18 @@ export function ProductSelection({ onSelect, selectedProductId }: ProductSelecti
             className={`cursor-pointer transition-all duration-200 rounded-[12px] p-[20px] flex flex-col gap-[12px] border ${
               isSelected
                 ? 'bg-[#e0e7ff] border-[#4f46e5] shadow-sm ring-1 ring-[#4f46e5]'
-                : 'bg-white border-[#e2e8f0] hover:border-[#818cf8] hover:shadow-sm'
+                : 'bg-white dark:bg-[#1e293b] border-[#e2e8f0] dark:border-[#334155] hover:border-[#818cf8] hover:shadow-sm'
             }`}
           >
             <div className="flex items-center gap-[12px]">
-              <div className={`flex items-center justify-center w-[32px] h-[32px] rounded-[8px] ${isSelected ? 'bg-[#c7d2fe]' : 'bg-[#f1f5f9]'}`}>
+              <div className={`flex items-center justify-center w-[32px] h-[32px] rounded-[8px] ${isSelected ? 'bg-[#c7d2fe]' : 'bg-[#f1f5f9] dark:bg-[#1e293b]'}`}>
                 {getIconForProduct(tipo.nombre, isSelected)}
               </div>
-              <h3 className={`text-[16px] font-bold m-0 leading-tight ${isSelected ? 'text-[#312e81]' : 'text-[#0f172a]'}`}>
+              <h3 className={`text-[16px] font-bold m-0 leading-tight ${isSelected ? 'text-[#312e81]' : 'text-[#0f172a] dark:text-white'}`}>
                 {tipo.nombre}
               </h3>
             </div>
-            <p className={`text-[13px] m-0 leading-snug ${isSelected ? 'text-[#4338ca]' : 'text-[#64748b]'}`}>
+            <p className={`text-[13px] m-0 leading-snug ${isSelected ? 'text-[#4338ca]' : 'text-[#64748b] dark:text-gray-400'}`}>
               {tipo.descripcion}
             </p>
           </div>

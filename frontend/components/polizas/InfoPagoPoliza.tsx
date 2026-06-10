@@ -221,15 +221,15 @@ export function InfoPagoPoliza({ poliza }: InfoPagoPolizaProps) {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-4 bg-slate-50 border rounded-lg">
-              <p className="text-sm font-semibold text-muted-foreground">Pago recurrente</p>
+              <p className="text-sm font-semibold text-muted-foreground dark:text-gray-400">Pago recurrente</p>
               <p className="text-lg font-bold">{infoPago?.pago_recurrente ? 'Si' : 'No'}</p>
             </div>
             <div className="p-4 bg-slate-50 border rounded-lg">
-              <p className="text-sm font-semibold text-muted-foreground">Fecha 1er pago</p>
+              <p className="text-sm font-semibold text-muted-foreground dark:text-gray-400">Fecha 1er pago</p>
               <p className="text-lg font-bold">{infoPago?.fecha_primer_pago || 'Pendiente'}</p>
             </div>
             <div className="p-4 bg-slate-50 border rounded-lg">
-              <p className="text-sm font-semibold text-muted-foreground">Dia preferido</p>
+              <p className="text-sm font-semibold text-muted-foreground dark:text-gray-400">Dia preferido</p>
               <p className="text-lg font-bold">{infoPago?.dia_pago_preferido || 'No definido'}</p>
             </div>
           </div>
@@ -265,7 +265,7 @@ export function InfoPagoPoliza({ poliza }: InfoPagoPolizaProps) {
               ))}
               {rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground">Sin resultados</TableCell>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground dark:text-gray-400">Sin resultados</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -284,14 +284,14 @@ export function InfoPagoPoliza({ poliza }: InfoPagoPolizaProps) {
             </Button>
           </CardHeader>
           <CardContent className="space-y-3">
-            {loading ? <p className="text-sm text-muted-foreground">Cargando...</p> : tarjetas.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No hay tarjetas registradas.</p>
+            {loading ? <p className="text-sm text-muted-foreground dark:text-gray-400">Cargando...</p> : tarjetas.length === 0 ? (
+              <p className="text-sm text-muted-foreground dark:text-gray-400">No hay tarjetas registradas.</p>
             ) : (
               tarjetas.map((t) => (
                 <div key={t.id} className="border rounded p-3 flex items-center justify-between">
                   <div>
                     <p className="font-medium">{t.tipo_tarjeta} ****{String(t.numero || '').slice(-4)}</p>
-                    <p className="text-xs text-muted-foreground">{t.nombre_titular} - {t.fecha_vencimiento}</p>
+                    <p className="text-xs text-muted-foreground dark:text-gray-400">{t.nombre_titular} - {t.fecha_vencimiento}</p>
                   </div>
                   <div className="flex gap-2">
                     <Button variant="outline" size="icon" onClick={() => { setEditingCard(t); setCardForm({ ...t }); setOpenCardModal(true); }}>
@@ -317,14 +317,14 @@ export function InfoPagoPoliza({ poliza }: InfoPagoPolizaProps) {
             </Button>
           </CardHeader>
           <CardContent className="space-y-3">
-            {loading ? <p className="text-sm text-muted-foreground">Cargando...</p> : cuentas.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No hay cuentas registradas.</p>
+            {loading ? <p className="text-sm text-muted-foreground dark:text-gray-400">Cargando...</p> : cuentas.length === 0 ? (
+              <p className="text-sm text-muted-foreground dark:text-gray-400">No hay cuentas registradas.</p>
             ) : (
               cuentas.map((b) => (
                 <div key={b.id} className="border rounded p-3 flex items-center justify-between">
                   <div>
                     <p className="font-medium">{b.nombre_banco} ****{String(b.numero_cuenta || '').slice(-4)}</p>
-                    <p className="text-xs text-muted-foreground">{b.titular_cuenta} - ABA {b.aba_routing}</p>
+                    <p className="text-xs text-muted-foreground dark:text-gray-400">{b.titular_cuenta} - ABA {b.aba_routing}</p>
                   </div>
                   <div className="flex gap-2">
                     <Button variant="outline" size="icon" onClick={() => { setEditingBank(b); setBankForm({ ...b }); setOpenBankModal(true); }}>

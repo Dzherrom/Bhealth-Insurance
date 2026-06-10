@@ -263,7 +263,7 @@ export default function UserDetailsPage() {
     return (
       <div className="app-page space-y-4">
         <h1 className="text-2xl font-semibold">Usuario no encontrado</h1>
-        <p className="text-muted-foreground">No se pudo cargar la información del usuario solicitado.</p>
+        <p className="text-muted-foreground dark:text-gray-400">No se pudo cargar la información del usuario solicitado.</p>
         <Button variant="outline" onClick={() => router.push('/crm/users')}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Volver a usuarios
@@ -286,7 +286,7 @@ export default function UserDetailsPage() {
           </Avatar>
           <div>
             <h1 className="text-2xl font-bold">{fullName}</h1>
-            <p className="text-muted-foreground">@{user.username}</p>
+            <p className="text-muted-foreground dark:text-gray-400">@{user.username}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -344,22 +344,22 @@ export default function UserDetailsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Nombre completo</p>
+              <p className="text-sm text-muted-foreground dark:text-gray-400">Nombre completo</p>
               <p className="font-medium">{fullName}</p>
             </div>
             <Separator />
             <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Nombre de usuario</p>
+              <p className="text-sm text-muted-foreground dark:text-gray-400">Nombre de usuario</p>
               <p className="font-medium">{user.username}</p>
             </div>
             <Separator />
             <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Correo</p>
+              <p className="text-sm text-muted-foreground dark:text-gray-400">Correo</p>
               <p className="font-medium flex items-center gap-2"><Mail className="h-4 w-4" />{user.email}</p>
             </div>
             <Separator />
             <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Teléfono</p>
+              <p className="text-sm text-muted-foreground dark:text-gray-400">Teléfono</p>
               <p className="font-medium flex items-center gap-2"><Phone className="h-4 w-4" />{user.profile?.telefono || 'Sin teléfono'}</p>
             </div>
           </CardContent>
@@ -374,22 +374,22 @@ export default function UserDetailsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Rol del sistema</p>
+              <p className="text-sm text-muted-foreground dark:text-gray-400">Rol del sistema</p>
               <p className="font-medium">{mapRoleLabel(user.profile?.role || 'USER')}</p>
             </div>
             <Separator />
             <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Estado del perfil</p>
+              <p className="text-sm text-muted-foreground dark:text-gray-400">Estado del perfil</p>
               <p className="font-medium">{mapStatusLabel(user.profile?.status)}</p>
             </div>
             <Separator />
             <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Fecha de alta</p>
+              <p className="text-sm text-muted-foreground dark:text-gray-400">Fecha de alta</p>
               <p className="font-medium flex items-center gap-2"><CalendarDays className="h-4 w-4" />{formatDate(user.date_joined)}</p>
             </div>
             <Separator />
             <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Último inicio de sesión</p>
+              <p className="text-sm text-muted-foreground dark:text-gray-400">Último inicio de sesión</p>
               <p className="font-medium flex items-center gap-2"><Clock className="h-4 w-4" />{formatDateTime(user.last_login)}</p>
             </div>
           </CardContent>

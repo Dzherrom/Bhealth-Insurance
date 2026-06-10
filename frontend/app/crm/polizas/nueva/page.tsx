@@ -482,28 +482,28 @@ export default function NuevaPolizaWizard() {
   };
 
   return (
-    <div className="app-page w-full h-full flex flex-col overflow-auto bg-[#f8fafc]">
-      <header className="px-[30px] md:px-[40px] py-[20px] bg-white border-b border-[#e2e8f0] shadow-sm flex items-center gap-[16px]">
-        <button onClick={() => router.back()} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#f1f5f9] text-[#64748b]">
+    <div className="app-page w-full h-full flex flex-col overflow-auto bg-[#f8fafc] dark:bg-[#0f172a]">
+      <header className="px-[30px] md:px-[40px] py-[20px] bg-white dark:bg-[#1e293b] border-b border-[#e2e8f0] dark:border-[#334155] shadow-sm flex items-center gap-[16px]">
+        <button onClick={() => router.back()} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#f1f5f9] dark:hover:bg-[#334155] dark:bg-[#1e293b] text-[#64748b] dark:text-gray-400">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div>
-          <h2 className="text-[20px] font-bold text-[#0f172a] m-0">Registro de Nueva Póliza</h2>
+          <h2 className="text-[20px] font-bold text-[#0f172a] dark:text-white m-0">Registro de Nueva Póliza</h2>
         </div>
       </header>
 
       {/* Progress Bar Container */}
-      <div className="w-full bg-[#f8fafc] py-[24px] px-[30px] md:px-[40px] flex justify-center overflow-x-auto">
+      <div className="w-full bg-[#f8fafc] dark:bg-[#0f172a] py-[24px] px-[30px] md:px-[40px] flex justify-center overflow-x-auto">
         <div className="w-full max-w-5xl flex items-center justify-between min-w-[700px]">
           {stepsInfo.map((s, idx) => (
             <React.Fragment key={s.id}>
               <div className="flex items-center gap-[12px] shrink-0">
-                <div className={`w-[40px] h-[40px] rounded-[10px] flex items-center justify-center text-[16px] font-bold ${step >= s.id ? 'bg-[#4f46e5] text-white' : 'bg-[#e2e8f0] text-[#64748b]'}`}>
+                <div className={`w-[40px] h-[40px] rounded-[10px] flex items-center justify-center text-[16px] font-bold ${step >= s.id ? 'bg-[#4f46e5] text-white' : 'bg-[#e2e8f0] text-[#64748b] dark:text-gray-400'}`}>
                   {s.id}
                 </div>
                 <div className="flex flex-col">
-                  <span className={`text-[14px] font-bold leading-tight ${step >= s.id ? 'text-[#0f172a]' : 'text-[#64748b]'}`}>{s.title}</span>
-                  {s.subtitle && <span className={`text-[14px] font-bold leading-tight ${step >= s.id ? 'text-[#0f172a]' : 'text-[#64748b]'}`}>{s.subtitle}</span>}
+                  <span className={`text-[14px] font-bold leading-tight ${step >= s.id ? 'text-[#0f172a] dark:text-white' : 'text-[#64748b] dark:text-gray-400'}`}>{s.title}</span>
+                  {s.subtitle && <span className={`text-[14px] font-bold leading-tight ${step >= s.id ? 'text-[#0f172a] dark:text-white' : 'text-[#64748b] dark:text-gray-400'}`}>{s.subtitle}</span>}
                 </div>
               </div>
               {idx < stepsInfo.length - 1 && (
@@ -517,7 +517,7 @@ export default function NuevaPolizaWizard() {
       <div className="max-w-5xl mx-auto w-full p-[30px] md:p-[40px]">
         
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6">
+          <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-xl mb-6">
             {error}
           </div>
         )}
@@ -525,27 +525,27 @@ export default function NuevaPolizaWizard() {
         <form onSubmit={(e) => e.preventDefault()}>
           {step === 1 && (
             <div className="space-y-[30px] animate-in fade-in slide-in-from-bottom-4 duration-300">
-              <h3 className="text-[18px] font-bold text-[#0f172a] border-b border-[#e2e8f0] pb-[10px]">1. Información de Póliza</h3>
+              <h3 className="text-[18px] font-bold text-[#0f172a] dark:text-white border-b border-[#e2e8f0] dark:border-[#334155] pb-[10px]">1. Información de Póliza</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-[24px]">
                 <div className="flex flex-col gap-[8px]">
-                  <label className="text-[13px] font-semibold text-[#334155]">Fecha de Efectividad</label>
+                  <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Fecha de Efectividad</label>
                   <input
                     type="date"
                     name="fechaEfectividad"
                     value={formData.fechaEfectividad}
                     onChange={handleChange}
-                    className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] text-[#0f172a] bg-white focus:ring-2 focus:ring-[#4f46e5] outline-none"
+                    className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] text-[#0f172a] dark:text-white bg-white dark:bg-[#1e293b] focus:ring-2 focus:ring-[#4f46e5] outline-none"
                   />
                 </div>
                 
                 <div className="flex flex-col gap-[8px]">
-                  <label className="text-[13px] font-semibold text-[#334155]">Agente Registrado *</label>
+                  <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Agente Registrado *</label>
                   <select
                     name="agenteId"
                     value={formData.agenteId}
                     onChange={handleChange}
-                    className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] text-[#0f172a] bg-white focus:ring-2 focus:ring-[#4f46e5] outline-none"
+                    className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] text-[#0f172a] dark:text-white bg-white dark:bg-[#1e293b] focus:ring-2 focus:ring-[#4f46e5] outline-none"
                     required
                   >
                     <option value="">Seleccione un agente</option>
@@ -557,10 +557,10 @@ export default function NuevaPolizaWizard() {
               </div>
 
               <div className="flex flex-col gap-[8px]">
-                <label className="text-[13px] font-semibold text-[#334155] flex items-center gap-1">
+                <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200 flex items-center gap-1">
                   Select a product a quote <span className="text-red-500 font-normal text-sm">(required)</span>
                 </label>
-                <div className="bg-white border border-[#e2e8f0] p-4 rounded-xl shadow-sm">
+                <div className="bg-white dark:bg-[#1e293b] border border-[#e2e8f0] dark:border-[#334155] p-4 rounded-xl shadow-sm">
                   <ProductSelection
                     onSelect={handleProductSelect}
                     selectedProductId={selectedProductId}
@@ -578,78 +578,78 @@ export default function NuevaPolizaWizard() {
 
           {step === 2 && (
             <div className="space-y-[30px] animate-in fade-in slide-in-from-right-8 duration-300">
-              <h3 className="text-[18px] font-bold text-[#0f172a] border-b border-[#e2e8f0] pb-[10px]">2. Información Personal</h3>
+              <h3 className="text-[18px] font-bold text-[#0f172a] dark:text-white border-b border-[#e2e8f0] dark:border-[#334155] pb-[10px]">2. Información Personal</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-[24px]">
                 <div className="flex flex-col gap-[8px]">
-                  <label className="text-[13px] font-semibold text-[#334155]">Primer Nombre</label>
-                  <input type="text" name="primerNombre" value={formData.primerNombre} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                  <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Primer Nombre</label>
+                  <input type="text" name="primerNombre" value={formData.primerNombre} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                 </div>
                 <div className="flex flex-col gap-[8px]">
-                  <label className="text-[13px] font-semibold text-[#334155]">Segundo Nombre</label>
-                  <input type="text" name="segundoNombre" value={formData.segundoNombre} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                  <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Segundo Nombre</label>
+                  <input type="text" name="segundoNombre" value={formData.segundoNombre} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                 </div>
                 <div className="flex flex-col gap-[8px]">
-                  <label className="text-[13px] font-semibold text-[#334155]">Apellido Paterno</label>
-                  <input type="text" name="apellidoPaterno" value={formData.apellidoPaterno} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                  <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Apellido Paterno</label>
+                  <input type="text" name="apellidoPaterno" value={formData.apellidoPaterno} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                 </div>
                 <div className="flex flex-col gap-[8px]">
-                  <label className="text-[13px] font-semibold text-[#334155]">Apellido Materno</label>
-                  <input type="text" name="apellidoMaterno" value={formData.apellidoMaterno} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                  <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Apellido Materno</label>
+                  <input type="text" name="apellidoMaterno" value={formData.apellidoMaterno} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                 </div>
                 <div className="flex flex-col gap-[8px]">
-                  <label className="text-[13px] font-semibold text-[#334155]">Fecha de Nacimiento</label>
-                  <input type="date" name="fechaNacimiento" value={formData.fechaNacimiento} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                  <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Fecha de Nacimiento</label>
+                  <input type="date" name="fechaNacimiento" value={formData.fechaNacimiento} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                 </div>
                 <div className="flex flex-col gap-[8px]">
-                  <label className="text-[13px] font-semibold text-[#334155]">Sexo</label>
-                  <select name="sexo" value={formData.sexo} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]">
+                  <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Sexo</label>
+                  <select name="sexo" value={formData.sexo} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5] bg-white dark:bg-[#1e293b] text-[#0f172a] dark:text-white">
                     <option value="Masculino">Masculino</option>
                     <option value="Femenino">Femenino</option>
                   </select>
                 </div>
                 <div className="flex flex-col gap-[8px]">
-                  <label className="text-[13px] font-semibold text-[#334155]">Teléfono</label>
-                  <input type="text" name="telefono" value={formData.telefono} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                  <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Teléfono</label>
+                  <input type="text" name="telefono" value={formData.telefono} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                 </div>
                 <div className="flex flex-col gap-[8px]">
-                  <label className="text-[13px] font-semibold text-[#334155]">Correo Electrónico</label>
-                  <input type="email" name="email" value={formData.email} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                  <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Correo Electrónico</label>
+                  <input type="email" name="email" value={formData.email} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                 </div>
               </div>
 
-              <div className="border border-[#e2e8f0] rounded-[12px] p-[20px] bg-white space-y-[16px]">
-                <h4 className="text-[14px] font-bold text-[#0f172a]">Detalles Clínicos & Estatus</h4>
+              <div className="border border-[#e2e8f0] dark:border-[#334155] rounded-[12px] p-[20px] bg-white dark:bg-[#1e293b] space-y-[16px]">
+                <h4 className="text-[14px] font-bold text-[#0f172a] dark:text-white">Detalles Clínicos & Estatus</h4>
                 
                 <div className="flex items-center gap-[12px]">
                   <input type="checkbox" id="esAplicante" name="esAplicante" checked={formData.esAplicante} onChange={handleChange} className="w-5 h-5 rounded text-[#4f46e5] focus:ring-[#4f46e5]" />
-                  <label htmlFor="esAplicante" className="text-[14px] font-medium text-[#334155]">Este miembro es un aplicante principal</label>
+                  <label htmlFor="esAplicante" className="text-[14px] font-medium text-[#334155] dark:text-gray-200">Este miembro es un aplicante principal</label>
                 </div>
 
                 <div className="flex items-center gap-[12px]">
                   <input type="checkbox" id="usaTabaco" name="usaTabaco" checked={formData.usaTabaco} onChange={handleChange} className="w-5 h-5 rounded text-[#4f46e5] focus:ring-[#4f46e5]" />
-                  <label htmlFor="usaTabaco" className="text-[14px] font-medium text-[#334155]">¿Usa Tabaco?</label>
+                  <label htmlFor="usaTabaco" className="text-[14px] font-medium text-[#334155] dark:text-gray-200">¿Usa Tabaco?</label>
                 </div>
 
                 <div className="grid grid-cols-2 gap-[24px]">
                   <div className="flex flex-col gap-[8px]">
-                    <label className="text-[13px] font-semibold text-[#334155]">Peso</label>
-                    <input type="text" name="peso" placeholder="Ej. 75 kg" value={formData.peso} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                    <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Peso</label>
+                    <input type="text" name="peso" placeholder="Ej. 75 kg" value={formData.peso} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                   </div>
                   <div className="flex flex-col gap-[8px]">
-                    <label className="text-[13px] font-semibold text-[#334155]">Estatura</label>
-                    <input type="text" name="estatura" placeholder="Ej. 1.75 m" value={formData.estatura} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                    <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Estatura</label>
+                    <input type="text" name="estatura" placeholder="Ej. 1.75 m" value={formData.estatura} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                   </div>
                 </div>
 
                 <div className="flex flex-col gap-[8px]">
-                  <label className="text-[13px] font-semibold text-[#334155]">Condición Médica</label>
-                  <textarea name="condicionMedica" value={formData.condicionMedica} onChange={handleChange} className="min-h-[100px] rounded-[10px] border border-[#cbd5e1] p-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5] resize-y" />
+                  <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Condición Médica</label>
+                  <textarea name="condicionMedica" value={formData.condicionMedica} onChange={handleChange} className="min-h-[100px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] p-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5] resize-y" />
                 </div>
               </div>
 
               <div className="pt-4 flex items-center justify-between">
-                <button onClick={handleBack} className="text-[#64748b] hover:text-[#0f172a] py-[10px] px-[20px] font-semibold text-[14px]">
+                <button onClick={handleBack} className="text-[#64748b] dark:text-gray-400 hover:text-[#0f172a] dark:text-white py-[10px] px-[20px] font-semibold text-[14px]">
                   Atrás
                 </button>
                 <button onClick={handleNext} className="bg-[#4f46e5] hover:bg-[#4338ca] text-white py-[10px] px-[24px] text-[14px] font-semibold rounded-[10px] shadow-sm flex items-center gap-2">
@@ -661,16 +661,16 @@ export default function NuevaPolizaWizard() {
 
           {step === 3 && (
             <div className="space-y-[30px] animate-in fade-in slide-in-from-right-8 duration-300">
-              <h3 className="text-[18px] font-bold text-[#0f172a] border-b border-[#e2e8f0] pb-[10px]">3. Grupo Familiar</h3>
+              <h3 className="text-[18px] font-bold text-[#0f172a] dark:text-white border-b border-[#e2e8f0] dark:border-[#334155] pb-[10px]">3. Grupo Familiar</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-[24px]">
                 <div className="flex flex-col gap-[8px]">
-                  <label className="text-[13px] font-semibold text-[#334155]">Ingreso Familiar Anual</label>
-                  <input type="number" name="ingresoAnual" value={formData.ingresoAnual} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                  <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Ingreso Familiar Anual</label>
+                  <input type="number" name="ingresoAnual" value={formData.ingresoAnual} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                 </div>
                 <div className="flex flex-col gap-[8px]">
-                  <label className="text-[13px] font-semibold text-[#334155]">Tamaño del Grupo Familiar</label>
-                  <input type="number" name="tamanoFamilia" value={formData.tamanoFamilia} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                  <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Tamaño del Grupo Familiar</label>
+                  <input type="number" name="tamanoFamilia" value={formData.tamanoFamilia} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                 </div>
               </div>
 
@@ -678,106 +678,106 @@ export default function NuevaPolizaWizard() {
               <div className="flex flex-col gap-[16px]">
                 <div className="flex flex-wrap gap-[16px]">
                   {!conyuge ? (
-                    <button type="button" onClick={handleAddConyuge} className="border border-[#cbd5e1] text-[#4f46e5] bg-white hover:bg-[#f8fafc] py-[10px] px-[20px] text-[13px] font-semibold rounded-[10px] shadow-sm flex items-center gap-2">
+                    <button type="button" onClick={handleAddConyuge} className="border border-[#cbd5e1] dark:border-[#475569] text-[#4f46e5] bg-white dark:bg-[#1e293b] hover:bg-[#f8fafc] dark:hover:bg-[#0f172a] dark:bg-[#0f172a] py-[10px] px-[20px] text-[13px] font-semibold rounded-[10px] shadow-sm flex items-center gap-2">
                       <Plus className="w-4 h-4" /> Añadir Cónyuge
                     </button>
                   ) : (
-                    <button type="button" onClick={handleRemoveConyuge} className="border border-red-200 text-red-600 bg-white hover:bg-red-50 py-[10px] px-[20px] text-[13px] font-semibold rounded-[10px] shadow-sm flex items-center gap-2">
+                    <button type="button" onClick={handleRemoveConyuge} className="border border-red-200 text-red-600 bg-white dark:bg-[#1e293b] hover:bg-red-50 py-[10px] px-[20px] text-[13px] font-semibold rounded-[10px] shadow-sm flex items-center gap-2">
                       <Trash2 className="w-4 h-4" /> Eliminar Cónyuge
                     </button>
                   )}
 
-                  <button type="button" onClick={handleAddDependiente} className="border border-[#cbd5e1] text-[#4f46e5] bg-white hover:bg-[#f8fafc] py-[10px] px-[20px] text-[13px] font-semibold rounded-[10px] shadow-sm flex items-center gap-2">
+                  <button type="button" onClick={handleAddDependiente} className="border border-[#cbd5e1] dark:border-[#475569] text-[#4f46e5] bg-white dark:bg-[#1e293b] hover:bg-[#f8fafc] dark:hover:bg-[#0f172a] dark:bg-[#0f172a] py-[10px] px-[20px] text-[13px] font-semibold rounded-[10px] shadow-sm flex items-center gap-2">
                     <Plus className="w-4 h-4" /> Añadir Dependiente
                   </button>
                 </div>
 
                 {conyuge && (
-                  <div className="border border-[#cbd5e1] rounded-[12px] p-[20px] bg-white space-y-[16px]">
+                  <div className="border border-[#cbd5e1] dark:border-[#475569] rounded-[12px] p-[20px] bg-white dark:bg-[#1e293b] space-y-[16px]">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h4 className="text-[14px] font-bold text-[#0f172a]">Cónyuge</h4>
-                        <p className="text-[12px] text-[#64748b]">Información de cónyuge vinculada a la cotización.</p>
+                        <h4 className="text-[14px] font-bold text-[#0f172a] dark:text-white">Cónyuge</h4>
+                        <p className="text-[12px] text-[#64748b] dark:text-gray-400">Información de cónyuge vinculada a la cotización.</p>
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-[24px]">
                       <div className="flex flex-col gap-[8px]">
-                        <label className="text-[13px] font-semibold text-[#334155]">Primer Nombre</label>
-                        <input type="text" value={conyuge.primerNombre} onChange={(e) => handleConyugeChange('primerNombre', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                        <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Primer Nombre</label>
+                        <input type="text" value={conyuge.primerNombre} onChange={(e) => handleConyugeChange('primerNombre', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                       </div>
                       <div className="flex flex-col gap-[8px]">
-                        <label className="text-[13px] font-semibold text-[#334155]">Apellido Paterno</label>
-                        <input type="text" value={conyuge.apellidoPaterno} onChange={(e) => handleConyugeChange('apellidoPaterno', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                        <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Apellido Paterno</label>
+                        <input type="text" value={conyuge.apellidoPaterno} onChange={(e) => handleConyugeChange('apellidoPaterno', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                       </div>
                       <div className="flex flex-col gap-[8px]">
-                        <label className="text-[13px] font-semibold text-[#334155]">Apellido Materno</label>
-                        <input type="text" value={conyuge.apellidoMaterno} onChange={(e) => handleConyugeChange('apellidoMaterno', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                        <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Apellido Materno</label>
+                        <input type="text" value={conyuge.apellidoMaterno} onChange={(e) => handleConyugeChange('apellidoMaterno', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                       </div>
                       <div className="flex flex-col gap-[8px]">
-                        <label className="text-[13px] font-semibold text-[#334155]">Fecha de Nacimiento</label>
-                        <input type="date" value={conyuge.fechaNacimiento} onChange={(e) => handleConyugeChange('fechaNacimiento', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                        <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Fecha de Nacimiento</label>
+                        <input type="date" value={conyuge.fechaNacimiento} onChange={(e) => handleConyugeChange('fechaNacimiento', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                       </div>
                       <div className="flex flex-col gap-[8px]">
-                        <label className="text-[13px] font-semibold text-[#334155]">Sexo</label>
-                        <select value={conyuge.sexo} onChange={(e) => handleConyugeChange('sexo', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]">
+                        <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Sexo</label>
+                        <select value={conyuge.sexo} onChange={(e) => handleConyugeChange('sexo', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5] bg-white dark:bg-[#1e293b] text-[#0f172a] dark:text-white">
                           <option value="Masculino">Masculino</option>
                           <option value="Femenino">Femenino</option>
                         </select>
                       </div>
                       <div className="flex flex-col gap-[8px]">
-                        <label className="text-[13px] font-semibold text-[#334155]">Teléfono</label>
-                        <input type="text" value={conyuge.telefono} onChange={(e) => handleConyugeChange('telefono', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                        <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Teléfono</label>
+                        <input type="text" value={conyuge.telefono} onChange={(e) => handleConyugeChange('telefono', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                       </div>
                       <div className="flex flex-col gap-[8px]">
-                        <label className="text-[13px] font-semibold text-[#334155]">Correo Electrónico</label>
-                        <input type="email" value={conyuge.email} onChange={(e) => handleConyugeChange('email', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                        <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Correo Electrónico</label>
+                        <input type="email" value={conyuge.email} onChange={(e) => handleConyugeChange('email', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                       </div>
                     </div>
                   </div>
                 )}
 
                 {dependientes.length > 0 && dependientes.map((dep, index) => (
-                  <div key={index} className="border border-[#cbd5e1] rounded-[12px] p-[20px] bg-white space-y-[16px]">
+                  <div key={index} className="border border-[#cbd5e1] dark:border-[#475569] rounded-[12px] p-[20px] bg-white dark:bg-[#1e293b] space-y-[16px]">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h4 className="text-[14px] font-bold text-[#0f172a]">Dependiente {index + 1}</h4>
-                        <p className="text-[12px] text-[#64748b]">Información del familiar para la cotización.</p>
+                        <h4 className="text-[14px] font-bold text-[#0f172a] dark:text-white">Dependiente {index + 1}</h4>
+                        <p className="text-[12px] text-[#64748b] dark:text-gray-400">Información del familiar para la cotización.</p>
                       </div>
-                      <button type="button" onClick={() => handleRemoveDependiente(index)} className="border border-red-200 text-red-600 bg-white hover:bg-red-50 py-[10px] px-[20px] text-[13px] font-semibold rounded-[10px] shadow-sm flex items-center gap-2">
+                      <button type="button" onClick={() => handleRemoveDependiente(index)} className="border border-red-200 text-red-600 bg-white dark:bg-[#1e293b] hover:bg-red-50 py-[10px] px-[20px] text-[13px] font-semibold rounded-[10px] shadow-sm flex items-center gap-2">
                         <Trash2 className="w-4 h-4" /> Eliminar Dependiente
                       </button>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-[24px]">
                       <div className="flex flex-col gap-[8px]">
-                        <label className="text-[13px] font-semibold text-[#334155]">Primer Nombre</label>
-                        <input type="text" value={dep.primerNombre} onChange={(e) => handleDependienteChange(index, 'primerNombre', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                        <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Primer Nombre</label>
+                        <input type="text" value={dep.primerNombre} onChange={(e) => handleDependienteChange(index, 'primerNombre', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                       </div>
                       <div className="flex flex-col gap-[8px]">
-                        <label className="text-[13px] font-semibold text-[#334155]">Apellido Paterno</label>
-                        <input type="text" value={dep.apellidoPaterno} onChange={(e) => handleDependienteChange(index, 'apellidoPaterno', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                        <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Apellido Paterno</label>
+                        <input type="text" value={dep.apellidoPaterno} onChange={(e) => handleDependienteChange(index, 'apellidoPaterno', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                       </div>
                       <div className="flex flex-col gap-[8px]">
-                        <label className="text-[13px] font-semibold text-[#334155]">Apellido Materno</label>
-                        <input type="text" value={dep.apellidoMaterno} onChange={(e) => handleDependienteChange(index, 'apellidoMaterno', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                        <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Apellido Materno</label>
+                        <input type="text" value={dep.apellidoMaterno} onChange={(e) => handleDependienteChange(index, 'apellidoMaterno', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                       </div>
                       <div className="flex flex-col gap-[8px]">
-                        <label className="text-[13px] font-semibold text-[#334155]">Fecha de Nacimiento</label>
-                        <input type="date" value={dep.fechaNacimiento} onChange={(e) => handleDependienteChange(index, 'fechaNacimiento', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                        <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Fecha de Nacimiento</label>
+                        <input type="date" value={dep.fechaNacimiento} onChange={(e) => handleDependienteChange(index, 'fechaNacimiento', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                       </div>
                       <div className="flex flex-col gap-[8px]">
-                        <label className="text-[13px] font-semibold text-[#334155]">Sexo</label>
-                        <select value={dep.sexo} onChange={(e) => handleDependienteChange(index, 'sexo', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]">
+                        <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Sexo</label>
+                        <select value={dep.sexo} onChange={(e) => handleDependienteChange(index, 'sexo', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5] bg-white dark:bg-[#1e293b] text-[#0f172a] dark:text-white">
                           <option value="Masculino">Masculino</option>
                           <option value="Femenino">Femenino</option>
                         </select>
                       </div>
                       <div className="flex flex-col gap-[8px]">
-                        <label className="text-[13px] font-semibold text-[#334155]">Teléfono</label>
-                        <input type="text" value={dep.telefono} onChange={(e) => handleDependienteChange(index, 'telefono', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                        <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Teléfono</label>
+                        <input type="text" value={dep.telefono} onChange={(e) => handleDependienteChange(index, 'telefono', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                       </div>
                       <div className="flex flex-col gap-[8px]">
-                        <label className="text-[13px] font-semibold text-[#334155]">Correo Electrónico</label>
-                        <input type="email" value={dep.email} onChange={(e) => handleDependienteChange(index, 'email', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                        <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Correo Electrónico</label>
+                        <input type="email" value={dep.email} onChange={(e) => handleDependienteChange(index, 'email', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                       </div>
                     </div>
                   </div>
@@ -785,7 +785,7 @@ export default function NuevaPolizaWizard() {
               </div>
 
               <div className="pt-4 flex items-center justify-between">
-                <button onClick={handleBack} className="text-[#64748b] hover:text-[#0f172a] py-[10px] px-[20px] font-semibold text-[14px]">
+                <button onClick={handleBack} className="text-[#64748b] dark:text-gray-400 hover:text-[#0f172a] dark:text-white py-[10px] px-[20px] font-semibold text-[14px]">
                   Atrás
                 </button>
                 <button onClick={handleNext} className="bg-[#4f46e5] hover:bg-[#4338ca] text-white py-[10px] px-[24px] text-[14px] font-semibold rounded-[10px] shadow-sm flex items-center gap-2">
@@ -797,34 +797,34 @@ export default function NuevaPolizaWizard() {
 
           {step === 4 && (
             <div className="space-y-[30px] animate-in fade-in slide-in-from-right-8 duration-300">
-              <h3 className="text-[18px] font-bold text-[#0f172a] border-b border-[#e2e8f0] pb-[10px]">4. Dirección</h3>
+              <h3 className="text-[18px] font-bold text-[#0f172a] dark:text-white border-b border-[#e2e8f0] dark:border-[#334155] pb-[10px]">4. Dirección</h3>
 
-              <div className="border border-[#e2e8f0] rounded-[12px] p-[20px] bg-[#f8fafc] space-y-[16px]">
-                <h4 className="text-[14px] font-bold text-[#0f172a]">Dirección Residencial</h4>
+              <div className="border border-[#e2e8f0] dark:border-[#334155] rounded-[12px] p-[20px] bg-[#f8fafc] dark:bg-[#0f172a] space-y-[16px]">
+                <h4 className="text-[14px] font-bold text-[#0f172a] dark:text-white">Dirección Residencial</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-[24px]">
                   <div className="flex flex-col gap-[8px] md:col-span-2">
-                    <label className="text-[13px] font-semibold text-[#334155]">Línea de Dirección 1</label>
-                    <input type="text" name="direccion1" value={formData.direccion1} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                    <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Línea de Dirección 1</label>
+                    <input type="text" name="direccion1" value={formData.direccion1} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                   </div>
                   <div className="flex flex-col gap-[8px] md:col-span-2">
-                    <label className="text-[13px] font-semibold text-[#334155]">Línea de Dirección 2 (opcional)</label>
-                    <input type="text" name="direccion2" value={formData.direccion2} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                    <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Línea de Dirección 2 (opcional)</label>
+                    <input type="text" name="direccion2" value={formData.direccion2} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                   </div>
                   <div className="flex flex-col gap-[8px]">
-                    <label className="text-[13px] font-semibold text-[#334155]">Código Postal</label>
-                    <input type="text" name="zipCode" value={formData.zipCode} onChange={handleZipChange} placeholder="Ingrese Zip Code..." className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                    <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Código Postal</label>
+                    <input type="text" name="zipCode" value={formData.zipCode} onChange={handleZipChange} placeholder="Ingrese Zip Code..." className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                   </div>
                   <div className="flex flex-col gap-[8px]">
-                    <label className="text-[13px] font-semibold text-[#334155]">Ciudad</label>
-                    <input type="text" name="ciudad" value={formData.ciudad} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5] bg-[#f1f5f9]" readOnly={formData.zipCode.length === 5} />
+                    <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Ciudad</label>
+                    <input type="text" name="ciudad" value={formData.ciudad} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5] bg-[#f1f5f9] dark:bg-[#1e293b]" readOnly={formData.zipCode.length === 5} />
                   </div>
                   <div className="flex flex-col gap-[8px]">
-                    <label className="text-[13px] font-semibold text-[#334155]">Estado</label>
-                    <input type="text" name="estadoProvincia" value={formData.estadoProvincia} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5] bg-[#f1f5f9]" readOnly={formData.zipCode.length === 5} />
+                    <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Estado</label>
+                    <input type="text" name="estadoProvincia" value={formData.estadoProvincia} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5] bg-[#f1f5f9] dark:bg-[#1e293b]" readOnly={formData.zipCode.length === 5} />
                   </div>
                   <div className="flex flex-col gap-[8px]">
-                    <label className="text-[13px] font-semibold text-[#334155]">Condado</label>
-                    <select name="condado" value={formData.condado} onChange={handleChange} disabled={!counties.length} className="h-[44px] rounded-[10px] border border-[#cbd5e1] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]">
+                    <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Condado</label>
+                    <select name="condado" value={formData.condado} onChange={handleChange} disabled={!counties.length} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5] bg-white dark:bg-[#1e293b] text-[#0f172a] dark:text-white disabled:opacity-50">
                       <option value="">Seleccione Condado...</option>
                       {counties.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
@@ -833,7 +833,7 @@ export default function NuevaPolizaWizard() {
               </div>
 
               <div className="pt-4 flex items-center justify-between">
-                <button onClick={handleBack} className="text-[#64748b] hover:text-[#0f172a] py-[10px] px-[20px] font-semibold text-[14px]">
+                <button onClick={handleBack} className="text-[#64748b] dark:text-gray-400 hover:text-[#0f172a] dark:text-white py-[10px] px-[20px] font-semibold text-[14px]">
                   Atrás
                 </button>
                 <button onClick={handleSubmit} disabled={loading} className="bg-[#10b981] hover:bg-[#059669] text-white py-[10px] px-[24px] text-[14px] font-bold rounded-[10px] shadow-sm flex items-center gap-2">

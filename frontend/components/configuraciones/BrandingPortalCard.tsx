@@ -35,7 +35,7 @@ export function BrandingPortalCard({ data, onEdit }: BrandingPortalCardProps) {
             <label className="block text-sm font-medium text-gray-700 mb-3">
               Logotipo del portal en modo claro
             </label>
-            <div className="border-2 border-dashed border-gray-200 rounded-lg p-8 text-center bg-gray-50">
+            <div className="border-2 border-dashed border-gray-200 dark:border-[#334155] rounded-lg p-8 text-center bg-gray-50 dark:bg-[#0f172a]">
               {data.logoModoClaro ? (
                 <img 
                   src={data.logoModoClaro} 
@@ -114,7 +114,7 @@ export function BrandingPortalCard({ data, onEdit }: BrandingPortalCardProps) {
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Pie de Correos Electrónicos
           </label>
-          <div className="text-sm text-gray-900 border rounded p-3 bg-gray-50">
+          <div className="text-sm text-gray-900 dark:text-gray-300 border dark:border-[#334155] rounded p-3 bg-gray-50 dark:bg-[#0f172a]">
             {data.pieCorreosElectronicos || '—'}
           </div>
         </div>

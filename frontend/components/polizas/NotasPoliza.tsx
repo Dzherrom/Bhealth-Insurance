@@ -179,17 +179,17 @@ export function NotasPoliza({ polizaId }: NotasPolizaProps) {
       
       <CardContent className="space-y-4">
         {agregandoNota && (
-          <div className="p-4 border rounded-lg bg-gray-50 space-y-3">
+          <div className="p-4 border dark:border-[#334155] rounded-lg bg-gray-50 dark:bg-[#0f172a] space-y-3">
             <Textarea
                 placeholder="Escribe una nueva nota... Usa @ para mencionar a alguien"
                 value={nuevaNota}
                 onChange={(e) => setNuevaNota(e.target.value)}
-                className="min-h-20 bg-white"
+                className="min-h-20 bg-white dark:bg-[#1e293b]"
               />
               {archivosAdjuntos.length > 0 && (
                 <div className="space-y-2">
                   {archivosAdjuntos.map((archivo, index) => (
-                    <div key={`${archivo.name}-${index}`} className="flex items-center gap-2 text-sm text-muted-foreground p-2 bg-slate-100 rounded-md truncate max-w-full">
+                    <div key={`${archivo.name}-${index}`} className="flex items-center gap-2 text-sm text-muted-foreground dark:text-gray-400 p-2 bg-slate-100 dark:bg-[#1e293b] rounded-md truncate max-w-full">
                       <Paperclip className="h-4 w-4 shrink-0" />
                       <span className="truncate">{archivo.name}</span>
                       <Button
@@ -264,7 +264,7 @@ export function NotasPoliza({ polizaId }: NotasPolizaProps) {
             <p className="text-center text-gray-500 py-4">No hay notas en esta póliza.</p>
           ) : (
             notas.map((nota) => (
-              <div key={nota.id} className="flex space-x-3 p-3 bg-gray-50 rounded-lg">
+              <div key={nota.id} className="flex space-x-3 p-3 bg-gray-50 dark:bg-[#0f172a] rounded-lg">
                 <Avatar className="w-8 h-8">
                   <AvatarImage src={nota.usuario.avatar} />
                   <AvatarFallback className="text-xs bg-blue-100 text-blue-700">
@@ -309,7 +309,7 @@ export function NotasPoliza({ polizaId }: NotasPolizaProps) {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                      <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                         {nota.contenido.split(/(@\w+)/g).map((part: string, i: number) => 
                           part.startsWith('@') ? <span key={i} className="text-blue-600 font-medium bg-blue-50 px-1 rounded-sm">{part}</span> : part
                         )}
@@ -322,7 +322,7 @@ export function NotasPoliza({ polizaId }: NotasPolizaProps) {
                                 <img src={nota.archivo} alt="Archivo adjunto" className="w-full h-auto" />
                               </a>
                             ) : (
-                              <a href={nota.archivo} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 p-2 rounded-md transition-colors">
+                              <a href={nota.archivo} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 bg-blue-50 dark:bg-[#1e293b] hover:bg-blue-100 dark:hover:bg-[#334155] p-2 rounded-md transition-colors">
                                 <Paperclip className="h-4 w-4 mr-2" />
                                 Descargar archivo
                               </a>
@@ -334,7 +334,7 @@ export function NotasPoliza({ polizaId }: NotasPolizaProps) {
                                 <img src={adjunto.archivo} alt={adjunto.nombre || 'Adjunto'} className="w-full h-auto" />
                               </a>
                             ) : (
-                              <a key={adjunto.id} href={adjunto.archivo} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 p-2 rounded-md transition-colors">
+                              <a key={adjunto.id} href={adjunto.archivo} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 bg-blue-50 dark:bg-[#1e293b] hover:bg-blue-100 dark:hover:bg-[#334155] p-2 rounded-md transition-colors">
                                 <Paperclip className="h-4 w-4 mr-2" />
                                 {adjunto.nombre || 'Descargar archivo'}
                               </a>

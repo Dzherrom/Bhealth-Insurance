@@ -50,11 +50,11 @@ export function ListadoGeneral() {
         <Card>
           <CardHeader><CardTitle>Agentes / Empleados</CardTitle></CardHeader>
           <CardContent className="space-y-2">
-            {loading ? <p className="text-sm text-muted-foreground">Cargando...</p> : filteredAgentes.map((agente) => (
+            {loading ? <p className="text-sm text-muted-foreground dark:text-gray-400">Cargando...</p> : filteredAgentes.map((agente) => (
               <div key={agente.id} className="flex items-center justify-between rounded border p-3">
                 <div>
                   <p className="font-medium">{agente.nombre_completo}</p>
-                  <p className="text-xs text-muted-foreground">NPN: {agente.npn}</p>
+                  <p className="text-xs text-muted-foreground dark:text-gray-400">NPN: {agente.npn}</p>
                 </div>
                 <Badge variant="outline">{agente.agencia_nombre || 'Sin agencia'}</Badge>
               </div>
@@ -65,11 +65,11 @@ export function ListadoGeneral() {
         <Card>
           <CardHeader><CardTitle>Clientes registrados</CardTitle></CardHeader>
           <CardContent className="space-y-2">
-            {loading ? <p className="text-sm text-muted-foreground">Cargando...</p> : filteredClientes.map((cliente) => (
+            {loading ? <p className="text-sm text-muted-foreground dark:text-gray-400">Cargando...</p> : filteredClientes.map((cliente) => (
               <div key={cliente.id} className="flex items-center justify-between rounded border p-3">
                 <div>
                   <p className="font-medium">{cliente.primer_nombre} {cliente.apellido_paterno}</p>
-                  <p className="text-xs text-muted-foreground">{cliente.email}</p>
+                  <p className="text-xs text-muted-foreground dark:text-gray-400">{cliente.email}</p>
                 </div>
                 <Badge variant="outline">{cliente.estado_inmigracion || 'Cliente'}</Badge>
               </div>

@@ -119,9 +119,9 @@ export function TareasPoliza({ polizaId, userId }: TareasPolizaProps) {
           </div>
 
           {loading ? (
-            <p className="text-sm text-muted-foreground">Cargando...</p>
+            <p className="text-sm text-muted-foreground dark:text-gray-400">Cargando...</p>
           ) : filtered.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No hay tareas.</p>
+            <p className="text-sm text-muted-foreground dark:text-gray-400">No hay tareas.</p>
           ) : (
             <div className="space-y-2">
               {filtered.map((tarea) => (
@@ -131,8 +131,8 @@ export function TareasPoliza({ polizaId, userId }: TareasPolizaProps) {
                       {tarea.completada ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <Circle className="h-5 w-5 text-gray-400" />}
                     </button>
                     <div>
-                      <p className={`font-medium ${tarea.completada ? 'line-through text-muted-foreground' : ''}`}>{tarea.titulo}</p>
-                      {tarea.descripcion && <p className="text-sm text-muted-foreground">{tarea.descripcion}</p>}
+                      <p className={`font-medium ${tarea.completada ? 'line-through text-muted-foreground dark:text-gray-400' : ''}`}>{tarea.titulo}</p>
+                      {tarea.descripcion && <p className="text-sm text-muted-foreground dark:text-gray-400">{tarea.descripcion}</p>}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">

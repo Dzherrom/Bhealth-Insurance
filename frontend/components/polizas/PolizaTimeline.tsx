@@ -89,7 +89,7 @@ export function PolizaTimeline({ events }: PolizaTimelineProps) {
             {sortedEvents.map((event, index) => (
               <div key={event.id} className="relative flex items-start space-x-4">
                 {/* Icono del evento */}
-                <div className="relative z-10 flex-shrink-0 w-8 h-8 bg-white border-2 border-gray-200 rounded-full flex items-center justify-center">
+                <div className="relative z-10 flex-shrink-0 w-8 h-8 bg-white dark:bg-[#1e293b] border-2 border-gray-200 rounded-full flex items-center justify-center">
                   {getEventIcon(event.type)}
                 </div>
                 

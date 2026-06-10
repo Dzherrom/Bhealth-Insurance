@@ -265,14 +265,14 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 mb-[30px] md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-[20px] font-bold text-[#0f172a] m-0">Resumen del Panel</h2>
+          <h2 className="text-[20px] font-bold text-[#0f172a] dark:text-white m-0">Resumen del Panel</h2>
         </div>
 
         <div className="flex items-center gap-[12px]">
-          <div className="flex items-center bg-white border border-[#f1f5f9] rounded-[10px] p-[6px] gap-[8px]">
-            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-8 border-none shadow-none focus-visible:ring-0 w-[125px] text-[13px] text-[#475569] font-medium p-0 bg-transparent" />
-            <span className="text-[#94a3b8] font-bold">-</span>
-            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-8 border-none shadow-none focus-visible:ring-0 w-[125px] text-[13px] text-[#475569] font-medium p-0 bg-transparent" />
+          <div className="flex items-center bg-white dark:bg-[#1e293b] border border-[#f1f5f9] dark:border-[#334155] rounded-[10px] p-[6px] gap-[8px]">
+            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-8 border-none shadow-none focus-visible:ring-0 w-[125px] text-[13px] text-[#475569] dark:text-gray-300 font-medium p-0 bg-transparent" />
+            <span className="text-[#94a3b8] dark:text-gray-500 font-bold">-</span>
+            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-8 border-none shadow-none focus-visible:ring-0 w-[125px] text-[13px] text-[#475569] dark:text-gray-300 font-medium p-0 bg-transparent" />
           </div>
           <Button
             disabled={!canApplyRange || loading}
@@ -288,62 +288,62 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-[20px] mb-[24px]">
         
         {/* KPI 1 : Ventas Totales */}
-        <div className="bg-white rounded-[16px] p-[20px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
+        <div className="bg-white dark:bg-[#1e293b] rounded-[16px] p-[20px] border border-[#f1f5f9] dark:border-[#334155] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
           <div className="flex items-center justify-between mb-[16px]">
-            <span className="text-[12px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">Ventas Totales</span>
+            <span className="text-[12px] font-bold text-[#94a3b8] dark:text-gray-500 uppercase tracking-[0.5px]">Ventas Totales</span>
             <Wallet className="w-5 h-5 text-[#4f46e5]" />
           </div>
-          <div className="text-[32px] font-bold text-[#0f172a] tracking-[-0.5px] leading-[1.2]">$184,500</div>
-          <div className="text-[12px] font-semibold text-[#64748b] mt-[8px]">+14.2% vs año anterior</div>
+          <div className="text-[32px] font-bold text-[#0f172a] dark:text-white tracking-[-0.5px] leading-[1.2]">$184,500</div>
+          <div className="text-[12px] font-semibold text-[#64748b] dark:text-gray-400 mt-[8px]">+14.2% vs año anterior</div>
         </div>
 
         {/* KPI 2 : Pólizas */}
-        <div className="bg-white rounded-[16px] p-[20px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
+        <div className="bg-white dark:bg-[#1e293b] rounded-[16px] p-[20px] border border-[#f1f5f9] dark:border-[#334155] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
           <div className="flex items-center justify-between mb-[16px]">
-            <span className="text-[12px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">Pólizas</span>
+            <span className="text-[12px] font-bold text-[#94a3b8] dark:text-gray-500 uppercase tracking-[0.5px]">Pólizas</span>
             <FileText className="w-5 h-5 text-[#10b981]" />
           </div>
-          <div className="text-[32px] font-bold text-[#0f172a] tracking-[-0.5px] leading-[1.2]">{stats.total_polizas || "0"}</div>
-          <div className="text-[12px] font-semibold text-[#64748b] mt-[8px]">Número total de pólizas</div>
+          <div className="text-[32px] font-bold text-[#0f172a] dark:text-white tracking-[-0.5px] leading-[1.2]">{stats.total_polizas || "0"}</div>
+          <div className="text-[12px] font-semibold text-[#64748b] dark:text-gray-400 mt-[8px]">Número total de pólizas</div>
         </div>
 
         {/* KPI 3 : Aplicantes */}
-        <div className="bg-white rounded-[16px] p-[20px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
+        <div className="bg-white dark:bg-[#1e293b] rounded-[16px] p-[20px] border border-[#f1f5f9] dark:border-[#334155] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
           <div className="flex items-center justify-between mb-[16px]">
-            <span className="text-[12px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">Aplicantes</span>
+            <span className="text-[12px] font-bold text-[#94a3b8] dark:text-gray-500 uppercase tracking-[0.5px]">Aplicantes</span>
             <Users className="w-5 h-5 text-[#3b82f6]" />
           </div>
-          <div className="text-[32px] font-bold text-[#0f172a] tracking-[-0.5px] leading-[1.2]">{stats.total_aplicantes || "0"}</div>
-          <div className="text-[12px] font-semibold text-[#64748b] mt-[8px]">Número total de aplicantes</div>
+          <div className="text-[32px] font-bold text-[#0f172a] dark:text-white tracking-[-0.5px] leading-[1.2]">{stats.total_aplicantes || "0"}</div>
+          <div className="text-[12px] font-semibold text-[#64748b] dark:text-gray-400 mt-[8px]">Número total de aplicantes</div>
         </div>
 
         {/* KPI 4 : Pólizas Canceladas */}
-        <div className="bg-white rounded-[16px] p-[20px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
+        <div className="bg-white dark:bg-[#1e293b] rounded-[16px] p-[20px] border border-[#f1f5f9] dark:border-[#334155] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
           <div className="flex items-center justify-between mb-[16px]">
-            <span className="text-[12px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">Pólizas Canceladas</span>
+            <span className="text-[12px] font-bold text-[#94a3b8] dark:text-gray-500 uppercase tracking-[0.5px]">Pólizas Canceladas</span>
             <Ban className="w-5 h-5 text-[#ef4444]" />
           </div>
-          <div className="text-[32px] font-bold text-[#0f172a] tracking-[-0.5px] leading-[1.2]">{stats.total_polizas_canceladas || "0"}</div>
-          <div className="text-[12px] font-semibold text-[#64748b] mt-[8px]">Total de pólizas canceladas</div>
+          <div className="text-[32px] font-bold text-[#0f172a] dark:text-white tracking-[-0.5px] leading-[1.2]">{stats.total_polizas_canceladas || "0"}</div>
+          <div className="text-[12px] font-semibold text-[#64748b] dark:text-gray-400 mt-[8px]">Total de pólizas canceladas</div>
         </div>
 
         {/* KPI 5 : Aplicantes Cancelados */}
-        <div className="bg-white rounded-[16px] p-[20px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
+        <div className="bg-white dark:bg-[#1e293b] rounded-[16px] p-[20px] border border-[#f1f5f9] dark:border-[#334155] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
           <div className="flex items-center justify-between mb-[16px]">
-            <span className="text-[12px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">Aplicantes Cancelados</span>
+            <span className="text-[12px] font-bold text-[#94a3b8] dark:text-gray-500 uppercase tracking-[0.5px]">Aplicantes Cancelados</span>
             <UserX className="w-5 h-5 text-[#ef4444]" />
           </div>
-          <div className="text-[32px] font-bold text-[#0f172a] tracking-[-0.5px] leading-[1.2]">{stats.total_aplicantes_cancelados || "0"}</div>
-          <div className="text-[12px] font-semibold text-[#64748b] mt-[8px]">Total de aplicantes cancelados</div>
+          <div className="text-[32px] font-bold text-[#0f172a] dark:text-white tracking-[-0.5px] leading-[1.2]">{stats.total_aplicantes_cancelados || "0"}</div>
+          <div className="text-[12px] font-semibold text-[#64748b] dark:text-gray-400 mt-[8px]">Total de aplicantes cancelados</div>
         </div>
 
         {/* KPI 6 : Tasa de Retención */}
-        <div className="bg-white rounded-[16px] p-[20px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
+        <div className="bg-white dark:bg-[#1e293b] rounded-[16px] p-[20px] border border-[#f1f5f9] dark:border-[#334155] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-transform hover:-translate-y-[2px]">
           <div className="flex items-center justify-between mb-[16px]">
-            <span className="text-[12px] font-bold text-[#94a3b8] uppercase tracking-[0.5px]">Tasa de Retención</span>
+            <span className="text-[12px] font-bold text-[#94a3b8] dark:text-gray-500 uppercase tracking-[0.5px]">Tasa de Retención</span>
             <Zap className="w-5 h-5 text-[#f59e0b]" />
           </div>
-          <div className="text-[32px] font-bold text-[#0f172a] tracking-[-0.5px] leading-[1.2]">98.4%</div>
+          <div className="text-[32px] font-bold text-[#0f172a] dark:text-white tracking-[-0.5px] leading-[1.2]">98.4%</div>
           <div className="text-[12px] font-semibold text-[#10b981] mt-[8px]">Eficiencia óptima</div>
         </div>
 
@@ -351,8 +351,8 @@ export default function DashboardPage() {
 
       <div className="grid gap-[24px] lg:grid-cols-2 mb-[24px]">
         {/* Rendimiento de Ventas */}
-        <div className="bg-white rounded-[16px] p-[24px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)]">
-          <div className="text-[16px] font-bold text-[#0f172a] mb-[20px]">Rendimiento de Ventas</div>
+        <div className="bg-white dark:bg-[#1e293b] rounded-[16px] p-[24px] border border-[#f1f5f9] dark:border-[#334155] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)]">
+          <div className="text-[16px] font-bold text-[#0f172a] dark:text-white mb-[20px]">Rendimiento de Ventas</div>
           <div className="h-[320px] w-full">
             {stats.polizas_efectivas_mensual_chart?.length ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -367,22 +367,22 @@ export default function DashboardPage() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex h-full items-center justify-center text-muted-foreground">Sin datos</div>
+              <div className="flex h-full items-center justify-center text-muted-foreground dark:text-gray-400">Sin datos</div>
             )}
           </div>
         </div>
 
         {/* Rendimiento de Asistentes */}
-        <div className="bg-white rounded-[16px] p-[24px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col gap-[20px]">
+        <div className="bg-white dark:bg-[#1e293b] rounded-[16px] p-[24px] border border-[#f1f5f9] dark:border-[#334155] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col gap-[20px]">
           <div>
-            <div className="text-[16px] font-bold text-[#0f172a] mb-[4px]">Métricas de Rendimiento de Asistentes</div>
-            <div className="text-[13px] font-medium text-[#64748b] leading-[1.5]">Clasificación basada en el volumen independiente de pólizas cerradas y aplicantes gestionados</div>
+            <div className="text-[16px] font-bold text-[#0f172a] dark:text-white mb-[4px]">Métricas de Rendimiento de Asistentes</div>
+            <div className="text-[13px] font-medium text-[#64748b] dark:text-gray-400 leading-[1.5]">Clasificación basada en el volumen independiente de pólizas cerradas y aplicantes gestionados</div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-[20px]">
             
             {/* Top Productores */}
-            <div className="bg-[#f8fafc] rounded-[12px] p-[16px] border-l-[4px] border-l-[#10b981]">
+            <div className="bg-[#f8fafc] dark:bg-[#0f172a] rounded-[12px] p-[16px] border-l-[4px] border-l-[#10b981]">
               <div className="text-[12px] font-bold uppercase tracking-[0.5px] flex items-center gap-[6px] mb-[16px] text-[#10b981]">
                 <TrendingUp className="w-4 h-4" /> Mayores Productores (Top 3)
               </div>
@@ -392,13 +392,13 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-[12px]">
                     <div className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-bold text-[12px] shrink-0 bg-[#d1fae5] text-[#065f46]">DM</div>
                     <div>
-                      <h5 className="text-[14px] font-bold text-[#0f172a] m-0">Daniella Mendoza</h5>
-                      <p className="text-[11px] font-semibold text-[#64748b] m-0">Conversión: 84%</p>
+                      <h5 className="text-[14px] font-bold text-[#0f172a] dark:text-white m-0">Daniella Mendoza</h5>
+                      <p className="text-[11px] font-semibold text-[#64748b] dark:text-gray-400 m-0">Conversión: 84%</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="text-[13px] font-bold text-[#10b981]">153 Pólizas</div>
-                    <div className="text-[11px] font-semibold text-[#64748b]">185 Ap</div>
+                    <div className="text-[11px] font-semibold text-[#64748b] dark:text-gray-400">185 Ap</div>
                   </div>
                 </div>
 
@@ -406,13 +406,13 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-[12px]">
                     <div className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-bold text-[12px] shrink-0 bg-[#d1fae5] text-[#065f46]">CR</div>
                     <div>
-                      <h5 className="text-[14px] font-bold text-[#0f172a] m-0">Carlos Rdz</h5>
-                      <p className="text-[11px] font-semibold text-[#64748b] m-0">Conversión: 79%</p>
+                      <h5 className="text-[14px] font-bold text-[#0f172a] dark:text-white m-0">Carlos Rdz</h5>
+                      <p className="text-[11px] font-semibold text-[#64748b] dark:text-gray-400 m-0">Conversión: 79%</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="text-[13px] font-bold text-[#10b981]">125 Pólizas</div>
-                    <div className="text-[11px] font-semibold text-[#64748b]">140 Ap</div>
+                    <div className="text-[11px] font-semibold text-[#64748b] dark:text-gray-400">140 Ap</div>
                   </div>
                 </div>
 
@@ -420,13 +420,13 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-[12px]">
                     <div className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-bold text-[12px] shrink-0 bg-[#d1fae5] text-[#065f46]">LG</div>
                     <div>
-                      <h5 className="text-[14px] font-bold text-[#0f172a] m-0">Luis Gómez</h5>
-                      <p className="text-[11px] font-semibold text-[#64748b] m-0">Conversión: 72%</p>
+                      <h5 className="text-[14px] font-bold text-[#0f172a] dark:text-white m-0">Luis Gómez</h5>
+                      <p className="text-[11px] font-semibold text-[#64748b] dark:text-gray-400 m-0">Conversión: 72%</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="text-[13px] font-bold text-[#10b981]">98 Pólizas</div>
-                    <div className="text-[11px] font-semibold text-[#64748b]">110 Ap</div>
+                    <div className="text-[11px] font-semibold text-[#64748b] dark:text-gray-400">110 Ap</div>
                   </div>
                 </div>
 
@@ -434,7 +434,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Bajo productivo */}
-            <div className="bg-[#f8fafc] rounded-[12px] p-[16px] border-l-[4px] border-l-[#ef4444]">
+            <div className="bg-[#f8fafc] dark:bg-[#0f172a] rounded-[12px] p-[16px] border-l-[4px] border-l-[#ef4444]">
               <div className="text-[12px] font-bold uppercase tracking-[0.5px] flex items-center gap-[6px] mb-[16px] text-[#ef4444]">
                 <TrendingDown className="w-4 h-4" /> Requiere Revisión
               </div>
@@ -444,13 +444,13 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-[12px]">
                     <div className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-bold text-[12px] shrink-0 bg-[#fee2e2] text-[#991b1b]">MP</div>
                     <div>
-                      <h5 className="text-[14px] font-bold text-[#0f172a] m-0">Miguel P</h5>
-                      <p className="text-[11px] font-semibold text-[#64748b] m-0">Conv: 31%</p>
+                      <h5 className="text-[14px] font-bold text-[#0f172a] dark:text-white m-0">Miguel P</h5>
+                      <p className="text-[11px] font-semibold text-[#64748b] dark:text-gray-400 m-0">Conv: 31%</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="text-[13px] font-bold text-[#ef4444]">12 Pólizas</div>
-                    <div className="text-[11px] font-semibold text-[#64748b]">25 Ap</div>
+                    <div className="text-[11px] font-semibold text-[#64748b] dark:text-gray-400">25 Ap</div>
                   </div>
                 </div>
 
@@ -458,13 +458,13 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-[12px]">
                     <div className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-bold text-[12px] shrink-0 bg-[#fee2e2] text-[#991b1b]">AF</div>
                     <div>
-                      <h5 className="text-[14px] font-bold text-[#0f172a] m-0">Ana F</h5>
-                      <p className="text-[11px] font-semibold text-[#64748b] m-0">Conv: 28%</p>
+                      <h5 className="text-[14px] font-bold text-[#0f172a] dark:text-white m-0">Ana F</h5>
+                      <p className="text-[11px] font-semibold text-[#64748b] dark:text-gray-400 m-0">Conv: 28%</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="text-[13px] font-bold text-[#ef4444]">8 Pólizas</div>
-                    <div className="text-[11px] font-semibold text-[#64748b]">14 Ap</div>
+                    <div className="text-[11px] font-semibold text-[#64748b] dark:text-gray-400">14 Ap</div>
                   </div>
                 </div>
 
@@ -472,13 +472,13 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-[12px]">
                     <div className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-bold text-[12px] shrink-0 bg-[#fee2e2] text-[#991b1b]">RJ</div>
                     <div>
-                      <h5 className="text-[14px] font-bold text-[#0f172a] m-0">Roberto J</h5>
-                      <p className="text-[11px] font-semibold text-[#64748b] m-0">Conv: 21%</p>
+                      <h5 className="text-[14px] font-bold text-[#0f172a] dark:text-white m-0">Roberto J</h5>
+                      <p className="text-[11px] font-semibold text-[#64748b] dark:text-gray-400 m-0">Conv: 21%</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="text-[13px] font-bold text-[#ef4444]">7 Pólizas</div>
-                    <div className="text-[11px] font-semibold text-[#64748b]">9 Ap</div>
+                    <div className="text-[11px] font-semibold text-[#64748b] dark:text-gray-400">9 Ap</div>
                   </div>
                 </div>
 
@@ -492,8 +492,8 @@ export default function DashboardPage() {
 
       <div className="grid gap-[24px] lg:grid-cols-2 mb-[24px]">
         {/* Pólizas por estados de EEUU */}
-        <div className="bg-white rounded-[16px] p-[24px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col">
-          <div className="text-[16px] font-bold text-[#0f172a] mb-[20px]">Pólizas por Estados (EE.UU.)</div>
+        <div className="bg-white dark:bg-[#1e293b] rounded-[16px] p-[24px] border border-[#f1f5f9] dark:border-[#334155] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col">
+          <div className="text-[16px] font-bold text-[#0f172a] dark:text-white mb-[20px]">Pólizas por Estados (EE.UU.)</div>
           <div className="flex-1 relative flex items-center justify-center min-h-[320px]">
             <ComposableMap projection="geoAlbersUsa" className="w-full h-full">
               <Geographies geography={USA_GEO_URL}>
@@ -539,15 +539,15 @@ export default function DashboardPage() {
               >
                 <div className="text-[13px] font-bold mb-[4px]">{hoveredState.name}</div>
                 <div className="text-[12px] text-[#cbd5e1]">{hoveredState.count} pólizas</div>
-                <div className="text-[11px] text-[#94a3b8] font-semibold mt-[2px]">{hoveredState.percentage.toFixed(1)}% del total</div>
+                <div className="text-[11px] text-[#94a3b8] dark:text-gray-500 font-semibold mt-[2px]">{hoveredState.percentage.toFixed(1)}% del total</div>
               </div>
             )}
           </div>
         </div>
 
         {/* Pólizas y Aplicantes por Aseguradora */}
-        <div className="bg-white rounded-[16px] p-[24px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col">
-          <div className="text-[16px] font-bold text-[#0f172a] mb-[20px]">Pólizas y Aplicantes por Aseguradora</div>
+        <div className="bg-white dark:bg-[#1e293b] rounded-[16px] p-[24px] border border-[#f1f5f9] dark:border-[#334155] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col">
+          <div className="text-[16px] font-bold text-[#0f172a] dark:text-white mb-[20px]">Pólizas y Aplicantes por Aseguradora</div>
           <div className="h-[320px] w-full">
             {insurerMergedData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -562,7 +562,7 @@ export default function DashboardPage() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex h-full items-center justify-center text-[#94a3b8] text-[13px] font-medium">Sin datos para mostrar</div>
+              <div className="flex h-full items-center justify-center text-[#94a3b8] dark:text-gray-500 text-[13px] font-medium">Sin datos para mostrar</div>
             )}
           </div>
         </div>
@@ -570,18 +570,18 @@ export default function DashboardPage() {
 
       <div className="grid gap-[24px] lg:grid-cols-1 mb-[24px]">
         {/* Tabla de Clasificación de Agentes */}
-        <div className="bg-white rounded-[16px] p-[24px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col gap-[20px]">
-          <div className="text-[16px] font-bold text-[#0f172a]">Tabla de Clasificación de Agentes y Licencias</div>
+        <div className="bg-white dark:bg-[#1e293b] rounded-[16px] p-[24px] border border-[#f1f5f9] dark:border-[#334155] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col gap-[20px]">
+          <div className="text-[16px] font-bold text-[#0f172a] dark:text-white">Tabla de Clasificación de Agentes y Licencias</div>
           <div className="flex flex-col gap-[12px]">
             {stats.clasificacion_agentes?.map((agent, index) => (
-              <div key={`${agent.nombre}-${index}`} className="flex flex-col sm:flex-row sm:items-center justify-between p-[16px] rounded-[12px] bg-white border border-[#f1f5f9] shadow-[0_2px_8px_-2px_rgba(0,0,0,0.02)] transition-all hover:border-[#e2e8f0] hover:shadow-[0_4px_12px_-2px_rgba(0,0,0,0.05)] gap-4 sm:gap-0">
+              <div key={`${agent.nombre}-${index}`} className="flex flex-col sm:flex-row sm:items-center justify-between p-[16px] rounded-[12px] bg-white dark:bg-[#1e293b] border border-[#f1f5f9] dark:border-[#334155] shadow-[0_2px_8px_-2px_rgba(0,0,0,0.02)] transition-all hover:border-[#e2e8f0] dark:hover:border-[#475569] dark:border-[#334155] dark:hover:border-[#475569] dark:border-[#334155] hover:shadow-[0_4px_12px_-2px_rgba(0,0,0,0.05)] gap-4 sm:gap-0">
                 <div className="flex items-center gap-[16px]">
-                  <div className="w-[45px] h-[45px] bg-[#f8fafc] text-[#4f46e5] text-[16px] font-bold rounded-full flex items-center justify-center border border-[#e2e8f0] shrink-0">
+                  <div className="w-[45px] h-[45px] bg-[#f8fafc] dark:bg-[#0f172a] text-[#4f46e5] text-[16px] font-bold rounded-full flex items-center justify-center border border-[#e2e8f0] dark:border-[#334155] shrink-0">
                     {agent.nombre.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase()}
                   </div>
                   <div>
-                    <h4 className="text-[14px] font-bold text-[#0f172a] uppercase m-0 leading-[1.2]">{agent.nombre}</h4>
-                    <p className="text-[12px] font-semibold text-[#64748b] mt-[4px] m-0">NPN {Math.floor(10000000 + Math.random() * 90000000)} • Principal Activo</p>
+                    <h4 className="text-[14px] font-bold text-[#0f172a] dark:text-white uppercase m-0 leading-[1.2]">{agent.nombre}</h4>
+                    <p className="text-[12px] font-semibold text-[#64748b] dark:text-gray-400 mt-[4px] m-0">NPN {Math.floor(10000000 + Math.random() * 90000000)} • Principal Activo</p>
                   </div>
                 </div>
 
@@ -589,24 +589,24 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-[12px]">
                     <span className="w-[32px] h-[32px] bg-[#e0e7ff] text-[#3b82f6] text-[11px] font-bold flex items-center justify-center rounded-[8px]">FL</span>
                     <div className="flex items-center gap-[10px]">
-                        <span className="bg-[#f8fafc] border border-[#e2e8f0] text-[#475569] text-[11px] font-semibold px-[8px] py-[4px] rounded-[10px] flex items-center gap-[6px]">
+                        <span className="bg-[#f8fafc] dark:bg-[#0f172a] border border-[#e2e8f0] dark:border-[#334155] text-[#475569] dark:text-gray-300 text-[11px] font-semibold px-[8px] py-[4px] rounded-[10px] flex items-center gap-[6px]">
                           <span className="w-[6px] h-[6px] rounded-full bg-[#10b981] shadow-[0_0_5px_rgba(16,185,129,0.5)]"></span>Progressive
                         </span>
-                        <span className="bg-[#f8fafc] border border-[#e2e8f0] text-[#475569] text-[11px] font-semibold px-[8px] py-[4px] rounded-[10px] flex items-center gap-[6px]">
+                        <span className="bg-[#f8fafc] dark:bg-[#0f172a] border border-[#e2e8f0] dark:border-[#334155] text-[#475569] dark:text-gray-300 text-[11px] font-semibold px-[8px] py-[4px] rounded-[10px] flex items-center gap-[6px]">
                           <span className="w-[6px] h-[6px] rounded-full bg-[#3b82f6] shadow-[0_0_5px_rgba(59,130,246,0.5)]"></span>Blue Cross
                         </span>
                     </div>
                   </div>
                   
                   <div className="flex flex-col text-right">
-                    <div className="text-[15px] font-bold text-[#0f172a]">{agent.num_polizas} Ventas ({agent.porcentaje_polizas}%)</div>
+                    <div className="text-[15px] font-bold text-[#0f172a] dark:text-white">{agent.num_polizas} Ventas ({agent.porcentaje_polizas}%)</div>
                     <div className="text-[12px] font-semibold text-[#10b981]">Totalizado</div>
                   </div>
                 </div>
               </div>
             ))}
             {!stats.clasificacion_agentes?.length && (
-              <p className="text-[13px] text-muted-foreground text-center py-4">No hay datos de agentes.</p>
+              <p className="text-[13px] text-muted-foreground dark:text-gray-400 text-center py-4">No hay datos de agentes.</p>
             )}
           </div>
         </div>
