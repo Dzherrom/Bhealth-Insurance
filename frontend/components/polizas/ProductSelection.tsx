@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { tiposProductoApi } from '@/lib/api';
 import { TipoProducto } from '@/types';
+import { Briefcase, HeartPulse, Shield, FileText, Umbrella, Glasses, Activity, Plane, Home, Banknote, ShieldAlert, Star } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -29,6 +30,26 @@ export function ProductSelection({ onSelect, selectedProductId }: ProductSelecti
     fetchTipos();
   }, []);
 
+  const getIconForProduct = (productName: string, selected: boolean) => {
+    const name = productName.toLowerCase();
+    const className = `w-6 h-6 shrink-0 ${selected ? 'text-[#4f46e5]' : 'text-[#64748b]'}`;
+    
+    if (name.includes('medicare')) return <Briefcase className={className} />;
+    if (name.includes('medicaid')) return <HeartPulse className={className} />;
+    if (name.includes('aca') || name.includes('health')) return <ShieldAlert className={className} />;
+    if (name.includes('life')) return <HeartPulse className={className} />;
+    if (name.includes('dental')) return <Star className={className} />; // Fallback icon
+    if (name.includes('vision')) return <Glasses className={className} />;
+    if (name.includes('supplemental')) return <FileText className={className} />;
+    if (name.includes('annuities')) return <Banknote className={className} />;
+    if (name.includes('final expense')) return <Umbrella className={className} />;
+    if (name.includes('travel')) return <Plane className={className} />;
+    if (name.includes('property') || name.includes('p&c')) return <Home className={className} />;
+    if (name.includes('private')) return <Briefcase className={className} />;
+    
+    return <Shield className={className} />;
+  };
+
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -40,25 +61,33 @@ export function ProductSelection({ onSelect, selectedProductId }: ProductSelecti
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      {tipos.map(tipo => (
-        <Card
-          key={tipo.id}
-          onClick={() => onSelect(tipo.id)}
-          className={`cursor-pointer transition-all ${
-            selectedProductId === tipo.id
-              ? 'border-blue-500 ring-2 ring-blue-500'
-              : 'border-gray-200 hover:border-blue-400'
-          }`}
-        >
-          <CardHeader>
-            <CardTitle className="text-md">{tipo.nombre}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-600">{tipo.descripcion}</p>
-          </CardContent>
-        </Card>
-      ))}
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-[16px]">
+      {tipos.map(tipo => {
+        const isSelected = selectedProductId === tipo.id;
+        return (
+          <div
+            key={tipo.id}
+            onClick={() => onSelect(tipo.id)}
+            className={`cursor-pointer transition-all duration-200 rounded-[12px] p-[20px] flex flex-col gap-[12px] border ${
+              isSelected
+                ? 'bg-[#e0e7ff] border-[#4f46e5] shadow-sm ring-1 ring-[#4f46e5]'
+                : 'bg-white border-[#e2e8f0] hover:border-[#818cf8] hover:shadow-sm'
+            }`}
+          >
+            <div className="flex items-center gap-[12px]">
+              <div className={`flex items-center justify-center w-[32px] h-[32px] rounded-[8px] ${isSelected ? 'bg-[#c7d2fe]' : 'bg-[#f1f5f9]'}`}>
+                {getIconForProduct(tipo.nombre, isSelected)}
+              </div>
+              <h3 className={`text-[16px] font-bold m-0 leading-tight ${isSelected ? 'text-[#312e81]' : 'text-[#0f172a]'}`}>
+                {tipo.nombre}
+              </h3>
+            </div>
+            <p className={`text-[13px] m-0 leading-snug ${isSelected ? 'text-[#4338ca]' : 'text-[#64748b]'}`}>
+              {tipo.descripcion}
+            </p>
+          </div>
+        );
+      })}
     </div>
   );
 }

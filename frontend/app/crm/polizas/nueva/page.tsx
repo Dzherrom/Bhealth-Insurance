@@ -93,9 +93,10 @@ export default function NuevaPolizaWizard() {
     peso: '',
     estatura: '',
     condicionMedica: '',
-    // Step 3: Familiar & Address
+    // Step 3: Familiar
     ingresoAnual: '',
     tamanoFamilia: '',
+    // Step 4: Address
     direccion1: '',
     direccion2: '',
     ciudad: '',
@@ -103,6 +104,13 @@ export default function NuevaPolizaWizard() {
     zipCode: '',
     condado: '',
   });
+
+  const stepsInfo = [
+    { id: 1, title: 'Información', subtitle: 'de la póliza' },
+    { id: 2, title: 'Información', subtitle: 'Personal' },
+    { id: 3, title: 'Grupo', subtitle: 'Familiar' },
+    { id: 4, title: 'Dirección', subtitle: '' },
+  ];
 
   // Fetch initial data (agentes)
   useEffect(() => {
@@ -186,6 +194,23 @@ export default function NuevaPolizaWizard() {
     if (step === 1) {
       if (!formData.agenteId || !selectedProductId) {
         setError('Por favor seleccione agente y producto antes de continuar.');
+        return;
+      }
+    }
+    if (step === 2) {
+      if (!formData.primerNombre?.trim() || !formData.apellidoPaterno?.trim()) {
+        setError('Complete el nombre y apellido del solicitante principal.');
+        return;
+      }
+      if (!formData.fechaNacimiento || !validateDate(formData.fechaNacimiento)) {
+        setError('Ingrese una fecha de nacimiento válida para el solicitante principal.');
+        return;
+      }
+    }
+    if (step === 3) {
+      const familyError = validateFamilyMembers();
+      if (familyError) {
+        setError(familyError);
         return;
       }
     }
@@ -464,11 +489,32 @@ export default function NuevaPolizaWizard() {
         </button>
         <div>
           <h2 className="text-[20px] font-bold text-[#0f172a] m-0">Registro de Nueva Póliza</h2>
-          <p className="text-[13px] text-[#64748b]">Paso {step} de 3</p>
         </div>
       </header>
 
-      <div className="max-w-[900px] mx-auto w-full p-[30px] md:p-[40px]">
+      {/* Progress Bar Container */}
+      <div className="w-full bg-[#f8fafc] py-[24px] px-[30px] md:px-[40px] flex justify-center overflow-x-auto">
+        <div className="w-full max-w-5xl flex items-center justify-between min-w-[700px]">
+          {stepsInfo.map((s, idx) => (
+            <React.Fragment key={s.id}>
+              <div className="flex items-center gap-[12px] shrink-0">
+                <div className={`w-[40px] h-[40px] rounded-[10px] flex items-center justify-center text-[16px] font-bold ${step >= s.id ? 'bg-[#4f46e5] text-white' : 'bg-[#e2e8f0] text-[#64748b]'}`}>
+                  {s.id}
+                </div>
+                <div className="flex flex-col">
+                  <span className={`text-[14px] font-bold leading-tight ${step >= s.id ? 'text-[#0f172a]' : 'text-[#64748b]'}`}>{s.title}</span>
+                  {s.subtitle && <span className={`text-[14px] font-bold leading-tight ${step >= s.id ? 'text-[#0f172a]' : 'text-[#64748b]'}`}>{s.subtitle}</span>}
+                </div>
+              </div>
+              {idx < stepsInfo.length - 1 && (
+                <div className={`flex-1 h-[2px] mx-[16px] md:mx-[24px] ${step > s.id ? 'bg-[#4f46e5]' : 'bg-[#e2e8f0]'}`} />
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+
+      <div className="max-w-5xl mx-auto w-full p-[30px] md:p-[40px]">
         
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6">
@@ -511,11 +557,15 @@ export default function NuevaPolizaWizard() {
               </div>
 
               <div className="flex flex-col gap-[8px]">
-                <label className="text-[13px] font-semibold text-[#334155]">Selecciona un Producto para Cotizar *</label>
-                <ProductSelection
-                  onSelect={handleProductSelect}
-                  selectedProductId={selectedProductId}
-                />
+                <label className="text-[13px] font-semibold text-[#334155] flex items-center gap-1">
+                  Select a product a quote <span className="text-red-500 font-normal text-sm">(required)</span>
+                </label>
+                <div className="bg-white border border-[#e2e8f0] p-4 rounded-xl shadow-sm">
+                  <ProductSelection
+                    onSelect={handleProductSelect}
+                    selectedProductId={selectedProductId}
+                  />
+                </div>
               </div>
 
               <div className="pt-4 flex justify-end">
@@ -611,7 +661,7 @@ export default function NuevaPolizaWizard() {
 
           {step === 3 && (
             <div className="space-y-[30px] animate-in fade-in slide-in-from-right-8 duration-300">
-              <h3 className="text-[18px] font-bold text-[#0f172a] border-b border-[#e2e8f0] pb-[10px]">3. Información Familiar & Dirección</h3>
+              <h3 className="text-[18px] font-bold text-[#0f172a] border-b border-[#e2e8f0] pb-[10px]">3. Grupo Familiar</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-[24px]">
                 <div className="flex flex-col gap-[8px]">
@@ -731,6 +781,21 @@ export default function NuevaPolizaWizard() {
                   </div>
                 ))}
               </div>
+
+              <div className="pt-4 flex items-center justify-between">
+                <button onClick={handleBack} className="text-[#64748b] hover:text-[#0f172a] py-[10px] px-[20px] font-semibold text-[14px]">
+                  Atrás
+                </button>
+                <button onClick={handleNext} className="bg-[#4f46e5] hover:bg-[#4338ca] text-white py-[10px] px-[24px] text-[14px] font-semibold rounded-[10px] shadow-sm flex items-center gap-2">
+                  Siguiente Paso <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 4 && (
+            <div className="space-y-[30px] animate-in fade-in slide-in-from-right-8 duration-300">
+              <h3 className="text-[18px] font-bold text-[#0f172a] border-b border-[#e2e8f0] pb-[10px]">4. Dirección</h3>
 
               <div className="border border-[#e2e8f0] rounded-[12px] p-[20px] bg-[#f8fafc] space-y-[16px]">
                 <h4 className="text-[14px] font-bold text-[#0f172a]">Dirección Residencial</h4>
