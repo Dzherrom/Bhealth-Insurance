@@ -743,7 +743,9 @@ export default function NuevaPolizaWizard() {
                         <h4 className="text-[14px] font-bold text-[#0f172a]">Dependiente {index + 1}</h4>
                         <p className="text-[12px] text-[#64748b]">Información del familiar para la cotización.</p>
                       </div>
-                      <button type="button" onClick={() => handleRemoveDependiente(index)} className="text-red-600 hover:text-red-800 text-[12px] font-semibold">Eliminar</button>
+                      <button type="button" onClick={() => handleRemoveDependiente(index)} className="border border-red-200 text-red-600 bg-white hover:bg-red-50 py-[10px] px-[20px] text-[13px] font-semibold rounded-[10px] shadow-sm flex items-center gap-2">
+                        <Trash2 className="w-4 h-4" /> Eliminar Dependiente
+                      </button>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-[24px]">
                       <div className="flex flex-col gap-[8px]">
