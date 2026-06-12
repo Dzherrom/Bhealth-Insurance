@@ -27,7 +27,7 @@ export function ListadoGeneral() {
 
   const filteredAgentes = useMemo(() => {
     const q = search.toLowerCase();
-    return agentes.filter((agente) => `${agente.nombre_completo} ${agente.npn}`.toLowerCase().includes(q));
+    return agentes.filter((agente) => `${agente.nombre_completo} ${agente.npn} ${agente.ffm || ''}`.toLowerCase().includes(q));
   }, [agentes, search]);
 
   const filteredClientes = useMemo(() => {
@@ -54,7 +54,9 @@ export function ListadoGeneral() {
               <div key={agente.id} className="flex items-center justify-between rounded border p-3">
                 <div>
                   <p className="font-medium">{agente.nombre_completo}</p>
-                  <p className="text-xs text-muted-foreground dark:text-gray-400">NPN: {agente.npn}</p>
+                  <p className="text-xs text-muted-foreground dark:text-gray-400">
+                    NPN: {agente.npn}{agente.ffm ? ` · FFM: ${agente.ffm}` : ''}
+                  </p>
                 </div>
                 <Badge variant="outline">{agente.agencia_nombre || 'Sin agencia'}</Badge>
               </div>

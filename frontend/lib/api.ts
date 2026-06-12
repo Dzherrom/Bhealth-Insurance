@@ -713,6 +713,17 @@ export const tareasApi = {
   },
 };
 
+// 🔄 Cambios de vida
+export const cambiosDeVidaApi = {
+  ...createCrudApi<any>('cambios-de-vida'),
+
+  listByPoliza: async (polizaId: number): Promise<any[]> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/cambios-de-vida/?poliza=${polizaId}`, { method: 'GET' });
+    const payload = await handleApiResponse<any>(response);
+    return Array.isArray(payload) ? payload : payload?.results || [];
+  },
+};
+
 // 📝 Notas
 export const notasApi = createCrudApi<Nota>('notas');
 
@@ -834,6 +845,7 @@ export const api = {
   estadosPoliza: estadosPolizaApi,
   polizas: polizasApi,
   tareas: tareasApi,
+  cambiosDeVida: cambiosDeVidaApi,
   citas: citasApi,
   tarjetasCredito: tarjetasCreditoApi,
   cuentasBancarias: cuentasBancariasApi,

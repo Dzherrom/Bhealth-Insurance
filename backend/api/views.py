@@ -23,7 +23,7 @@ from django.db.models import Sum, Count, F, Prefetch
 from django.db.models.functions import TruncMonth, TruncYear
 from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
-    EstadoPoliza, Poliza, Nota, HistorialPoliza, Etiqueta, Documento, Tarea,
+    EstadoPoliza, Poliza, Nota, HistorialPoliza, Etiqueta, Documento, Tarea, CambioDeVida,
     PolizaViewer, Cita, Medico, Recordatorio, IntentoLoginFallido,
     Contrato, ReporteComision, Notificacion, TarjetaCredito, CuentaBancaria, InfoPago,
     PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal, registrar_auditoria_global
@@ -397,8 +397,11 @@ class ProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = UserManagementSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def get_queryset(self):
+        return User.objects.select_related('profile__agente')
+
     def get_object(self):
-        return self.request.user
+        return self.get_queryset().get(pk=self.request.user.pk)
 
     def patch(self, request, *args, **kwargs):
         user = self.get_object()
@@ -996,6 +999,36 @@ class TareaViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(tareas, many=True)
         return Response(serializer.data)
+
+
+class CambioDeVidaViewSet(viewsets.ModelViewSet):
+    queryset = CambioDeVida.objects.select_related(
+        'poliza', 'poliza__agente', 'agente', 'agente_creador', 'asignado_a', 'creado_por'
+    ).all()
+    serializer_class = CambioDeVidaSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filterset_fields = ['poliza', 'tipo', 'estado', 'asignado_a', 'agente', 'agente_creador']
+
+    def perform_create(self, serializer):
+        poliza = serializer.validated_data['poliza']
+        agente_asignado = poliza.agente
+        agente_creador = None
+        if hasattr(self.request.user, 'profile') and self.request.user.profile.agente_id:
+            agente_creador = self.request.user.profile.agente
+
+        serializer.save(
+            creado_por=self.request.user,
+            agente=agente_asignado,
+            agente_creador=agente_creador,
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        if not request.user.is_staff:
+            return Response(
+                {'detail': 'Solo administradores pueden eliminar cambios de vida.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
 
 class CitaViewSet(viewsets.ModelViewSet):
     queryset = Cita.objects.all()

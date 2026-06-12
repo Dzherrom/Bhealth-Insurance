@@ -5,7 +5,7 @@ from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
     EstadoPoliza, Poliza, PolizaCliente, Licencia, Nota, HistorialPoliza,
     NotaAdjunto,
-    Etiqueta, Documento, Tarea, UserProfile, TipoProducto,
+    Etiqueta, Documento, Tarea, CambioDeVida, UserProfile, TipoProducto,
     InfoPago, TarjetaCredito, CuentaBancaria, PolizaViewer, Cita, Medico, Medicamento, Recordatorio,
     Contrato, ReporteComision, ConfiguracionComision, Notificacion, PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal, ConfiguracionNotificacion
 )
@@ -72,9 +72,18 @@ class UserSerializer(serializers.ModelSerializer):
         return user
 
 class ProfileDataSerializer(serializers.ModelSerializer):
+    agente_npn = serializers.SerializerMethodField()
+    agente_ffm = serializers.SerializerMethodField()
+
     class Meta:
         model = UserProfile
-        fields = ('role', 'status', 'avatar', 'telefono', 'agente', 'settings')
+        fields = ('role', 'status', 'avatar', 'telefono', 'agente', 'agente_npn', 'agente_ffm', 'settings')
+
+    def get_agente_npn(self, obj):
+        return obj.agente.npn if obj.agente_id else None
+
+    def get_agente_ffm(self, obj):
+        return obj.agente.ffm if obj.agente_id else None
 
 class UserManagementSerializer(serializers.ModelSerializer):
     profile = ProfileDataSerializer()
@@ -493,7 +502,9 @@ class PolizaSerializer(serializers.ModelSerializer):
     
     agente_nombre = serializers.ReadOnlyField(source='agente.nombre_completo')
     plan = serializers.PrimaryKeyRelatedField(queryset=Plan.objects.all(), required=False, allow_null=True)
-    plan_nombre = serializers.ReadOnlyField(source='plan.nombre')
+    plan_nombre = serializers.SerializerMethodField()
+    aseguradora_nombre = serializers.SerializerMethodField()
+    tipo_producto_nombre = serializers.ReadOnlyField(source='tipo_producto.nombre')
     estado_nombre = serializers.ReadOnlyField(source='estado.nombre')
     colaboradores_details = UserSerializer(source='colaboradores', many=True, read_only=True)
     active_viewers = serializers.SerializerMethodField()
@@ -523,6 +534,8 @@ class PolizaSerializer(serializers.ModelSerializer):
     transferencias = PolizaTransferenciaSerializer(many=True, read_only=True)
     request_user_role = serializers.SerializerMethodField()
     fecha_efectiva = serializers.DateField(required=False, allow_null=True, format='%m/%d/%Y', input_formats=['%m/%d/%Y', '%Y-%m-%d'])
+    fecha_cancelacion = serializers.DateField(required=False, allow_null=True, format='%m/%d/%Y', input_formats=['%m/%d/%Y', '%Y-%m-%d'])
+    fecha_inscripcion_especial = serializers.DateField(required=False, allow_null=True, format='%m/%d/%Y', input_formats=['%m/%d/%Y', '%Y-%m-%d'])
 
     class Meta:
         model = Poliza
@@ -530,7 +543,8 @@ class PolizaSerializer(serializers.ModelSerializer):
             'id', 'id_mercado', 'id_miembro', 'costo_poliza', 'subsidio', 'prima_mensual',
             'total_ahorros', 'plan_era',
             'fecha_efectiva', 'estado', 'estado_nombre', 'flujo_etapa', 'fecha_envio', 'fecha_cancelacion',
-            'id_interno', 'agente', 'agente_nombre', 'plan', 'plan_nombre', 'tipo_producto',
+            'id_interno', 'agente', 'agente_nombre', 'plan', 'plan_nombre', 'tipo_producto', 'tipo_producto_nombre',
+            'aseguradora', 'aseguradora_nombre', 'nombre_plan', 'metal', 'id_plan_cms',
             'clientes_info', 'clientes_data', 'colaboradores', 'colaboradores_details',
             'ffm_mercado', 'npn_mercado', 'tipo_inscripcion', 'razon_inscripcion_especial', 'fecha_inscripcion_especial',
             'total_miembros', 'total_aplicantes', 'total_dependientes',
@@ -546,6 +560,46 @@ class PolizaSerializer(serializers.ModelSerializer):
 
     def get_request_user_role(self, obj):
         return get_request_user_role(self)
+
+    def get_plan_nombre(self, obj):
+        if obj.nombre_plan:
+            return obj.nombre_plan
+        return obj.plan.nombre if obj.plan else None
+
+    def get_aseguradora_nombre(self, obj):
+        if obj.aseguradora:
+            return obj.aseguradora.nombre
+        if obj.plan and obj.plan.aseguradora:
+            return obj.plan.aseguradora.nombre
+        return None
+
+    def _sync_plan(self, instance, validated_data):
+        aseguradora = validated_data.get('aseguradora', instance.aseguradora if instance else None)
+        tipo_producto = validated_data.get('tipo_producto', instance.tipo_producto if instance else None)
+        nombre_plan = validated_data.get('nombre_plan', instance.nombre_plan if instance else None)
+        id_plan_cms = validated_data.get('id_plan_cms', instance.id_plan_cms if instance else None)
+
+        if not aseguradora or not tipo_producto or not nombre_plan:
+            return
+
+        plan = Plan.objects.filter(
+            aseguradora=aseguradora,
+            tipo_producto=tipo_producto,
+            nombre=nombre_plan,
+        ).first()
+
+        if not plan:
+            plan = Plan.objects.create(
+                aseguradora=aseguradora,
+                tipo_producto=tipo_producto,
+                nombre=nombre_plan,
+                id_plan_aseguradora=id_plan_cms or '',
+            )
+        elif id_plan_cms and plan.id_plan_aseguradora != id_plan_cms:
+            plan.id_plan_aseguradora = id_plan_cms
+            plan.save(update_fields=['id_plan_aseguradora'])
+
+        validated_data['plan'] = plan
 
     def _get_main_cliente(self, obj):
         principal = obj.polizacliente_set.filter(es_solicitante_principal=True).select_related(
@@ -595,6 +649,15 @@ class PolizaSerializer(serializers.ModelSerializer):
             if details.get('id'):
                 data['direccion_facturacion'] = details['id']
 
+        if data.get('aseguradora') is None and instance.plan_id and instance.plan.aseguradora_id:
+            data['aseguradora'] = instance.plan.aseguradora_id
+
+        if not data.get('nombre_plan') and instance.plan_id:
+            data['nombre_plan'] = instance.plan.nombre
+
+        if not data.get('id_plan_cms') and instance.plan_id and instance.plan.id_plan_aseguradora:
+            data['id_plan_cms'] = instance.plan.id_plan_aseguradora
+
         return data
 
     def get_active_viewers(self, obj):
@@ -624,6 +687,7 @@ class PolizaSerializer(serializers.ModelSerializer):
         clientes_data = validated_data.pop('clientes_data', [])
         colaboradores = validated_data.pop('colaboradores', [])
         etiquetas = validated_data.pop('etiquetas', [])
+        self._sync_plan(None, validated_data)
         poliza = Poliza.objects.create(**validated_data)
         
         if colaboradores:
@@ -641,6 +705,8 @@ class PolizaSerializer(serializers.ModelSerializer):
         clientes_data = validated_data.pop('clientes_data', None)
         colaboradores = validated_data.pop('colaboradores', None)
         etiquetas = validated_data.pop('etiquetas', None)
+
+        self._sync_plan(instance, validated_data)
         
         # Update standard fields
         for attr, value in validated_data.items():
@@ -672,6 +738,22 @@ class TareaSerializer(serializers.ModelSerializer):
         model = Tarea
         fields = '__all__'
         read_only_fields = ('creado_por', 'fecha_creacion')
+
+
+class CambioDeVidaSerializer(serializers.ModelSerializer):
+    asignado_a_username = serializers.ReadOnlyField(source='asignado_a.username')
+    creado_por_username = serializers.ReadOnlyField(source='creado_por.username')
+    poliza_id_mercado = serializers.ReadOnlyField(source='poliza.id_mercado')
+    agente_nombre = serializers.ReadOnlyField(source='agente.nombre_completo')
+    agente_creador_nombre = serializers.ReadOnlyField(source='agente_creador.nombre_completo')
+    tipo_display = serializers.CharField(source='get_tipo_display', read_only=True)
+    estado_display = serializers.CharField(source='get_estado_display', read_only=True)
+
+    class Meta:
+        model = CambioDeVida
+        fields = '__all__'
+        read_only_fields = ('creado_por', 'agente', 'agente_creador', 'fecha_creacion', 'fecha_actualizacion')
+
 
 class ContratoSerializer(serializers.ModelSerializer):
     class Meta:

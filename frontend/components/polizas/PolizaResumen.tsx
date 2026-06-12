@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { NotasChat } from '@/components/notas/NotasChat';
+import { CambiosDeVidaPanel } from './CambiosDeVidaPanel';
 import { RegistrosActividadModal } from './RegistrosActividadModal';
 import { api, etiquetasApi, estadosPolizaApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
@@ -34,13 +35,20 @@ interface PolizaResumenProps {
     cliente_principal: string;
     etiquetas?: { id: number; nombre: string; color?: string }[];
   };
+  polizaContext?: {
+    clientes_info?: any[];
+    direccion_fisica_details?: any;
+    direccion_postal_details?: any;
+    direccion_facturacion_details?: any;
+  };
   activeSection?: string;
   onSectionChange?: (section: string) => void;
   onPolizaUpdate?: (updatedData: any) => void;
 }
 
-export function PolizaResumen({ poliza, activeSection = 'poliza', onSectionChange, onPolizaUpdate }: PolizaResumenProps) {
+export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza', onSectionChange, onPolizaUpdate }: PolizaResumenProps) {
   const [isNotasChatOpen, setIsNotasChatOpen] = useState(false);
+  const [isCambiosVidaOpen, setIsCambiosVidaOpen] = useState(false);
   const [isRegistrosModalOpen, setIsRegistrosModalOpen] = useState(false);
   const [allEtiquetas, setAllEtiquetas] = useState<{id: number, nombre: string}[]>([]);
   const [allEstados, setAllEstados] = useState<{id: number, nombre: string}[]>([]);
@@ -138,7 +146,7 @@ export function PolizaResumen({ poliza, activeSection = 'poliza', onSectionChang
     { id: 'formularios', icon: <i className="fa-duotone fa-file-signature"></i>, label: 'Formularios de Firma', count: 0 },
     { id: 'comisiones', icon: <i className="fa-duotone fa-sack-dollar"></i>, label: 'Comisiones' },
     { id: 'tareas', icon: <i className="fa-duotone ml-0.5 fa-clipboard-list-check"></i>, label: 'Tareas' },
-    { id: 'cambios', icon: <i className="fa-duotone ml-0.5 fa-family"></i>, label: 'Cambios de vida' },
+    { id: 'cambios', icon: <i className="fa-duotone ml-0.5 fa-family"></i>, label: 'Cambios de vida', isPanel: true },
     { id: 'citas', icon: <i className="fa-duotone ml-0.5 fa-user-doctor-hair"></i>, label: 'Citas médicas' },
     { id: 'registros', icon: <i className="fa-duotone fa-list"></i>, label: 'Registros', isModal: true },
     { id: 'configuracion', icon: <i className="fa-duotone fa-gear"></i>, label: 'Configuración' }
@@ -337,6 +345,8 @@ export function PolizaResumen({ poliza, activeSection = 'poliza', onSectionChang
                   onClick={() => {
                     if (item.isChat) {
                       setIsNotasChatOpen(true);
+                    } else if (item.isPanel) {
+                      setIsCambiosVidaOpen(true);
                     } else if (item.isModal) {
                       setIsRegistrosModalOpen(true);
                     } else {
@@ -403,6 +413,19 @@ export function PolizaResumen({ poliza, activeSection = 'poliza', onSectionChang
           etiquetas: poliza.etiquetas
         }}
       />
+
+      {poliza.id && (
+        <CambiosDeVidaPanel
+          isOpen={isCambiosVidaOpen}
+          onClose={() => setIsCambiosVidaOpen(false)}
+          polizaId={poliza.id}
+          polizaContext={polizaContext}
+          polizaInfo={{
+            cliente: poliza.cliente_principal,
+            id_mercado: poliza.id_mercado,
+          }}
+        />
+      )}
       
       <RegistrosActividadModal 
         isOpen={isRegistrosModalOpen}

@@ -3,7 +3,7 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, CalendarDays, Clock, Mail, Phone, Shield, User as UserIcon, Pencil } from 'lucide-react';
-import { resolveApiMediaUrl, usersApi } from '@/lib/api';
+import { agentesApi, resolveApiMediaUrl, usersApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -29,6 +29,8 @@ interface ApiUserProfile {
   avatar?: string | null;
   telefono?: string | null;
   agente?: number | null;
+  agente_npn?: string | null;
+  agente_ffm?: string | null;
 }
 
 interface ApiUser {
@@ -135,6 +137,9 @@ export default function UserDetailsPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [agentNpn, setAgentNpn] = useState('');
+  const [agentFfm, setAgentFfm] = useState('');
+  const [isSavingAgent, setIsSavingAgent] = useState(false);
   const [form, setForm] = useState<EditProfileForm>({
     firstName: '',
     lastName: '',
@@ -159,6 +164,8 @@ export default function UserDetailsPage() {
         role: typedData.profile?.role || 'USER',
         status: typedData.profile?.status || 'ACTIVE',
       });
+      setAgentNpn(typedData.profile?.agente_npn || '');
+      setAgentFfm(typedData.profile?.agente_ffm || '');
     } catch (error) {
       console.error('Error al cargar detalle de usuario:', error);
       setUser(null);
@@ -197,6 +204,25 @@ export default function UserDetailsPage() {
       setAvatarPreview(URL.createObjectURL(file));
     } else {
       setAvatarPreview(null);
+    }
+  };
+
+  const handleSaveAgentCredentials = async () => {
+    if (!user?.profile?.agente) return;
+
+    setIsSavingAgent(true);
+    try {
+      await agentesApi.patch(user.profile.agente, {
+        npn: agentNpn.trim(),
+        ffm: agentFfm.trim() || null,
+      } as any);
+      await fetchUser();
+      toast({ title: 'Credenciales actualizadas', description: 'NPN y FFM del agente guardados correctamente.' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudieron guardar las credenciales';
+      toast({ title: 'Error', description: message, variant: 'destructive' });
+    } finally {
+      setIsSavingAgent(false);
     }
   };
 
@@ -364,6 +390,42 @@ export default function UserDetailsPage() {
             </div>
           </CardContent>
         </Card>
+
+        {user.profile?.agente && (
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-4 w-4" />
+                Credenciales de Agente (Mercado)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="agentNpn">NPN</Label>
+                  <Input
+                    id="agentNpn"
+                    value={agentNpn}
+                    onChange={(e) => setAgentNpn(e.target.value)}
+                    placeholder="Número NPN del agente"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="agentFfm">FFM</Label>
+                  <Input
+                    id="agentFfm"
+                    value={agentFfm}
+                    onChange={(e) => setAgentFfm(e.target.value)}
+                    placeholder="FFM usado en el mercado"
+                  />
+                </div>
+              </div>
+              <Button type="button" onClick={handleSaveAgentCredentials} disabled={isSavingAgent || !agentNpn.trim()}>
+                {isSavingAgent ? 'Guardando...' : 'Guardar credenciales'}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>

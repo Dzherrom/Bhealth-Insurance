@@ -55,6 +55,7 @@ class Direccion(models.Model):
 
 class Agente(models.Model):
     npn = models.CharField(max_length=50, unique=True, verbose_name="NPN")
+    ffm = models.CharField(max_length=100, blank=True, null=True, verbose_name="FFM Mercado")
     nombre_completo = models.CharField(max_length=255, verbose_name="Nombre Completo")
     agencia = models.ForeignKey(Agencia, on_delete=models.CASCADE, related_name='agentes')
 
@@ -183,6 +184,12 @@ class Poliza(models.Model):
         ('ENVIADO', 'Enviado / Pendiente de Firma'),
         ('FIRMADO', 'Recibido / Firmado'),
     ]
+    METAL_CHOICES = [
+        ('BRONCE', 'Bronce'),
+        ('PLATA', 'Plata'),
+        ('ORO', 'Oro'),
+        ('PLATINO', 'Platino'),
+    ]
 
     id_mercado = models.CharField(max_length=100, verbose_name="ID Mercado")
     id_miembro = models.CharField(max_length=100, verbose_name="ID Miembro")
@@ -207,6 +214,15 @@ class Poliza(models.Model):
     es_duplicado = models.BooleanField(default=False, verbose_name="Es Duplicado")
     ultimo_duplicado = models.CharField(max_length=100, blank=True, null=True, verbose_name="Último Duplicado")
     tipo_producto = models.ForeignKey(TipoProducto, on_delete=models.PROTECT, related_name='polizas')
+    aseguradora = models.ForeignKey(
+        'Aseguradora', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='polizas', verbose_name="Aseguradora"
+    )
+    nombre_plan = models.CharField(max_length=255, blank=True, null=True, verbose_name="Nombre del Plan")
+    metal = models.CharField(
+        max_length=20, choices=METAL_CHOICES, blank=True, null=True, verbose_name="Metal del Plan"
+    )
+    id_plan_cms = models.CharField(max_length=100, blank=True, null=True, verbose_name="ID Plan CMS")
     
     ffm_mercado = models.CharField(max_length=100, blank=True, null=True, verbose_name="FFM Usado en Mercado")
     npn_mercado = models.CharField(max_length=50, blank=True, null=True, verbose_name="NPN Mercado")
@@ -409,6 +425,57 @@ class Tarea(models.Model):
 
     def __str__(self):
         return f"{self.titulo} - {self.asignado_a.username}"
+
+
+class CambioDeVida(models.Model):
+    TIPO_CHOICES = [
+        ('NUEVA_DIRECCION', 'Nueva dirección'),
+        ('CAMBIO_INGRESOS', 'Cambio en los ingresos'),
+        ('CAMBIO_ESTADO_MIGRATORIO', 'Cambio en el estado migratorio'),
+        ('NUEVO_MIEMBRO', 'Nuevo miembro de la familia'),
+        ('EMBARAZO', 'Embarazo'),
+        ('FALLECIDO', 'Fallecido'),
+        ('OTROS', 'Otros cambios'),
+    ]
+    ESTADO_CHOICES = [
+        ('PENDIENTE', 'Pendiente'),
+        ('EN_PROCESO', 'En proceso'),
+        ('COMPLETADO', 'Completado'),
+        ('CANCELADO', 'Cancelado'),
+    ]
+
+    poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='cambios_de_vida')
+    agente = models.ForeignKey(
+        Agente, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='cambios_de_vida', verbose_name="Agente asignado (póliza)"
+    )
+    agente_creador = models.ForeignKey(
+        Agente, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='cambios_de_vida_creados', verbose_name="Agente que registró"
+    )
+    tipo = models.CharField(max_length=50, choices=TIPO_CHOICES, verbose_name="Tipo de cambio")
+    descripcion = models.TextField(blank=True, null=True, verbose_name="Descripción")
+    datos = models.JSONField(default=dict, blank=True, verbose_name="Datos del cambio")
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='PENDIENTE', verbose_name="Estado")
+    asignado_a = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='cambios_de_vida_asignados', verbose_name="Asignado a"
+    )
+    creado_por = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='cambios_de_vida_creados', verbose_name="Creado por"
+    )
+    fecha_limite = models.DateTimeField(null=True, blank=True, verbose_name="Fecha límite")
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de creación")
+    fecha_actualizacion = models.DateTimeField(auto_now=True, verbose_name="Última actualización")
+
+    class Meta:
+        verbose_name = "Cambio de vida"
+        verbose_name_plural = "Cambios de vida"
+        ordering = ['-fecha_creacion']
+
+    def __str__(self):
+        return f"{self.get_tipo_display()} - {self.poliza}"
+
 
 class InfoPago(models.Model):
     poliza = models.OneToOneField(Poliza, on_delete=models.CASCADE, related_name='info_pago', verbose_name="Póliza")
@@ -747,6 +814,47 @@ def notificar_colaborador_poliza(sender, instance, action, pk_set, **kwargs):
                 )
             except User.DoesNotExist:
                 pass
+
+def _usuario_de_agente(agente):
+    if not agente:
+        return None
+    profile = getattr(agente, 'user_profile', None)
+    if profile and profile.user_id:
+        return profile.user
+    return None
+
+
+@receiver(post_save, sender=CambioDeVida)
+def notificar_cambio_de_vida(sender, instance, created, **kwargs):
+    if not created:
+        return
+
+    poliza = instance.poliza
+    mensaje = (
+        f"Nuevo cambio de vida ({instance.get_tipo_display()}) "
+        f"en la póliza {poliza.id_mercado}"
+    )
+    if instance.descripcion:
+        mensaje = f"{mensaje}: {instance.descripcion[:120]}"
+
+    agentes_a_notificar = []
+    if instance.agente_creador_id:
+        agentes_a_notificar.append(instance.agente_creador)
+    if instance.agente_id and instance.agente_id != instance.agente_creador_id:
+        agentes_a_notificar.append(instance.agente)
+
+    usuarios_notificados = set()
+    for agente in agentes_a_notificar:
+        usuario = _usuario_de_agente(agente)
+        if usuario and usuario.id not in usuarios_notificados:
+            Notificacion.objects.create(
+                usuario=usuario,
+                mensaje=mensaje[:255],
+                tipo='ASIGNACION',
+                content_object=instance,
+            )
+            usuarios_notificados.add(usuario.id)
+
 
 @receiver(post_save, sender=IntentoLoginFallido)
 def notificar_login_fallido(sender, instance, created, **kwargs):

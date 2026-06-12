@@ -8,6 +8,7 @@ import { usePolizaStore } from '@/store/polizaStore';
 import { useAuthStore } from '@/store/authStore';
 
 import { PolizaResumen } from '@/components/polizas/PolizaResumen';
+import { EditPlanDetailsModal } from '@/components/polizas/EditPlanDetailsModal';
 import { NotasPoliza } from '@/components/polizas/NotasPoliza';
 import { DocumentosPoliza } from '@/components/polizas/DocumentosPoliza';
 import { RecordatoriosPoliza } from '@/components/recordatorios';
@@ -131,6 +132,12 @@ export default function PolizaDetailsPage() {
           fecha_efectiva: poliza.fecha_efectiva,
           cliente_principal: clientePrincipal ? `${clientePrincipal.cliente_details.primer_nombre} ${clientePrincipal.cliente_details.apellido_paterno}` : 'No asignado'
         }}
+        polizaContext={{
+          clientes_info: poliza.clientes_info,
+          direccion_fisica_details: poliza.direccion_fisica_details,
+          direccion_postal_details: poliza.direccion_postal_details,
+          direccion_facturacion_details: poliza.direccion_facturacion_details,
+        }}
         activeSection={activeSection}
         onSectionChange={setActiveSection}
         onPolizaUpdate={() => poliza.id && fetchPolizaById(poliza.id)}
@@ -206,10 +213,14 @@ export default function PolizaDetailsPage() {
                       {poliza.plan_nombre || 'No se ha seleccionado un plan'}
                     </h2>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-gray-700 dark:text-gray-300 text-xs font-normal flex items-center gap-1">Metal no seleccionado</span>
+                      <span className="text-gray-700 dark:text-gray-300 text-xs font-normal flex items-center gap-1">
+                        {poliza.metal
+                          ? `Metal ${({ BRONCE: 'Bronce', PLATA: 'Plata', ORO: 'Oro', PLATINO: 'Platino' } as Record<string, string>)[poliza.metal] || poliza.metal}`
+                          : 'Metal no seleccionado'}
+                      </span>
                       <div className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-600"></div>
                       <span className="text-gray-700 dark:text-gray-300 text-xs font-medium flex items-center gap-1">
-                        ID del plan: <span className="font-normal">{poliza.plan || 'No se proporcionó ID del plan'}</span>
+                        ID del plan CMS: <span className="font-normal">{poliza.id_plan_cms || 'No se proporcionó ID del plan'}</span>
                       </span>
                     </div>
                   </div>
@@ -553,7 +564,12 @@ export default function PolizaDetailsPage() {
       <EditFamilyModal open={isFamilyModalOpen} onOpenChange={setIsFamilyModalOpen} member={currentFamilyMember} polizaId={poliza.id} />
       <AddCardModal open={isAddCardModalOpen} onOpenChange={setIsAddCardModalOpen} polizaId={poliza.id} />
       <EditFinancialModal open={isFinancialModalOpen} onOpenChange={setIsFinancialModalOpen} poliza={poliza} />
-      <EditBasicInfoModal open={isBasicInfoModalOpen} onOpenChange={setIsBasicInfoModalOpen} poliza={poliza} />
+      <EditPlanDetailsModal
+        open={isBasicInfoModalOpen}
+        onOpenChange={setIsBasicInfoModalOpen}
+        poliza={poliza}
+        onSaved={() => poliza.id && fetchPolizaById(poliza.id)}
+      />
   </div>
   );
 }
@@ -693,35 +709,3 @@ function EditFinancialModal({ open, onOpenChange, poliza }: { open: boolean, onO
   );
 }
 
-function EditBasicInfoModal({ open, onOpenChange, poliza }: { open: boolean, onOpenChange: (open: boolean) => void, poliza: any }) {
-  const { toast } = useToast();
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const updates = {
-      id_mercado: formData.get('id_mercado')?.toString(),
-      id_miembro: formData.get('id_miembro')?.toString(),
-      id_interno: formData.get('id_interno')?.toString(),
-    };
-    try {
-      await api.polizas.patch(poliza.id, updates);
-      toast({ title: "Éxito", description: "Información básica actualizada correctamente." });
-      onOpenChange(false);
-    } catch (error) {
-      toast({ title: "Error", description: "No se pudo actualizar la información.", variant: "destructive" });
-    }
-  };
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader><DialogTitle>Editar Detalles del Plan</DialogTitle></DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-2"><Label>ID de Mercado</Label><Input name="id_mercado" defaultValue={poliza.id_mercado} /></div>
-          <div className="grid gap-2"><Label>ID de Miembro</Label><Input name="id_miembro" defaultValue={poliza.id_miembro} /></div>
-          <div className="grid gap-2"><Label>ID Interno</Label><Input name="id_interno" defaultValue={poliza.id_interno || ''} /></div>
-          <DialogFooter><Button type="submit">Guardar</Button></DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
