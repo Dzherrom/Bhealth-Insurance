@@ -20,6 +20,55 @@ export interface FamilyMemberFormData {
   condicionMedica: string;
 }
 
+export function parseDateForInput(value?: string | null): string {
+  if (!value) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+
+  const mdy = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (mdy) {
+    const [, m, d, y] = mdy;
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+
+  const parsed = new Date(value);
+  if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];
+  return '';
+}
+
+export function memberDetailsToFormData(details: Record<string, unknown>): FamilyMemberFormData {
+  return {
+    primerNombre: String(details.primer_nombre || ''),
+    segundoNombre: String(details.segundo_nombre || ''),
+    apellidoPaterno: String(details.apellido_paterno || ''),
+    apellidoMaterno: String(details.apellido_materno || ''),
+    fechaNacimiento: parseDateForInput(details.fecha_nacimiento as string | null),
+    sexo: String(details.genero || 'Masculino'),
+    telefono: String(details.telefono || ''),
+    email: String(details.email || ''),
+    usaTabaco: !!details.usa_tabaco,
+    peso: String(details.peso || ''),
+    estatura: String(details.estatura || ''),
+    condicionMedica: String(details.condicion_medica || ''),
+  };
+}
+
+export function formDataToClientUpdate(form: FamilyMemberFormData) {
+  return {
+    primer_nombre: form.primerNombre,
+    segundo_nombre: form.segundoNombre || '',
+    apellido_paterno: form.apellidoPaterno,
+    apellido_materno: form.apellidoMaterno || '',
+    fecha_nacimiento: form.fechaNacimiento,
+    genero: form.sexo,
+    telefono: form.telefono?.trim() || null,
+    email: form.email?.trim() || null,
+    usa_tabaco: form.usaTabaco,
+    peso: form.peso || '',
+    estatura: form.estatura || '',
+    condicion_medica: form.condicionMedica || '',
+  };
+}
+
 export const emptyFamilyMemberForm = (sexo = 'Masculino'): FamilyMemberFormData => ({
   primerNombre: '',
   segundoNombre: '',
@@ -39,9 +88,10 @@ interface FamilyMemberPersonalFormProps {
   value: FamilyMemberFormData;
   onChange: (value: FamilyMemberFormData) => void;
   title?: string;
+  requireContact?: boolean;
 }
 
-export function FamilyMemberPersonalForm({ value, onChange, title }: FamilyMemberPersonalFormProps) {
+export function FamilyMemberPersonalForm({ value, onChange, title, requireContact = false }: FamilyMemberPersonalFormProps) {
   const update = (field: keyof FamilyMemberFormData, fieldValue: string | boolean) => {
     onChange({ ...value, [field]: fieldValue });
   };
@@ -89,11 +139,11 @@ export function FamilyMemberPersonalForm({ value, onChange, title }: FamilyMembe
           </select>
         </div>
         <div className="space-y-1.5">
-          <Label>Teléfono</Label>
+          <Label>Teléfono{requireContact ? ' *' : ' (opcional)'}</Label>
           <Input value={value.telefono} onChange={(e) => update('telefono', e.target.value)} className={inputClass} />
         </div>
         <div className="space-y-1.5">
-          <Label>Correo electrónico</Label>
+          <Label>Correo electrónico{requireContact ? ' *' : ' (opcional)'}</Label>
           <Input type="email" value={value.email} onChange={(e) => update('email', e.target.value)} className={inputClass} />
         </div>
       </div>

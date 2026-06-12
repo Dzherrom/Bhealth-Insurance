@@ -20,6 +20,7 @@ import { TareasPoliza } from '@/components/polizas/TareasPoliza';
 import { NotasChat } from '@/components/notas/NotasChat';
 import { RegistrosActividadModal } from '@/components/polizas/RegistrosActividadModal';
 import { AddFamilyMemberCard } from '@/components/polizas/AddFamilyMemberCard';
+import { EditFamilyMemberModal } from '@/components/polizas/EditFamilyMemberModal';
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -329,11 +330,6 @@ export default function PolizaDetailsPage() {
                     <p className="dark:text-white text-base flex items-center gap-1 text-primary font-semibold">{dependientesCount}</p>
                   </div>
                 </div>
-                <div className="ml-auto">
-                  <button className="flex gap-2 items-center w-fit cursor-pointer text-primary bg-transparent hover:bg-slate-50 dark:hover:bg-slate-700 text-sm px-2 py-1 rounded" type="button">
-                    <i className="fa-solid fa-edit"></i>Editar
-                  </button>
-                </div>
               </div>
 
               {/* Miembros list - Using map based on API data */}
@@ -358,7 +354,9 @@ export default function PolizaDetailsPage() {
                             )}
                           </div>
                           <div className="flex gap-1">
-                            <Button variant="outline" size="sm" className="h-7 text-xs border-primary text-primary hover:bg-primary/10" onClick={() => { setCurrentFamilyMember(member); setIsFamilyModalOpen(true); }}>Ver</Button>
+                            <Button variant="outline" size="sm" className="h-7 text-xs border-primary text-primary hover:bg-primary/10 gap-1" onClick={() => { setCurrentFamilyMember(member); setIsFamilyModalOpen(true); }}>
+                              <i className="fa-solid fa-edit text-[10px]"></i>Editar
+                            </Button>
                             <Button variant="outline" size="sm" className="h-7 w-7 p-0 border-primary text-primary hover:bg-primary/10">
                               <i className="fa-solid fa-chevron-down"></i>
                             </Button>
@@ -573,7 +571,12 @@ export default function PolizaDetailsPage() {
         <button className="flex gap-2 items-center w-fit cursor-pointer rounded-md transition-colors py-2 font-medium text-primary bg-transparent hover:bg-slate-50 dark:hover:bg-slate-700 h-[34px] px-2.5 text-xs justify-end" type="button">Términos y condiciones</button>
       </div>
     </div>
-      <EditFamilyModal open={isFamilyModalOpen} onOpenChange={setIsFamilyModalOpen} member={currentFamilyMember} polizaId={poliza.id} />
+      <EditFamilyMemberModal
+        open={isFamilyModalOpen}
+        onOpenChange={setIsFamilyModalOpen}
+        member={currentFamilyMember}
+        onSaved={() => poliza.id && fetchPolizaById(poliza.id)}
+      />
       <AddCardModal open={isAddCardModalOpen} onOpenChange={setIsAddCardModalOpen} polizaId={poliza.id} />
       <EditFinancialModal open={isFinancialModalOpen} onOpenChange={setIsFinancialModalOpen} poliza={poliza} />
       <EditPlanDetailsModal
@@ -583,52 +586,6 @@ export default function PolizaDetailsPage() {
         onSaved={() => poliza.id && fetchPolizaById(poliza.id)}
       />
   </div>
-  );
-}
-
-function EditFamilyModal({ open, onOpenChange, member, polizaId }: { open: boolean, onOpenChange: (open: boolean) => void, member: any, polizaId: number }) {
-  const { toast } = useToast();
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const data = {
-      primer_nombre: formData.get("nombre")?.toString(),
-      apellido_paterno: formData.get("apellido_paterno")?.toString(),
-    };
-    try {
-      if (member?.cliente) {
-        await api.clientes.patch(member.cliente, data);
-        toast({ title: "Éxito", description: "Familiar actualizado." });
-      } else {
-        toast({ title: "Atención", description: "La creación de nuevos familiares requerirá actualizar los datos completos.", variant: "default" });
-      }
-      onOpenChange(false);
-    } catch (error) {
-      toast({ title: "Error", description: "Error al actualizar familiar.", variant: "destructive" });
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader><DialogTitle>{member ? 'Editar Familiar' : 'Agregar Familiar'}</DialogTitle></DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-2">
-            <Label htmlFor="nombre">Nombre</Label>
-            <Input id="nombre" name="nombre" defaultValue={member?.cliente_details?.primer_nombre} required />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="apellido_paterno">Apellido</Label>
-            <Input id="apellido_paterno" name="apellido_paterno" defaultValue={member?.cliente_details?.apellido_paterno} required />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="relacion">Relación</Label>
-            <Input id="relacion" name="relacion" defaultValue={member?.relacion || 'DEPENDENT'} disabled={!!member} />
-          </div>
-          <DialogFooter><Button type="submit">Guardar Cambios</Button></DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }
 

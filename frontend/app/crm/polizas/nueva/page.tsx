@@ -214,6 +214,10 @@ export default function NuevaPolizaWizard() {
         setError('Complete el teléfono del solicitante principal.');
         return;
       }
+      if (!formData.email?.trim()) {
+        setError('Complete el correo electrónico del solicitante principal.');
+        return;
+      }
     }
     if (step === 3) {
       if (!formData.ingresoAnual?.toString().trim()) {
@@ -247,7 +251,7 @@ export default function NuevaPolizaWizard() {
   const validateFamilyMember = (member: FamilyMember | null, label: string) => {
     if (!member) return { valid: true };
 
-    const isBlank = [member.primerNombre, member.apellidoPaterno, member.fechaNacimiento, member.telefono, member.email].every(value => !value?.toString().trim());
+    const isBlank = [member.primerNombre, member.apellidoPaterno, member.fechaNacimiento].every(value => !value?.toString().trim());
     if (isBlank) {
       return { valid: false, error: `Complete o elimine los datos del ${label} antes de continuar.` };
     }
@@ -303,8 +307,8 @@ export default function NuevaPolizaWizard() {
       return;
     }
 
-    if (!formData.sexo?.trim() || !formData.telefono?.trim()) {
-      setError('Complete el sexo y teléfono del solicitante principal.');
+    if (!formData.sexo?.trim() || !formData.telefono?.trim() || !formData.email?.trim()) {
+      setError('Complete el sexo, teléfono y correo del solicitante principal.');
       setLoading(false);
       return;
     }
@@ -362,15 +366,15 @@ export default function NuevaPolizaWizard() {
         return null;
       };
 
-      const createClientPayload = (member: FamilyMember, fallbackPrefix: string) => ({
+      const createClientPayload = (member: FamilyMember, fallbackPrefix: string, requireContact = false) => ({
         primer_nombre: member.primerNombre,
         segundo_nombre: member.segundoNombre || '',
         apellido_paterno: member.apellidoPaterno,
         apellido_materno: member.apellidoMaterno || '',
         fecha_nacimiento: formatToISO(member.fechaNacimiento),
         genero: member.sexo,
-        telefono: member.telefono || '0000000000',
-        email: member.email || `${fallbackPrefix}-${Date.now()}@example.com`,
+        telefono: requireContact ? member.telefono : (member.telefono?.trim() || null),
+        email: requireContact ? member.email : (member.email?.trim() || null),
         estado_civil: 'Desconocido',
         pais_nacimiento: 'Desconocido',
         estado_inmigracion: 'Desconocido',
@@ -401,7 +405,7 @@ export default function NuevaPolizaWizard() {
         estatura: formData.estatura,
         condicionMedica: formData.condicionMedica,
         relacion: 'PRINCIPAL'
-      }, 'cliente')
+      }, 'cliente', true)
 
       const resCliente = await fetch(`${API_BASE_URL}/clientes/`, {
         method: 'POST',
@@ -644,11 +648,11 @@ export default function NuevaPolizaWizard() {
                   </select>
                 </div>
                 <div className="flex flex-col gap-[8px]">
-                  <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Teléfono</label>
+                  <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Teléfono *</label>
                   <input type="text" name="telefono" value={formData.telefono} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                 </div>
                 <div className="flex flex-col gap-[8px]">
-                  <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Correo Electrónico</label>
+                  <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Correo Electrónico *</label>
                   <input type="email" name="email" value={formData.email} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                 </div>
               </div>
@@ -760,11 +764,11 @@ export default function NuevaPolizaWizard() {
                         </select>
                       </div>
                       <div className="flex flex-col gap-[8px]">
-                        <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Teléfono</label>
+                        <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Teléfono (opcional)</label>
                         <input type="text" value={conyuge.telefono} onChange={(e) => handleConyugeChange('telefono', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                       </div>
                       <div className="flex flex-col gap-[8px]">
-                        <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Correo Electrónico</label>
+                        <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Correo Electrónico (opcional)</label>
                         <input type="email" value={conyuge.email} onChange={(e) => handleConyugeChange('email', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                       </div>
                     </div>
@@ -807,11 +811,11 @@ export default function NuevaPolizaWizard() {
                         </select>
                       </div>
                       <div className="flex flex-col gap-[8px]">
-                        <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Teléfono</label>
+                        <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Teléfono (opcional)</label>
                         <input type="text" value={dep.telefono} onChange={(e) => handleDependienteChange(index, 'telefono', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                       </div>
                       <div className="flex flex-col gap-[8px]">
-                        <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Correo Electrónico</label>
+                        <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Correo Electrónico (opcional)</label>
                         <input type="email" value={dep.email} onChange={(e) => handleDependienteChange(index, 'email', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                       </div>
                     </div>
