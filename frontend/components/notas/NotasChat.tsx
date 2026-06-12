@@ -50,6 +50,8 @@ interface NotasChatProps {
     cliente: string;
     plan: string;
     id: string;
+    estado?: string;
+    etiquetas?: { id: number; nombre: string; color?: string }[];
   };
 }
 
@@ -214,11 +216,14 @@ export function NotasChat({ isOpen, onClose, polizaInfo }: NotasChatProps) {
     }
   };
 
-  const filteredUsuarios = usuarios.filter(u => 
-    u.username?.toLowerCase().includes(mentionFilter) || 
-    u.first_name?.toLowerCase().includes(mentionFilter) ||
-    u.last_name?.toLowerCase().includes(mentionFilter)
-  ).slice(0, 5); // Limit to 5 users to keep UI clean
+  const filteredUsuarios = usuarios.filter(u => {
+    const isCliente = u.profile?.role?.toLowerCase() === 'cliente' || u.role?.toLowerCase() === 'cliente' || u.groups?.some((g: any) => g.name?.toLowerCase() === 'cliente');
+    if (isCliente) return false;
+    
+    return u.username?.toLowerCase().includes(mentionFilter) || 
+           u.first_name?.toLowerCase().includes(mentionFilter) ||
+           u.last_name?.toLowerCase().includes(mentionFilter);
+  });
 
   const insertMention = (username: string) => {
     const textarea = document.getElementById('nota-textarea') as HTMLTextAreaElement;
@@ -262,7 +267,7 @@ export function NotasChat({ isOpen, onClose, polizaInfo }: NotasChatProps) {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (showMentions) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -329,13 +334,19 @@ export function NotasChat({ isOpen, onClose, polizaInfo }: NotasChatProps) {
             </div>
             
             <div className="flex flex-wrap gap-1 mt-3">
-              {Object.keys(estadoColors).slice(0, 8).map((estado) => (
+              {polizaInfo.estado && (
+                <Badge variant="secondary" className="text-xs bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300">
+                  {polizaInfo.estado}
+                </Badge>
+              )}
+              {polizaInfo.etiquetas && polizaInfo.etiquetas.map((etq) => (
                 <Badge 
-                  key={estado}
+                  key={etq.id}
                   variant="secondary" 
-                  className={`text-xs ${estadoColors[estado as keyof typeof estadoColors]}`}
+                  className="text-xs"
+                  style={{ backgroundColor: etq.color || '#e2e8f0', color: '#1e293b' }}
                 >
-                  {estado}
+                  {etq.nombre}
                 </Badge>
               ))}
             </div>
@@ -440,7 +451,7 @@ export function NotasChat({ isOpen, onClose, polizaInfo }: NotasChatProps) {
         <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 relative">
           
           {showMentions && filteredUsuarios.length > 0 && (
-            <div className="absolute bottom-full left-4 right-4 mb-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md shadow-lg overflow-hidden z-50">
+            <div className="absolute bottom-full left-4 right-4 mb-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md shadow-lg overflow-y-auto z-50 max-h-48 custom-scrollbar">
               {filteredUsuarios.map((u, i) => (
                 <div 
                   key={u.id}
@@ -474,7 +485,7 @@ export function NotasChat({ isOpen, onClose, polizaInfo }: NotasChatProps) {
               placeholder="Escribir una nota... Usa @ para mencionar o pega una imagen"
               value={nuevaNota}
               onChange={handleTextChange}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyDown}
               onPaste={handlePaste}
               className="min-h-[80px] resize-none bg-white dark:bg-slate-800 dark:text-white"
               rows={3}

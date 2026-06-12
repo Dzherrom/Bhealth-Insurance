@@ -398,7 +398,9 @@ export function PolizaResumen({ poliza, activeSection = 'poliza', onSectionChang
         polizaInfo={{
           cliente: poliza.cliente_principal,
           plan: poliza.plan_nombre,
-          id: String(poliza.id || poliza.id_mercado)
+          id: String(poliza.id || poliza.id_mercado),
+          estado: poliza.estado_nombre,
+          etiquetas: poliza.etiquetas
         }}
       />
       
