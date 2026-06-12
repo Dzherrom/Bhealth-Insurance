@@ -4,8 +4,14 @@ import React, { useState, useEffect } from 'react';
 import { NotasChat } from '@/components/notas/NotasChat';
 import { CambiosDeVidaPanel } from './CambiosDeVidaPanel';
 import { RegistrosActividadModal } from './RegistrosActividadModal';
-import { api, etiquetasApi, estadosPolizaApi } from '@/lib/api';
+import { api, etiquetasApi, estadosPolizaApi, agentesApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import {
+  formatCurrencyValue,
+  formatDireccion,
+  formatFechaDisplay,
+  getPrincipalMember,
+} from './polizaUtils';
 import { 
   FileText, 
   Folder,
@@ -26,6 +32,8 @@ interface PolizaResumenProps {
   poliza: {
     id?: number;
     id_mercado: string;
+    id_miembro?: string;
+    agente?: number | null;
     agente_nombre: string;
     plan_nombre: string;
     estado_nombre: string;
@@ -52,23 +60,49 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
   const [isRegistrosModalOpen, setIsRegistrosModalOpen] = useState(false);
   const [allEtiquetas, setAllEtiquetas] = useState<{id: number, nombre: string}[]>([]);
   const [allEstados, setAllEstados] = useState<{id: number, nombre: string}[]>([]);
+  const [allAgentes, setAllAgentes] = useState<{id: number, nombre_completo: string}[]>([]);
   const { toast } = useToast();
+
+  const principalMember = getPrincipalMember(polizaContext?.clientes_info);
+  const principalDetails = principalMember?.cliente_details;
+  const aplicanteCount = (polizaContext?.clientes_info || []).filter((m) => m.es_solicitante_principal).length;
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [etiquetasRes, estadosRes] = await Promise.all([
+        const [etiquetasRes, estadosRes, agentesRes] = await Promise.all([
           etiquetasApi.list(),
-          estadosPolizaApi.list()
+          estadosPolizaApi.list(),
+          agentesApi.list(),
         ]);
         setAllEtiquetas(etiquetasRes.filter((e: any) => e.tipo === 'POLIZA'));
         setAllEstados(estadosRes);
+        setAllAgentes(agentesRes as any[]);
       } catch (error) {
         console.error("Error fetching data for resumen", error);
       }
     };
     fetchData();
   }, []);
+
+  const handleAgenteChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    if (!poliza.id) return;
+    const value = e.target.value;
+    const newAgenteId = value ? parseInt(value, 10) : null;
+    try {
+      await api.polizas.patch(poliza.id, { agente: newAgenteId });
+      toast({ title: "Éxito", description: "Agente actualizado." });
+      if (onPolizaUpdate) {
+        const agenteObj = allAgentes.find((ag) => ag.id === newAgenteId);
+        onPolizaUpdate({
+          agente: newAgenteId,
+          agente_nombre: agenteObj?.nombre_completo || '-',
+        });
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "No se pudo actualizar el agente.", variant: "destructive" });
+    }
+  };
 
   const handleEstadoChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     if (!poliza.id) return;
@@ -129,27 +163,16 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
     }
   };
 
-  const formatCurrency = (amount: string) => {
-    const numAmount = parseFloat(amount || '0');
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2
-    }).format(numAmount);
-  };
-
   const navItems = [
     { id: 'poliza', icon: <i className="fa-duotone fa-shield-halved"></i>, label: 'Póliza' },
     { id: 'documentos', icon: <i className="fa-duotone fa-folder"></i>, label: 'Documentos', count: 1 },
     { id: 'notas', icon: <i className="fa-duotone fa-sticky-note"></i>, label: 'Notas', count: 0, isChat: true },
     { id: 'recordatorios', icon: <i className="fa-duotone fa-bell-on"></i>, label: 'Recordatorios', count: 0 },
     { id: 'formularios', icon: <i className="fa-duotone fa-file-signature"></i>, label: 'Formularios de Firma', count: 0 },
-    { id: 'comisiones', icon: <i className="fa-duotone fa-sack-dollar"></i>, label: 'Comisiones' },
-    { id: 'tareas', icon: <i className="fa-duotone ml-0.5 fa-clipboard-list-check"></i>, label: 'Tareas' },
+    { id: 'direcciones', icon: <i className="fa-duotone fa-location-dot"></i>, label: 'Direcciones' },
     { id: 'cambios', icon: <i className="fa-duotone ml-0.5 fa-family"></i>, label: 'Cambios de vida', isPanel: true },
     { id: 'citas', icon: <i className="fa-duotone ml-0.5 fa-user-doctor-hair"></i>, label: 'Citas médicas' },
     { id: 'registros', icon: <i className="fa-duotone fa-list"></i>, label: 'Registros', isModal: true },
-    { id: 'configuracion', icon: <i className="fa-duotone fa-gear"></i>, label: 'Configuración' }
   ];
 
   return (
@@ -164,9 +187,18 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
               <div className="flex items-center justify-between border-b border-gray-100 dark:border-slate-700 pb-1 mb-1.5">
                 <p className="text-sm font-semibold text-gray-900 dark:text-white">Resumen</p>
               </div>
-              <div className="flex flex-wrap justify-between items-center w-full">
-                <p className="text-gray-700 dark:text-white text-sm flex items-center gap-1 font-medium">Agente:</p>
-                <p className="text-gray-700 dark:text-white text-sm font-normal">{poliza.agente_nombre || '-'}</p>
+              <div className="flex justify-between items-center w-full gap-2">
+                <p className="text-gray-700 dark:text-white text-sm flex items-center gap-1 font-medium shrink-0">Agente:</p>
+                <select
+                  value={poliza.agente || ''}
+                  onChange={handleAgenteChange}
+                  className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md text-xs py-1 px-2 text-gray-700 dark:text-white w-[140px] outline-none focus:ring-1 focus:ring-primary h-[28px]"
+                >
+                  <option value="">Sin agente</option>
+                  {allAgentes.map((ag) => (
+                    <option key={ag.id} value={ag.id}>{ag.nombre_completo}</option>
+                  ))}
+                </select>
               </div>
               <div className="relative flex items-center justify-between gap-4 w-full">
                 <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
@@ -201,7 +233,7 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
               </div>
               <div className="flex flex-wrap justify-between items-center w-full">
                 <p className="text-gray-700 dark:text-white text-sm font-medium">Número aplicantes:</p>
-                <p className="text-gray-700 dark:text-white text-sm font-normal">1</p>
+                <p className="text-gray-700 dark:text-white text-sm font-normal">{aplicanteCount || 0}</p>
               </div>
               <div className="relative flex items-center justify-between gap-4 w-full">
                 <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
@@ -284,7 +316,9 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
               <div className="flex flex-wrap justify-between items-center w-full">
                 <div className="flex flex-wrap items-center justify-between w-full">
                   <div className="text-gray-700 dark:text-white text-sm font-medium flex items-center gap-1">Fecha nacimiento</div>
-                  <div className="text-gray-700 dark:text-white text-sm font-normal flex items-center gap-1">-</div>
+                  <div className="text-gray-700 dark:text-white text-sm font-normal flex items-center gap-1">
+                    {formatFechaDisplay(principalDetails?.fecha_nacimiento)}
+                  </div>
                 </div>
               </div>
               <div className="relative flex items-center justify-between gap-4 w-full">
@@ -293,7 +327,7 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
               <div className="flex flex-wrap justify-between items-center w-full">
                 <div className="flex flex-wrap justify-between w-full">
                   <p className="text-gray-700 dark:text-white text-sm font-medium">Teléfono</p>
-                  <p className="text-gray-700 dark:text-white text-sm font-normal">-</p>
+                  <p className="text-gray-700 dark:text-white text-sm font-normal">{principalDetails?.telefono || '-'}</p>
                 </div>
               </div>
               <div className="relative flex items-center justify-between gap-4 w-full">
@@ -302,7 +336,7 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
               <div className="flex flex-wrap justify-between items-center w-full">
                 <div className="flex flex-wrap justify-between w-full">
                   <p className="text-gray-700 dark:text-white text-sm font-medium">Correo</p>
-                  <p className="text-gray-700 dark:text-white text-sm font-normal">-</p>
+                  <p className="text-gray-700 dark:text-white text-sm font-normal break-all text-right max-w-[160px]">{principalDetails?.email || '-'}</p>
                 </div>
               </div>
               <div className="relative flex items-center justify-between gap-4 w-full">
@@ -310,7 +344,9 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
               </div>
               <div className="flex flex-wrap justify-between items-center w-full">
                 <p className="text-gray-700 dark:text-white text-sm font-medium">Ubicación:</p>
-                <p className="text-gray-700 dark:text-white text-sm font-normal break-words max-w-full">-</p>
+                <p className="text-gray-700 dark:text-white text-sm font-normal break-words max-w-[160px] text-right">
+                  {formatDireccion(polizaContext?.direccion_fisica_details)}
+                </p>
               </div>
               <div className="relative flex items-center justify-between gap-4 w-full">
                 <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
@@ -319,7 +355,9 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
                 <div className="flex flex-wrap justify-between w-full">
                   <p className="text-gray-700 dark:text-white text-sm font-medium">Ingresos anuales</p>
                   <div className="flex items-center">
-                    <p className="text-gray-700 dark:text-white text-sm font-normal break-words max-w-full">-</p>
+                    <p className="text-gray-700 dark:text-white text-sm font-normal break-words max-w-full">
+                      {formatCurrencyValue(principalDetails?.ingreso_anual)}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -328,7 +366,7 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
               </div>
               <div className="flex flex-wrap justify-between items-center w-full">
                 <p className="text-gray-700 dark:text-white text-sm font-medium">ID miembro:</p>
-                <p className="text-gray-700 dark:text-white text-sm font-normal break-words max-w-full">-</p>
+                <p className="text-gray-700 dark:text-white text-sm font-normal break-words max-w-full">{poliza.id_miembro || '-'}</p>
               </div>
             </div>
 

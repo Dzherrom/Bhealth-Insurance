@@ -5,7 +5,6 @@ import { useRouter, useParams } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePolizaStore } from '@/store/polizaStore';
-import { useAuthStore } from '@/store/authStore';
 
 import { PolizaResumen } from '@/components/polizas/PolizaResumen';
 import { EditPlanDetailsModal } from '@/components/polizas/EditPlanDetailsModal';
@@ -16,7 +15,6 @@ import { InfoPagoPoliza } from '@/components/polizas/InfoPagoPoliza';
 import { DireccionesPoliza } from '@/components/polizas/DireccionesPoliza';
 import { MetadatosPoliza } from '@/components/polizas/MetadatosPoliza';
 import { CalendarioPrimasPoliza } from '@/components/polizas/CalendarioPrimasPoliza';
-import { TareasPoliza } from '@/components/polizas/TareasPoliza';
 import { NotasChat } from '@/components/notas/NotasChat';
 import { RegistrosActividadModal } from '@/components/polizas/RegistrosActividadModal';
 import { AddFamilyMemberCard } from '@/components/polizas/AddFamilyMemberCard';
@@ -27,6 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import api from '@/lib/api';
+import { formatDireccion } from '@/components/polizas/polizaUtils';
 
 const formatCurrency = (amount: string | number) => {
   const numAmount = typeof amount === 'string' ? parseFloat(amount || '0') : amount;
@@ -41,7 +40,6 @@ export default function PolizaDetailsPage() {
   const router = useRouter();
   const params = useParams();
   const { polizaSeleccionada: poliza, isLoading: loading, fetchPolizaById } = usePolizaStore();
-  const { user } = useAuthStore();
   const [activeSection, setActiveSection] = useState('poliza');
 
   const [isBasicInfoModalOpen, setIsBasicInfoModalOpen] = useState(false);
@@ -126,6 +124,8 @@ export default function PolizaDetailsPage() {
         poliza={{
           id: poliza.id,
           id_mercado: poliza.id_mercado,
+          id_miembro: poliza.id_miembro,
+          agente: poliza.agente,
           agente_nombre: poliza.agente_nombre,
           plan_nombre: poliza.plan_nombre,
           estado_nombre: poliza.estado_nombre,
@@ -155,7 +155,7 @@ export default function PolizaDetailsPage() {
           <button className="flex gap-2 items-center cursor-pointer justify-center rounded-md py-2 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 text-primary dark:hover:bg-slate-100 dark:hover:bg-opacity-10 dark:text-primary-300 dark:hover:text-primary-50 h-[30px] px-2 text-xs bg-slate-50 dark:bg-slate-700 w-full hover:bg-primary transition-colors hover:text-white" type="button" title="Familia">
             <i className="lg:text-base fa-solid fa-family"></i>
           </button>
-          <button className="flex gap-2 items-center cursor-pointer justify-center rounded-md py-2 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 text-primary dark:hover:bg-slate-100 dark:hover:bg-opacity-10 dark:text-primary-300 dark:hover:text-primary-50 h-[30px] px-2 text-xs bg-slate-50 dark:bg-slate-700 w-full hover:bg-primary transition-colors hover:text-white" type="button" title="Dirección">
+          <button className="flex gap-2 items-center cursor-pointer justify-center rounded-md py-2 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 text-primary dark:hover:bg-slate-100 dark:hover:bg-opacity-10 dark:text-primary-300 dark:hover:text-primary-50 h-[30px] px-2 text-xs bg-slate-50 dark:bg-slate-700 w-full hover:bg-primary transition-colors hover:text-white" type="button" title="Dirección" onClick={() => setActiveSection('direcciones')}>
             <i className="lg:text-base fa-solid fa-location-arrow"></i>
           </button>
           <button className="flex gap-2 items-center cursor-pointer justify-center rounded-md py-2 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 text-primary dark:hover:bg-slate-100 dark:hover:bg-opacity-10 dark:text-primary-300 dark:hover:text-primary-50 h-[30px] px-2 text-xs bg-slate-50 dark:bg-slate-700 w-full hover:bg-primary transition-colors hover:text-white" type="button" title="Tarjetas">
@@ -377,38 +377,50 @@ export default function PolizaDetailsPage() {
               <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 flex-1 p-4">
                 <div className="flex items-center justify-between mb-2">
                   <h2 className="text-gray-700 dark:text-white text-base font-semibold">Dirección física</h2>
-                  <button className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md" type="button">
+                  <button className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md" type="button" onClick={() => setActiveSection('direcciones')}>
                     <i className="fa-duotone fa-edit"></i>Editar
                   </button>
                 </div>
                 <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
-                <div className="flex flex-col gap-1">
-                  <p className="text-sm dark:text-gray-300">-</p>
-                </div>
+                {poliza.direccion_fisica_details ? (
+                  <p className="text-sm dark:text-gray-300">{formatDireccion(poliza.direccion_fisica_details)}</p>
+                ) : (
+                  <div className="border border-dashed border-slate-200 dark:border-slate-700 rounded-md py-4 text-center">
+                    <p className="text-sm dark:text-gray-400">No hay una dirección asociada con esta póliza.</p>
+                  </div>
+                )}
               </div>
               <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 flex-1 p-4">
                 <div className="flex items-center justify-between mb-2">
                   <h2 className="text-gray-700 dark:text-white text-base font-semibold">Dirección postal</h2>
-                  <button className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md" type="button">
+                  <button className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md" type="button" onClick={() => setActiveSection('direcciones')}>
                     <i className="fa-duotone fa-edit"></i>Editar
                   </button>
                 </div>
                 <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
-                <div className="border border-dashed border-slate-200 dark:border-slate-700 rounded-md py-4 text-center">
-                  <p className="text-sm dark:text-gray-400">No hay una dirección asociada con esta póliza.</p>
-                </div>
+                {poliza.direccion_postal_details ? (
+                  <p className="text-sm dark:text-gray-300">{formatDireccion(poliza.direccion_postal_details)}</p>
+                ) : (
+                  <div className="border border-dashed border-slate-200 dark:border-slate-700 rounded-md py-4 text-center">
+                    <p className="text-sm dark:text-gray-400">No hay una dirección asociada con esta póliza.</p>
+                  </div>
+                )}
               </div>
               <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 flex-1 p-4">
                 <div className="flex items-center justify-between mb-2">
                   <h2 className="text-gray-700 dark:text-white text-base font-semibold">Dirección de facturación</h2>
-                  <button className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md" type="button">
+                  <button className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md" type="button" onClick={() => setActiveSection('direcciones')}>
                     <i className="fa-duotone fa-edit"></i>Editar
                   </button>
                 </div>
                 <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
-                <div className="border border-dashed border-slate-200 dark:border-slate-700 rounded-md py-4 text-center">
-                  <p className="text-sm dark:text-gray-400">No hay una dirección asociada con esta póliza.</p>
-                </div>
+                {poliza.direccion_facturacion_details ? (
+                  <p className="text-sm dark:text-gray-300">{formatDireccion(poliza.direccion_facturacion_details)}</p>
+                ) : (
+                  <div className="border border-dashed border-slate-200 dark:border-slate-700 rounded-md py-4 text-center">
+                    <p className="text-sm dark:text-gray-400">No hay una dirección asociada con esta póliza.</p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -551,10 +563,14 @@ export default function PolizaDetailsPage() {
         {activeSection === 'documentos' && <DocumentosPoliza polizaId={params.id as string} />}
         {activeSection === 'recordatorios' && <RecordatoriosPoliza polizaId={params.id as string} />}
         {activeSection === 'pagos' && <InfoPagoPoliza poliza={poliza} />}
-        {activeSection === 'direcciones' && <DireccionesPoliza poliza={poliza} />}
+        {activeSection === 'direcciones' && (
+          <DireccionesPoliza
+            poliza={poliza}
+            onRefresh={() => poliza.id && fetchPolizaById(poliza.id)}
+          />
+        )}
         {activeSection === 'metadatos' && <MetadatosPoliza poliza={poliza} />}
         {activeSection === 'calendario' && <CalendarioPrimasPoliza polizaId={poliza.id} />}
-        {activeSection === 'tareas' && <TareasPoliza polizaId={poliza.id} userId={user?.id} />}
         
         {/* If note or signature form logic is needed later, just standard placeholders */}
       </div>
