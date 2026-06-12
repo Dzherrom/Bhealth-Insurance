@@ -82,10 +82,10 @@ export const usePolizaStore = create<PolizaState>()(
     (set, get) => ({
       ...initialState,
 
-      // Obtener todas las pólizas
-      fetchPolizas: async (filtros = {}) => {
-        set({ isLoading: true, error: null });
-        try {
+    // Obtener todas las pólizas
+    fetchPolizas: async (filtros = {}) => {
+      set({ isLoading: true, error: null });
+      try {
           const { page, pageSize } = get();
           const requestedPage = filtros.page ?? (filtros.cliente_id ? 1 : page);
           const requestedPageSize = filtros.page_size ?? (filtros.cliente_id ? 200 : pageSize);

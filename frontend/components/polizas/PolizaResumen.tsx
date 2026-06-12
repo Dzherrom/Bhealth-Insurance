@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NotasChat } from '@/components/notas/NotasChat';
 import { RegistrosActividadModal } from './RegistrosActividadModal';
+import { api, etiquetasApi, estadosPolizaApi } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 import { 
   FileText, 
   Folder,
@@ -21,21 +23,103 @@ import {
 
 interface PolizaResumenProps {
   poliza: {
+    id?: number;
     id_mercado: string;
     agente_nombre: string;
     plan_nombre: string;
     estado_nombre: string;
+    estado?: number;
     prima_mensual: string;
     fecha_efectiva: string;
     cliente_principal: string;
+    etiquetas?: { id: number; nombre: string; color?: string }[];
   };
   activeSection?: string;
   onSectionChange?: (section: string) => void;
+  onPolizaUpdate?: (updatedData: any) => void;
 }
 
-export function PolizaResumen({ poliza, activeSection = 'poliza', onSectionChange }: PolizaResumenProps) {
+export function PolizaResumen({ poliza, activeSection = 'poliza', onSectionChange, onPolizaUpdate }: PolizaResumenProps) {
   const [isNotasChatOpen, setIsNotasChatOpen] = useState(false);
   const [isRegistrosModalOpen, setIsRegistrosModalOpen] = useState(false);
+  const [allEtiquetas, setAllEtiquetas] = useState<{id: number, nombre: string}[]>([]);
+  const [allEstados, setAllEstados] = useState<{id: number, nombre: string}[]>([]);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [etiquetasRes, estadosRes] = await Promise.all([
+          etiquetasApi.list(),
+          estadosPolizaApi.list()
+        ]);
+        setAllEtiquetas(etiquetasRes.filter((e: any) => e.tipo === 'POLIZA'));
+        setAllEstados(estadosRes);
+      } catch (error) {
+        console.error("Error fetching data for resumen", error);
+      }
+    };
+    fetchData();
+  }, []);
+
+  const handleEstadoChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    if (!poliza.id) return;
+    const newEstadoId = parseInt(e.target.value);
+    try {
+      await api.polizas.patch(poliza.id, { estado: newEstadoId });
+      toast({ title: "Éxito", description: "Estado de póliza actualizado." });
+      if (onPolizaUpdate) {
+        const estadoObj = allEstados.find(est => est.id === newEstadoId);
+        onPolizaUpdate({ estado: newEstadoId, estado_nombre: estadoObj?.nombre || poliza.estado_nombre });
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "No se pudo actualizar el estado.", variant: "destructive" });
+    }
+  };
+
+  const handleEtiquetaChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    if (!poliza.id) return;
+    const newEtiquetaId = parseInt(e.target.value);
+    if (!newEtiquetaId) return; // if they select empty
+    
+    // Check if it already has this label
+    const currentEtiquetas = poliza.etiquetas || [];
+    if (currentEtiquetas.some(etq => etq.id === newEtiquetaId)) {
+      toast({ description: "La póliza ya tiene esta etiqueta." });
+      return;
+    }
+
+    const newEtiquetasIds = [...currentEtiquetas.map(etq => etq.id), newEtiquetaId];
+    
+    try {
+      await api.polizas.patch(poliza.id, { etiquetas_ids: newEtiquetasIds });
+      toast({ title: "Éxito", description: "Etiqueta agregada." });
+      if (onPolizaUpdate) {
+        const newEtiquetaObj = allEtiquetas.find(etq => etq.id === newEtiquetaId);
+        if (newEtiquetaObj) {
+          onPolizaUpdate({ etiquetas: [...currentEtiquetas, newEtiquetaObj] });
+        }
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "No se pudo agregar la etiqueta.", variant: "destructive" });
+    }
+  };
+
+  const handleRemoveEtiqueta = async (etiquetaId: number) => {
+    if (!poliza.id) return;
+    const currentEtiquetas = poliza.etiquetas || [];
+    const newEtiquetasIds = currentEtiquetas.filter(etq => etq.id !== etiquetaId).map(etq => etq.id);
+    
+    try {
+      await api.polizas.patch(poliza.id, { etiquetas_ids: newEtiquetasIds });
+      toast({ title: "Éxito", description: "Etiqueta removida." });
+      if (onPolizaUpdate) {
+        onPolizaUpdate({ etiquetas: currentEtiquetas.filter(etq => etq.id !== etiquetaId) });
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "No se pudo remover la etiqueta.", variant: "destructive" });
+    }
+  };
 
   const formatCurrency = (amount: string) => {
     const numAmount = parseFloat(amount || '0');
@@ -114,22 +198,48 @@ export function PolizaResumen({ poliza, activeSection = 'poliza', onSectionChang
               <div className="relative flex items-center justify-between gap-4 w-full">
                 <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
               </div>
-              <div className="flex flex-wrap justify-between items-center w-full">
-                <div className="flex flex-wrap justify-between w-full">
-                  <p className="text-gray-700 dark:text-white text-sm flex items-center gap-1 font-medium">Estatus:</p>
-                  <span className="w-fit inline-flex gap-2 items-center justify-center rounded-md px-1 py-0.5 text-xs font-medium bg-red-50 text-red-600 ring-1 ring-inset ring-red-600/20 dark:bg-red-500 dark:bg-opacity-50 dark:text-slate-50">
-                    {poliza.estado_nombre || 'Quote'}
-                  </span>
-                </div>
+              <div className="flex justify-between items-center w-full">
+                <p className="text-gray-700 dark:text-white text-sm flex items-center gap-1 font-medium">Estatus:</p>
+                <select 
+                  value={poliza.estado || ''} 
+                  onChange={handleEstadoChange}
+                  className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md text-xs py-1 px-2 text-gray-700 dark:text-white w-[140px] outline-none focus:ring-1 focus:ring-primary h-[28px]"
+                >
+                  {poliza.estado ? null : <option value="" disabled>{poliza.estado_nombre || 'Seleccionar'}</option>}
+                  {allEstados.map(est => (
+                    <option key={est.id} value={est.id}>{est.nombre}</option>
+                  ))}
+                </select>
               </div>
               <div className="relative flex items-center justify-between gap-4 w-full">
                 <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
               </div>
-              <div className="flex flex-wrap justify-between items-center w-full">
-                <p className="text-gray-700 dark:text-white text-sm font-medium">Etiquetas:</p>
-                <select className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md text-xs py-1 px-2 text-gray-700 dark:text-white w-[120px]">
-                  <option>Seleccionar</option>
-                </select>
+              <div className="flex flex-col w-full gap-2">
+                <div className="flex justify-between items-center w-full">
+                  <p className="text-gray-700 dark:text-white text-sm font-medium">Etiquetas:</p>
+                  <select 
+                    onChange={handleEtiquetaChange} 
+                    value=""
+                    className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md text-xs py-1 px-2 text-gray-700 dark:text-white w-[140px] outline-none focus:ring-1 focus:ring-primary h-[28px]"
+                  >
+                    <option value="" disabled>Seleccionar</option>
+                    {allEtiquetas.map(etq => (
+                      <option key={etq.id} value={etq.id}>{etq.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+                {poliza.etiquetas && poliza.etiquetas.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {poliza.etiquetas.map((etq) => (
+                      <span key={etq.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium" style={{ backgroundColor: etq.color || '#e2e8f0', color: '#1e293b' }}>
+                        {etq.nombre}
+                        <button type="button" onClick={() => handleRemoveEtiqueta(etq.id)} className="hover:text-red-500 ml-1">
+                          &times;
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="relative flex items-center justify-between gap-4 w-full">
                 <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
@@ -288,7 +398,7 @@ export function PolizaResumen({ poliza, activeSection = 'poliza', onSectionChang
         polizaInfo={{
           cliente: poliza.cliente_principal,
           plan: poliza.plan_nombre,
-          id: poliza.id_mercado
+          id: String(poliza.id || poliza.id_mercado)
         }}
       />
       

@@ -47,24 +47,24 @@ export default function CotizacionesPage() {
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  const fetchCotizaciones = async () => {
+    const fetchCotizaciones = async () => {
     setIsLoading(true);
-    try {
-      const token = accessToken || getCurrentToken();
+      try {
+        const token = accessToken || getCurrentToken();
       // Optional: Append page and years to query string if backend supports it
       const res = await fetchWithAuth(`${API_BASE_URL}/polizas/cotizaciones/?page=${page}&page_size=${pageSize}`, { method: 'GET' });
-      if (!res.ok) {
+        if (!res.ok) {
         throw new Error(`Error fetching cotizaciones: ${res.status}`);
-      }
-      const data = await res.json();
-      setItems(data.results || data);
+        }
+        const data = await res.json();
+        setItems(data.results || data);
       setTotalPolizas(typeof data.count === 'number' ? data.count : (data.results || data).length);
-    } catch (err) {
+      } catch (err) {
       console.error(err);
-    } finally {
+      } finally {
       setIsLoading(false);
-    }
-  };
+      }
+    };
 
   useEffect(() => {
     fetchCotizaciones();
@@ -180,7 +180,7 @@ export default function CotizacionesPage() {
                 </label>
               ))}
             </div>
-          </div>
+              </div>
           
           <div className="flex items-center gap-[16px] w-full">
             <div className="flex items-center bg-[#f8fafc] dark:bg-[#0f172a] border border-[#e2e8f0] dark:border-[#334155] rounded-[10px] py-[4px] pl-[14px] pr-[6px] grow">

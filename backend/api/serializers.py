@@ -511,6 +511,10 @@ class PolizaSerializer(serializers.ModelSerializer):
     # Extras
     otras_polizas = serializers.SerializerMethodField()
     notas = NotaSerializer(many=True, read_only=True)
+    etiquetas = EtiquetaSerializer(many=True, read_only=True)
+    etiquetas_ids = serializers.PrimaryKeyRelatedField(
+        many=True, write_only=True, queryset=Etiqueta.objects.all(), source='etiquetas', required=False
+    )
     documentos = DocumentoSerializer(many=True, read_only=True)
     citas = CitaSerializer(many=True, read_only=True)
     medicamentos = MedicamentoSerializer(many=True, read_only=True)
@@ -534,7 +538,7 @@ class PolizaSerializer(serializers.ModelSerializer):
             'direccion_postal', 'direccion_postal_details',
             'direccion_facturacion', 'direccion_facturacion_details',
             'info_pago', 'tarjetas_credito', 'cuentas_bancarias', 
-            'otras_polizas', 'notas', 'documentos', 'citas', 'medicamentos', 'historial', 'recordatorios', 'transferencias',
+            'otras_polizas', 'notas', 'etiquetas', 'etiquetas_ids', 'documentos', 'citas', 'medicamentos', 'historial', 'recordatorios', 'transferencias',
             'request_user_role',
             'active_viewers',
             'ultima_actualizacion', 'es_duplicado', 'ultimo_duplicado'
@@ -619,10 +623,14 @@ class PolizaSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         clientes_data = validated_data.pop('clientes_data', [])
         colaboradores = validated_data.pop('colaboradores', [])
+        etiquetas = validated_data.pop('etiquetas', [])
         poliza = Poliza.objects.create(**validated_data)
         
         if colaboradores:
             poliza.colaboradores.set(colaboradores)
+
+        if etiquetas:
+            poliza.etiquetas.set(etiquetas)
 
         for client_data in clientes_data:
             PolizaCliente.objects.create(poliza=poliza, **client_data)
@@ -632,6 +640,7 @@ class PolizaSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         clientes_data = validated_data.pop('clientes_data', None)
         colaboradores = validated_data.pop('colaboradores', None)
+        etiquetas = validated_data.pop('etiquetas', None)
         
         # Update standard fields
         for attr, value in validated_data.items():
@@ -640,6 +649,9 @@ class PolizaSerializer(serializers.ModelSerializer):
         
         if colaboradores is not None:
             instance.colaboradores.set(colaboradores)
+
+        if etiquetas is not None:
+            instance.etiquetas.set(etiquetas)
         
         # Update relationships if provided
         if clientes_data is not None:

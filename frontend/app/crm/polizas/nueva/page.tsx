@@ -206,8 +206,24 @@ export default function NuevaPolizaWizard() {
         setError('Ingrese una fecha de nacimiento válida para el solicitante principal.');
         return;
       }
+      if (!formData.sexo?.trim()) {
+        setError('Complete el sexo del solicitante principal.');
+        return;
+      }
+      if (!formData.telefono?.trim()) {
+        setError('Complete el teléfono del solicitante principal.');
+        return;
+      }
     }
     if (step === 3) {
+      if (!formData.ingresoAnual?.toString().trim()) {
+        setError('El ingreso familiar anual es obligatorio.');
+        return;
+      }
+      if (!formData.tamanoFamilia?.toString().trim()) {
+        setError('El tamaño del grupo familiar es obligatorio.');
+        return;
+      }
       const familyError = validateFamilyMembers();
       if (familyError) {
         setError(familyError);
@@ -241,6 +257,7 @@ export default function NuevaPolizaWizard() {
     if (!member.apellidoPaterno?.trim()) missingFields.push('apellido paterno');
     if (!member.fechaNacimiento) missingFields.push('fecha de nacimiento');
     if (member.fechaNacimiento && !validateDate(member.fechaNacimiento)) missingFields.push('fecha de nacimiento válida');
+    if (!member.sexo?.trim()) missingFields.push('sexo');
 
     if (missingFields.length > 0) {
       return { valid: false, error: `El ${label} requiere: ${missingFields.join(', ')}.` };
@@ -282,6 +299,24 @@ export default function NuevaPolizaWizard() {
 
     if (!formData.fechaNacimiento || !validateDate(formData.fechaNacimiento)) {
       setError('Ingrese una fecha de nacimiento válida para el solicitante principal.');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.sexo?.trim() || !formData.telefono?.trim()) {
+      setError('Complete el sexo y teléfono del solicitante principal.');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.ingresoAnual?.toString().trim() || !formData.tamanoFamilia?.toString().trim()) {
+      setError('El ingreso anual y tamaño familiar son obligatorios.');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.direccion1?.trim() || !formData.ciudad?.trim() || !formData.estadoProvincia?.trim() || !formData.zipCode?.trim()) {
+      setError('La dirección residencial completa (Línea 1, Ciudad, Estado, Código Postal) es obligatoria.');
       setLoading(false);
       return;
     }

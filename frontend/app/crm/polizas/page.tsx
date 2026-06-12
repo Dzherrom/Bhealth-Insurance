@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePolizaStore } from '@/store/polizaStore';
 import { Poliza, PolizaFilters } from '@/components/polizas/types';
@@ -21,7 +21,8 @@ import {
   BellRing,
   FileSignature,
   FileClock,
-  Archive
+  Archive,
+  ArrowUpDown
 } from 'lucide-react';
 
 export default function PolizasPage() {
@@ -38,6 +39,7 @@ export default function PolizasPage() {
   } = usePolizaStore();
   
   const selectedYears = user?.profile?.settings?.selectedYears || [];
+  const yearsString = selectedYears.join(',');
 
   const [filters, setFilters] = useState<PolizaFilters>({
     search: '', status: 'all', plan: 'all', agente: 'all', user: 'all',
@@ -49,9 +51,15 @@ export default function PolizasPage() {
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
+  const fetchPolizasRef = useRef(fetchPolizas);
   useEffect(() => {
-    fetchPolizas({ effective_years: selectedYears });
-  }, [fetchPolizas, page, pageSize, selectedYears]);
+    fetchPolizasRef.current = fetchPolizas;
+  }, [fetchPolizas]);
+
+  useEffect(() => {
+    fetchPolizasRef.current({ effective_years: selectedYears.length > 0 ? selectedYears : undefined });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, pageSize, yearsString]);
 
   useEffect(() => {
     const handleClickOutside = () => setOpenDropdownId(null);
@@ -205,9 +213,15 @@ export default function PolizasPage() {
             <table className="w-full border-collapse text-left min-w-[900px]">
               <thead>
                 <tr>
-                  <th className="bg-[#f8fafc] dark:bg-[#0f172a] p-[16px_24px] text-[12px] font-bold text-[#64748b] dark:text-gray-400 uppercase tracking-[0.5px] border-b border-[#f1f5f9] dark:border-[#334155]">Cliente</th>
-                  <th className="bg-[#f8fafc] dark:bg-[#0f172a] p-[16px_24px] text-[12px] font-bold text-[#64748b] dark:text-gray-400 uppercase tracking-[0.5px] border-b border-[#f1f5f9] dark:border-[#334155]">Agente / Asistente</th>
-                  <th className="bg-[#f8fafc] dark:bg-[#0f172a] p-[16px_24px] text-[12px] font-bold text-[#64748b] dark:text-gray-400 uppercase tracking-[0.5px] border-b border-[#f1f5f9] dark:border-[#334155]">Estatus</th>
+                  <th className="bg-[#f8fafc] dark:bg-[#0f172a] p-[16px_24px] text-[12px] font-bold text-[#64748b] dark:text-gray-400 uppercase tracking-[0.5px] border-b border-[#f1f5f9] dark:border-[#334155] cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                    <div className="flex items-center gap-2">Cliente <ArrowUpDown className="w-3 h-3 opacity-50" /></div>
+                  </th>
+                  <th className="bg-[#f8fafc] dark:bg-[#0f172a] p-[16px_24px] text-[12px] font-bold text-[#64748b] dark:text-gray-400 uppercase tracking-[0.5px] border-b border-[#f1f5f9] dark:border-[#334155] cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                    <div className="flex items-center gap-2">Agente / Asistente <ArrowUpDown className="w-3 h-3 opacity-50" /></div>
+                  </th>
+                  <th className="bg-[#f8fafc] dark:bg-[#0f172a] p-[16px_24px] text-[12px] font-bold text-[#64748b] dark:text-gray-400 uppercase tracking-[0.5px] border-b border-[#f1f5f9] dark:border-[#334155] cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                    <div className="flex items-center gap-2">Estatus <ArrowUpDown className="w-3 h-3 opacity-50" /></div>
+                  </th>
                   <th className="bg-[#f8fafc] dark:bg-[#0f172a] p-[16px_24px] text-[12px] font-bold text-[#64748b] dark:text-gray-400 uppercase tracking-[0.5px] border-b border-[#f1f5f9] dark:border-[#334155] text-right">Acciones</th>
                 </tr>
               </thead>
@@ -224,7 +238,11 @@ export default function PolizasPage() {
                     const pendingState = sLower.includes('pendien') || sLower.includes('verificaci');
                     
                     return (
-                    <tr key={poliza.id} className="hover:bg-[#f8fafc] dark:hover:bg-[#0f172a] dark:bg-[#0f172a] dark:hover:bg-[#0f172a] dark:bg-[#0f172a] group transition-colors">
+                    <tr 
+                      key={poliza.id} 
+                      onClick={() => handleViewPoliza(poliza.id)}
+                      className="hover:bg-[#f8fafc] dark:hover:bg-[#0f172a] dark:bg-[#0f172a] dark:hover:bg-[#0f172a] dark:bg-[#0f172a] group transition-colors cursor-pointer"
+                    >
                       <td className="p-[18px_24px] border-b border-[#f1f5f9] dark:border-[#334155] align-top">
                         <div className="flex gap-[12px] items-start">
                           <div className="w-[32px] h-[32px] bg-[#eff6ff] text-[#4f46e5] font-extrabold text-[13px] flex items-center justify-center rounded-[8px] shrink-0">
@@ -257,7 +275,7 @@ export default function PolizasPage() {
                       </td>
                       <td className="p-[18px_24px] border-b border-[#f1f5f9] dark:border-[#334155] align-top text-right">
                         <div className="inline-flex relative align-middle" onClick={(e) => e.stopPropagation()}>
-                          <button onClick={() => handleViewPoliza(poliza.id)} className="bg-white dark:bg-[#1e293b] border border-[#cbd5e1] dark:border-[#475569] border-r-0 py-[7px] pl-[14px] pr-[10px] text-[13px] font-bold text-[#4f46e5] rounded-[8px_0_0_8px] cursor-pointer hover:bg-[#f1f5f9] dark:hover:bg-[#334155] dark:bg-[#1e293b] dark:hover:bg-[#334155] dark:bg-[#1e293b] transition-colors focus:outline-none">
+                          <button onClick={(e) => { e.stopPropagation(); handleViewPoliza(poliza.id); }} className="bg-white dark:bg-[#1e293b] border border-[#cbd5e1] dark:border-[#475569] border-r-0 py-[7px] pl-[14px] pr-[10px] text-[13px] font-bold text-[#4f46e5] rounded-[8px_0_0_8px] cursor-pointer hover:bg-[#f1f5f9] dark:hover:bg-[#334155] dark:bg-[#1e293b] dark:hover:bg-[#334155] dark:bg-[#1e293b] transition-colors focus:outline-none">
                             Preview
                           </button>
                           <button onClick={(e) => toggleDropdown(e, poliza.id)} className={`bg-white dark:bg-[#1e293b] border border-[#cbd5e1] dark:border-[#475569] py-[7px] px-[10px] text-[11px] text-[#4f46e5] rounded-[0_8px_8px_0] cursor-pointer hover:bg-[#f1f5f9] dark:hover:bg-[#334155] dark:bg-[#1e293b] dark:hover:bg-[#334155] dark:bg-[#1e293b] transition-colors flex items-center justify-center focus:outline-none ${openDropdownId === poliza.id ? '!bg-[#4f46e5] !text-white !border-[#4f46e5]' : ''}`}>

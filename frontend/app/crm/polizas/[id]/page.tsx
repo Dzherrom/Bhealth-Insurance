@@ -120,16 +120,20 @@ export default function PolizaDetailsPage() {
       {/* Sidebar Left */}
       <PolizaResumen 
         poliza={{
+          id: poliza.id,
           id_mercado: poliza.id_mercado,
           agente_nombre: poliza.agente_nombre,
           plan_nombre: poliza.plan_nombre,
           estado_nombre: poliza.estado_nombre,
+          estado: poliza.estado,
+          etiquetas: poliza.etiquetas,
           prima_mensual: poliza.prima_mensual?.toString() || '0',
           fecha_efectiva: poliza.fecha_efectiva,
           cliente_principal: clientePrincipal ? `${clientePrincipal.cliente_details.primer_nombre} ${clientePrincipal.cliente_details.apellido_paterno}` : 'No asignado'
         }}
         activeSection={activeSection}
         onSectionChange={setActiveSection}
+        onPolizaUpdate={() => poliza.id && fetchPolizaById(poliza.id)}
       />
 
       {/* Floating right buttons */}

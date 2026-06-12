@@ -13,12 +13,25 @@ import {
   MessageSquare, 
   User, 
   Clock,
-  Paperclip
+  Paperclip,
+  Trash2,
+  Image as ImageIcon,
+  AtSign,
+  Edit2
 } from 'lucide-react';
+import { notasApi, resolveApiMediaUrl, usersApi } from '@/lib/api';
+import { useAuthStore } from '@/store/authStore';
+import { useToast } from '@/hooks/use-toast';
 
 interface NotaChat {
   id: number;
   mensaje: string;
+  archivo?: string;
+  adjuntos?: Array<{
+    id: number;
+    archivo: string;
+    nombre?: string;
+  }>;
   usuario: {
     nombre: string;
     apellido: string;
@@ -40,84 +53,99 @@ interface NotasChatProps {
   };
 }
 
-// Datos hardcodeados basados en la imagen
-const mockNotas: NotaChat[] = [
-  {
-    id: 1,
-    mensaje: 'Cliente contactó para verificar la información de la póliza. Todo correcto y confirmado.',
-    usuario: {
-      nombre: 'Isaac',
-      apellido: 'Torres',
-      iniciales: 'IT',
-      rol: 'Agente'
-    },
-    fechaCreacion: '2024-01-15T09:30:00Z',
-    estado: 'EN PROCESO'
-  },
-  {
-    id: 2,
-    mensaje: 'Documentos recibidos y procesados. Póliza lista para activación.',
-    usuario: {
-      nombre: 'Ana',
-      apellido: 'García',
-      iniciales: 'AG',
-      rol: 'Supervisor'
-    },
-    fechaCreacion: '2024-01-15T11:45:00Z',
-    estado: 'BILLS'
-  },
-  {
-    id: 3,
-    mensaje: 'Cliente solicita cambio en la información de contacto. Actualizando datos.',
-    usuario: {
-      nombre: 'Carlos',
-      apellido: 'Rodríguez',
-      iniciales: 'CR',
-      rol: 'Agente'
-    },
-    fechaCreacion: '2024-01-15T14:20:00Z',
-    estado: 'CAMBIO DE VIDA'
-  },
-  {
-    id: 4,
-    mensaje: 'Revisión de elegibilidad completada. Todo en orden.',
-    usuario: {
-      nombre: 'María',
-      apellido: 'López',
-      iniciales: 'ML',
-      rol: 'Especialista'
-    },
-    fechaCreacion: '2024-01-15T16:10:00Z',
-    estado: 'BILLS RESULT'
-  }
-];
-
 const estadoColors = {
-  'EN PROCESO': 'bg-blue-100 text-blue-800',
-  'BILLS': 'bg-purple-100 text-purple-800',
-  'BILLS RESULT': 'bg-green-100 text-green-800',
-  'CAMBIO DE VIDA': 'bg-red-100 text-red-800',
-  'CAMBIO DE VIDA-TRES MES': 'bg-orange-100 text-orange-800',
-  'CAMBIO NO REALIZADO': 'bg-gray-100 text-gray-800',
-  'CAMBIO REALIZADO SLEEP': 'bg-yellow-100 text-yellow-800',
-  'COMPLETO': 'bg-green-100 text-green-800'
+  'EN PROCESO': 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300',
+  'BILLS': 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300',
+  'BILLS RESULT': 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300',
+  'CAMBIO DE VIDA': 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300',
+  'CAMBIO DE VIDA-TRES MES': 'bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300',
+  'CAMBIO NO REALIZADO': 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
+  'CAMBIO REALIZADO SLEEP': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300',
+  'COMPLETO': 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300'
 };
 
 export function NotasChat({ isOpen, onClose, polizaInfo }: NotasChatProps) {
-  const [notas, setNotas] = useState<NotaChat[]>(mockNotas);
+  const [notas, setNotas] = useState<NotaChat[]>([]);
   const [nuevaNota, setNuevaNota] = useState('');
   const [isAnimating, setIsAnimating] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [archivosAdjuntos, setArchivosAdjuntos] = useState<File[]>([]);
+  const [usuarios, setUsuarios] = useState<any[]>([]);
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionFilter, setMentionFilter] = useState('');
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const { user } = useAuthStore();
+  const { toast } = useToast();
+  const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
-  // Manejar animaciones de entrada y salida
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    if (notas.length > 0) {
+      scrollToBottom();
+    }
+  }, [notas]);
+
   useEffect(() => {
     if (isOpen) {
       setIsAnimating(true);
+      if (polizaInfo?.id) {
+        loadNotas();
+      }
+      loadUsuarios();
     }
-  }, [isOpen]);
+  }, [isOpen, polizaInfo?.id]);
+
+  const loadUsuarios = async () => {
+    try {
+      const data = await usersApi.list();
+      let arr = data as any;
+      if (arr.results) arr = arr.results;
+      setUsuarios(arr);
+    } catch (e) {
+      console.error('Error cargando usuarios para menciones:', e);
+    }
+  };
+
+  const loadNotas = async () => {
+    setIsLoading(true);
+    try {
+      const todas = await notasApi.list();
+      let ns = (todas as any[]);
+      if ((todas as any).results) {
+         ns = (todas as any).results;
+      }
+      const dePoliza = ns.filter(n => String(n.poliza) === String(polizaInfo.id));
+      setNotas(dePoliza.map((n: any) => ({
+        id: n.id,
+        mensaje: n.contenido,
+        archivo: resolveApiMediaUrl(n.archivo),
+        adjuntos: (n.adjuntos ?? []).map((adjunto: any) => ({
+          ...adjunto,
+          archivo: resolveApiMediaUrl(adjunto.archivo),
+        })),
+        usuario: {
+          nombre: 'Usuario',
+          apellido: `#${n.usuario}`,
+          iniciales: 'U',
+          rol: 'Agente',
+          avatar: undefined,
+        },
+        fechaCreacion: n.fecha_creacion ?? new Date().toISOString(),
+        estado: n.estado // if any
+      })));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleClose = () => {
     setIsAnimating(false);
-    // Esperar a que termine la animación antes de cerrar completamente
     setTimeout(() => {
       onClose();
     }, 300);
@@ -149,27 +177,118 @@ export function NotasChat({ isOpen, onClose, polizaInfo }: NotasChatProps) {
     }
   };
 
-  const handleEnviarNota = () => {
-    if (nuevaNota.trim()) {
-      const nota: NotaChat = {
-        id: Date.now(),
-        mensaje: nuevaNota.trim(),
-        usuario: {
-          nombre: 'Usuario',
-          apellido: 'Actual',
-          iniciales: 'UA',
-          rol: 'Agente'
-        },
-        fechaCreacion: new Date().toISOString(),
-        estado: 'EN PROCESO'
-      };
-      
-      setNotas([...notas, nota]);
+  const handleDeleteNota = async (id: number) => {
+    if(!window.confirm('¿Seguro de borrar esta nota?')) return;
+    try {
+      await notasApi.delete(id);
+      toast({ title: 'Nota eliminada' });
+      loadNotas();
+    } catch (err) {
+      console.error(err);
+      toast({ title: 'Error al eliminar', variant: 'destructive' });
+    }
+  };
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setNuevaNota(val);
+
+    const cursorPosition = e.target.selectionStart;
+    const textBeforeCursor = val.slice(0, cursorPosition);
+    const mentionMatch = textBeforeCursor.match(/@(\w*)$/);
+
+    if (mentionMatch) {
+      setShowMentions(true);
+      setMentionFilter(mentionMatch[1].toLowerCase());
+      setMentionIndex(0);
+    } else {
+      setShowMentions(false);
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    if (e.clipboardData.files && e.clipboardData.files.length > 0) {
+      const filesArray = Array.from(e.clipboardData.files);
+      setArchivosAdjuntos((prev) => [...prev, ...filesArray]);
+      e.preventDefault();
+    }
+  };
+
+  const filteredUsuarios = usuarios.filter(u => 
+    u.username?.toLowerCase().includes(mentionFilter) || 
+    u.first_name?.toLowerCase().includes(mentionFilter) ||
+    u.last_name?.toLowerCase().includes(mentionFilter)
+  ).slice(0, 5); // Limit to 5 users to keep UI clean
+
+  const insertMention = (username: string) => {
+    const textarea = document.getElementById('nota-textarea') as HTMLTextAreaElement;
+    const cursorPosition = textarea?.selectionStart || nuevaNota.length;
+    const textBeforeCursor = nuevaNota.slice(0, cursorPosition);
+    const textAfterCursor = nuevaNota.slice(cursorPosition);
+    const textBeforeMention = textBeforeCursor.replace(/@\w*$/, '');
+    
+    setNuevaNota(textBeforeMention + `@${username} ` + textAfterCursor);
+    setShowMentions(false);
+    
+    setTimeout(() => {
+      if (textarea) {
+        textarea.focus();
+      }
+    }, 0);
+  };
+
+  const handleEnviarNota = async () => {
+    if (!nuevaNota.trim() && archivosAdjuntos.length === 0) return;
+    try {
+      const formData = new FormData();
+      formData.append('titulo', nuevaNota.trim().slice(0, 50) || 'Nota adjunta');
+      formData.append('contenido', nuevaNota.trim() || 'Archivo adjunto');
+      formData.append('poliza', String(polizaInfo.id));
+      formData.append('usuario', String(user?.id ?? 1));
+      for (const archivo of archivosAdjuntos) {
+        formData.append('archivos', archivo);
+      }
+
+      await (notasApi as any).createFormData(formData);
+
+      toast({ title: 'Nota agregada' });
       setNuevaNota('');
+      setShowMentions(false);
+      setArchivosAdjuntos([]);
+      loadNotas();
+    } catch (err: any) {
+      console.error(err);
+      toast({ title: 'Error al agregar nota', description: err.message || 'Error desconocido', variant: 'destructive' });
     }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (showMentions) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setMentionIndex(prev => Math.min(prev + 1, filteredUsuarios.length - 1));
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setMentionIndex(prev => Math.max(prev - 1, 0));
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        if (filteredUsuarios.length > 0) {
+          insertMention(filteredUsuarios[mentionIndex].username);
+        } else {
+          setShowMentions(false);
+        }
+        return;
+      }
+      if (e.key === 'Escape') {
+        setShowMentions(false);
+        return;
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleEnviarNota();
@@ -180,40 +299,35 @@ export function NotasChat({ isOpen, onClose, polizaInfo }: NotasChatProps) {
 
   return (
     <>
-      {/* Overlay invisible para capturar clicks */}
       <div 
         className="fixed inset-0 bg-transparent z-40"
         onClick={handleClose}
       />
       
-      {/* Panel lateral con animación de deslizamiento */}
-      <div className={`fixed left-0 top-0 h-full w-96 bg-white shadow-xl z-50 flex flex-col transform transition-transform duration-300 ease-in-out ${
+      <div className={`fixed left-0 top-0 h-full w-[500px] bg-white dark:bg-slate-900 shadow-xl z-50 flex flex-col transform transition-transform duration-300 ease-in-out border-r border-slate-200 dark:border-slate-800 ${
         isAnimating ? 'translate-x-0' : '-translate-x-full'
       }`}>
-        {/* Header */}
-        <div className="p-4 border-b bg-gray-50">
+        <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/50">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold">Notas de Póliza</h2>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Notas de Póliza</h2>
             <Button variant="ghost" size="sm" onClick={handleClose}>
-              <X className="w-4 h-4" />
+              <X className="w-4 h-4 text-slate-500 dark:text-slate-400" />
             </Button>
           </div>
           
-          {/* Información del cliente */}
           <div className="space-y-2">
             <div className="flex items-center space-x-2">
               <Avatar className="w-8 h-8">
-                <AvatarFallback className="bg-blue-100 text-blue-700 text-xs">
+                <AvatarFallback className="bg-blue-100 text-blue-700 dark:bg-primary/20 dark:text-primary text-xs">
                   {polizaInfo.cliente.split(' ').map(n => n[0]).join('')}
                 </AvatarFallback>
               </Avatar>
               <div>
-                <p className="font-medium text-sm">{polizaInfo.cliente}</p>
-                <p className="text-xs text-gray-500">{polizaInfo.plan}</p>
+                <p className="font-medium text-sm text-slate-900 dark:text-white">{polizaInfo.cliente}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{polizaInfo.plan}</p>
               </div>
             </div>
             
-            {/* Estados disponibles */}
             <div className="flex flex-wrap gap-1 mt-3">
               {Object.keys(estadoColors).slice(0, 8).map((estado) => (
                 <Badge 
@@ -228,16 +342,17 @@ export function NotasChat({ isOpen, onClose, polizaInfo }: NotasChatProps) {
           </div>
         </div>
 
-        {/* Chat area */}
-        <ScrollArea className="flex-1 p-4">
+        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
           <div className="space-y-4">
-            {notas.map((nota) => (
-              <div key={nota.id} className="flex space-x-3">
+            {isLoading ? (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">Cargando notas...</div>
+            ) : notas.map((nota) => (
+              <div key={nota.id} className="flex space-x-3 group relative">
                 <Avatar className="w-8 h-8 flex-shrink-0">
                   {nota.usuario.avatar ? (
                     <AvatarImage src={nota.usuario.avatar} alt={nota.usuario.nombre} />
                   ) : (
-                    <AvatarFallback className="bg-blue-100 text-blue-700 text-xs">
+                    <AvatarFallback className="bg-blue-100 text-blue-700 dark:bg-primary/20 dark:text-primary text-xs">
                       {nota.usuario.iniciales}
                     </AvatarFallback>
                   )}
@@ -245,19 +360,53 @@ export function NotasChat({ isOpen, onClose, polizaInfo }: NotasChatProps) {
                 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
-                    <span className="font-medium text-sm">
+                    <span className="font-medium text-sm text-slate-900 dark:text-white">
                       {nota.usuario.nombre} {nota.usuario.apellido}
                     </span>
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="outline" className="text-[10px] dark:border-slate-700 dark:text-slate-300">
                       {nota.usuario.rol}
                     </Badge>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-[10px] text-gray-500 dark:text-gray-400">
                       {formatTime(nota.fechaCreacion)}
                     </span>
                   </div>
                   
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <p className="text-sm text-gray-700">{nota.mensaje}</p>
+                  <div className="bg-gray-50 dark:bg-slate-800 rounded-lg p-3">
+                    <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                      {nota.mensaje.split(/(@\w+)/g).map((part: string, i: number) => 
+                        part.startsWith('@') ? <span key={i} className="text-blue-600 dark:text-blue-400 font-medium bg-blue-50 dark:bg-blue-900/30 px-1 rounded-sm">{part}</span> : part
+                      )}
+                    </p>
+                    
+                    {(nota.archivo || nota.adjuntos?.length) && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {nota.archivo && (
+                          nota.archivo.match(/\.(jpeg|jpg|gif|png|webp|svg)/i) ? (
+                            <button onClick={() => setPreviewImage(nota.archivo!)} className="block w-24 h-24 rounded-md overflow-hidden border dark:border-slate-700 hover:opacity-90 transition-opacity">
+                              <img src={nota.archivo} alt="Adjunto" className="w-full h-full object-cover" />
+                            </button>
+                          ) : (
+                            <a href={nota.archivo} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 p-1.5 rounded transition-colors">
+                              <Paperclip className="h-3 w-3 mr-1" />
+                              Archivo
+                            </a>
+                          )
+                        )}
+                        {nota.adjuntos?.map((adjunto) => (
+                          adjunto.archivo.match(/\.(jpeg|jpg|gif|png|webp|svg)/i) ? (
+                            <button key={adjunto.id} onClick={() => setPreviewImage(adjunto.archivo)} className="block w-24 h-24 rounded-md overflow-hidden border dark:border-slate-700 hover:opacity-90 transition-opacity">
+                              <img src={adjunto.archivo} alt="Adjunto" className="w-full h-full object-cover" />
+                            </button>
+                          ) : (
+                            <a key={adjunto.id} href={adjunto.archivo} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 p-1.5 rounded transition-colors">
+                              <Paperclip className="h-3 w-3 mr-1" />
+                              {adjunto.nombre || 'Adjunto'}
+                            </a>
+                          )
+                        ))}
+                      </div>
+                    )}
+                    
                     {nota.estado && (
                       <Badge 
                         variant="secondary" 
@@ -268,40 +417,118 @@ export function NotasChat({ isOpen, onClose, polizaInfo }: NotasChatProps) {
                     )}
                   </div>
                 </div>
+
+                <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:bg-slate-800" onClick={() => handleDeleteNota(nota.id)}>
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
               </div>
             ))}
             
-            {notas.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
+            {notas.length === 0 && !isLoading && (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                 <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-50" />
                 <p>No hay notas aún</p>
                 <p className="text-xs mt-1">Inicia la conversación escribiendo una nota</p>
               </div>
             )}
+            <div ref={messagesEndRef} />
           </div>
-        </ScrollArea>
+        </div>
 
-        {/* Input area */}
-        <div className="p-4 border-t bg-white">
+        <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 relative">
+          
+          {showMentions && filteredUsuarios.length > 0 && (
+            <div className="absolute bottom-full left-4 right-4 mb-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md shadow-lg overflow-hidden z-50">
+              {filteredUsuarios.map((u, i) => (
+                <div 
+                  key={u.id}
+                  className={`px-3 py-2 cursor-pointer flex items-center gap-2 ${
+                    i === mentionIndex 
+                      ? 'bg-slate-100 dark:bg-slate-700' 
+                      : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                  }`}
+                  onClick={() => insertMention(u.username)}
+                >
+                  <Avatar className="w-6 h-6">
+                    <AvatarImage src={resolveApiMediaUrl(u.profile?.avatar)} />
+                    <AvatarFallback className="bg-primary/20 text-primary text-[10px]">
+                      {u.first_name?.[0] || u.username?.[0] || 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-slate-900 dark:text-white leading-none">
+                      {u.first_name} {u.last_name}
+                    </span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">@{u.username}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="space-y-3">
             <Textarea
-              placeholder="Escribir una nota..."
+              id="nota-textarea"
+              placeholder="Escribir una nota... Usa @ para mencionar o pega una imagen"
               value={nuevaNota}
-              onChange={(e) => setNuevaNota(e.target.value)}
+              onChange={handleTextChange}
               onKeyPress={handleKeyPress}
-              className="min-h-[80px] resize-none"
+              onPaste={handlePaste}
+              className="min-h-[80px] resize-none bg-white dark:bg-slate-800 dark:text-white"
               rows={3}
             />
             
+            {archivosAdjuntos.length > 0 && (
+              <div className="space-y-2">
+                {archivosAdjuntos.map((archivo, index) => (
+                  <div key={`${archivo.name}-${index}`} className="flex items-center gap-2 text-xs text-muted-foreground dark:text-gray-400 p-1.5 bg-slate-100 dark:bg-slate-800 rounded-md truncate max-w-full">
+                    <Paperclip className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{archivo.name}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 ml-auto shrink-0"
+                      onClick={() => setArchivosAdjuntos((prev) => prev.filter((_, fileIndex) => fileIndex !== index))}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+            
             <div className="flex items-center justify-between">
-              <Button variant="outline" size="sm">
-                <Paperclip className="w-4 h-4 mr-2" />
-                Adjuntar
-              </Button>
+              <div className="flex space-x-1">
+                <input 
+                  id="chat-file-upload" 
+                  type="file" 
+                  multiple
+                  className="hidden" 
+                  onChange={(e) => setArchivosAdjuntos((prev) => [...prev, ...Array.from(e.target.files ?? [])])} 
+                />
+                <Button variant="outline" size="icon" className="h-8 w-8 dark:border-slate-700" onClick={() => document.getElementById('chat-file-upload')?.click()}>
+                  <Paperclip className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="icon" className="h-8 w-8 dark:border-slate-700" onClick={() => {
+                  const input = document.getElementById('chat-file-upload');
+                  if (input) {
+                    input.setAttribute('accept', 'image/*');
+                    input.click();
+                    input.removeAttribute('accept');
+                  }
+                }}>
+                  <ImageIcon className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="icon" className="h-8 w-8 dark:border-slate-700" onClick={() => setNuevaNota(prev => prev + '@')}>
+                  <AtSign className="h-4 w-4" />
+                </Button>
+              </div>
               
               <Button 
                 onClick={handleEnviarNota}
-                disabled={!nuevaNota.trim()}
+                disabled={!nuevaNota.trim() && archivosAdjuntos.length === 0}
                 size="sm"
               >
                 <Send className="w-4 h-4 mr-2" />
@@ -311,6 +538,23 @@ export function NotasChat({ isOpen, onClose, polizaInfo }: NotasChatProps) {
           </div>
         </div>
       </div>
+
+      {previewImage && (
+        <div 
+          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 cursor-pointer"
+          onClick={() => setPreviewImage(null)}
+        >
+          <img src={previewImage} alt="Vista previa" className="max-w-full max-h-full object-contain" />
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="absolute top-4 right-4 text-white hover:bg-white/20"
+            onClick={(e) => { e.stopPropagation(); setPreviewImage(null); }}
+          >
+            <X className="w-6 h-6" />
+          </Button>
+        </div>
+      )}
     </>
   );
 }

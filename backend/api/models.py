@@ -238,6 +238,7 @@ class Poliza(models.Model):
     clientes = models.ManyToManyField(Cliente, through='PolizaCliente', related_name='polizas')
     colaboradores = models.ManyToManyField(User, related_name='polizas_colaboracion', blank=True, verbose_name="Colaboradores")
     import_batch = models.ForeignKey(ImportBatch, on_delete=models.SET_NULL, null=True, blank=True, related_name='polizas')
+    etiquetas = models.ManyToManyField('Etiqueta', related_name='polizas_etiquetadas', blank=True, verbose_name="Etiquetas")
 
     def __str__(self):
         return self.id_mercado
