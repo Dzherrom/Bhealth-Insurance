@@ -1,30 +1,22 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import { NotasChat } from '@/components/notas/NotasChat';
 import { RegistrosActividadModal } from './RegistrosActividadModal';
 import { 
   FileText, 
-  File, 
-  Clock, 
-  Bell, 
-  Calendar,
+  Folder,
+  StickyNote,
+  Bell,
+  FileSignature,
+  DollarSign,
+  ClipboardList,
   Users,
-  Phone,
-  Building,
-  MapPin,
-  CreditCard,
-  Archive,
-  Eye,
-  EyeOff,
-  Copy,
-  MessageSquare,
-  Save,
-  Lock
+  Stethoscope,
+  List,
+  Settings,
+  Menu,
+  Info
 } from 'lucide-react';
 
 interface PolizaResumenProps {
@@ -42,237 +34,254 @@ interface PolizaResumenProps {
 }
 
 export function PolizaResumen({ poliza, activeSection = 'poliza', onSectionChange }: PolizaResumenProps) {
-  const [isContactInfoVisible, setIsContactInfoVisible] = useState(false);
   const [isNotasChatOpen, setIsNotasChatOpen] = useState(false);
   const [isRegistrosModalOpen, setIsRegistrosModalOpen] = useState(false);
 
-  const copyToClipboard = async (text: string, type: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      // Aquí podrías agregar una notificación de éxito si tienes un sistema de toast
-      console.log(`${type} copiado al portapapeles: ${text}`);
-    } catch (err) {
-      console.error('Error al copiar al portapapeles:', err);
-    }
-  };
-
   const formatCurrency = (amount: string) => {
-    const numAmount = parseFloat(amount);
-    return new Intl.NumberFormat('es-US', {
+    const numAmount = parseFloat(amount || '0');
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 2
     }).format(numAmount);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-  };
-
-  const navigationItems = [
-    { id: 'poliza', icon: FileText, label: 'Póliza', active: activeSection === 'poliza' },
-    { id: 'documentos', icon: File, label: 'Documentos', count: 12, active: activeSection === 'documentos' },
-    { id: 'direcciones', icon: MapPin, label: 'Direcciones', active: activeSection === 'direcciones' },
-    { id: 'pagos', icon: CreditCard, label: 'Medios de Pago', active: activeSection === 'pagos' },
-    { id: 'metadatos', icon: Save, label: 'Detalles Esp.', active: activeSection === 'metadatos' },
-    { id: 'hive', icon: Archive, label: 'HIVE', count: 4, active: activeSection === 'hive' },
-    { id: 'notas', icon: MessageSquare, label: 'Notas', count: 8, active: false, isChat: true },
-    { id: 'recordatorios', icon: Bell, label: 'Recordatorios', count: 2, active: activeSection === 'recordatorios' },
-    { id: 'calendario', icon: Calendar, label: 'Calendario de Primas', active: activeSection === 'calendario' },
-    { id: 'comentarios', icon: Users, label: 'Comentarios', active: activeSection === 'comentarios' },
-    { id: 'tareas', icon: Phone, label: 'Tareas', active: activeSection === 'tareas' },
-    { id: 'registro', icon: Lock, label: 'Registro', active: false, isModal: true }
+  const navItems = [
+    { id: 'poliza', icon: <i className="fa-duotone fa-shield-halved"></i>, label: 'Póliza' },
+    { id: 'documentos', icon: <i className="fa-duotone fa-folder"></i>, label: 'Documentos', count: 1 },
+    { id: 'notas', icon: <i className="fa-duotone fa-sticky-note"></i>, label: 'Notas', count: 0, isChat: true },
+    { id: 'recordatorios', icon: <i className="fa-duotone fa-bell-on"></i>, label: 'Recordatorios', count: 0 },
+    { id: 'formularios', icon: <i className="fa-duotone fa-file-signature"></i>, label: 'Formularios de Firma', count: 0 },
+    { id: 'comisiones', icon: <i className="fa-duotone fa-sack-dollar"></i>, label: 'Comisiones' },
+    { id: 'tareas', icon: <i className="fa-duotone ml-0.5 fa-clipboard-list-check"></i>, label: 'Tareas' },
+    { id: 'cambios', icon: <i className="fa-duotone ml-0.5 fa-family"></i>, label: 'Cambios de vida' },
+    { id: 'citas', icon: <i className="fa-duotone ml-0.5 fa-user-doctor-hair"></i>, label: 'Citas médicas' },
+    { id: 'registros', icon: <i className="fa-duotone fa-list"></i>, label: 'Registros', isModal: true },
+    { id: 'configuracion', icon: <i className="fa-duotone fa-gear"></i>, label: 'Configuración' }
   ];
 
   return (
-    <div className="w-80 space-y-4">
-      {/* Información del titular */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="space-y-3">
-            <div>
-              <h3 className="font-semibold text-lg">Resumen</h3>
-            </div>
+    <>
+      <div className="flex flex-col lg:gap-4 lg:w-fit">
+        <div className="relative w-auto">
+          {/* Main Sidebar Card */}
+          <div className="bg-white p-4 lg:p-6 shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 dark:shadow-none hidden lg:flex flex-col w-full md:w-72 py-4 lg:py-4 lg:px-3 h-fit">
             
-            <div className="space-y-2">
-              <div>
-                <span className="text-sm text-gray-500">Agencias:</span>
-                <p className="font-medium">VENDE FAMILIA</p>
+            {/* Resumen */}
+            <div className="flex flex-col gap-1 py-3 pt-1">
+              <div className="flex items-center justify-between border-b border-gray-100 dark:border-slate-700 pb-1 mb-1.5">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">Resumen</p>
               </div>
-              
-              <div>
-                <span className="text-sm text-gray-500">Aseguradora:</span>
-                <p className="font-medium">ISAAC FAMILY</p>
+              <div className="flex flex-wrap justify-between items-center w-full">
+                <p className="text-gray-700 dark:text-white text-sm flex items-center gap-1 font-medium">Agente:</p>
+                <p className="text-gray-700 dark:text-white text-sm font-normal">{poliza.agente_nombre || '-'}</p>
               </div>
-              
-              <div>
-                <span className="text-sm text-gray-500">Código Interno:</span>
-                <p className="font-medium">INDEAAPPFOREST</p>
+              <div className="relative flex items-center justify-between gap-4 w-full">
+                <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
               </div>
-              
-              <div>
-                <span className="text-sm text-gray-500">Aseguradoras:</span>
-                <p className="font-medium">Oscar</p>
+              <div className="flex flex-wrap justify-between items-center w-full">
+                <p className="text-gray-700 dark:text-white text-sm flex items-center gap-1 font-medium">Asignado a:</p>
+                <p className="text-gray-700 dark:text-white text-sm font-normal">-</p>
               </div>
-              
-              <div>
-                <span className="text-sm text-gray-500">Efectividad:</span>
-                <p className="font-medium">09/01/2026</p>
+              <div className="relative flex items-center justify-between gap-4 w-full">
+                <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
               </div>
-              
-              <div>
-                <span className="text-sm text-gray-500">Estado:</span>
-                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                  PENDIENTE VERIFICAR YEARLY 2026
-                </Badge>
+              <div className="flex flex-wrap justify-between items-center w-full">
+                <p className="text-gray-700 dark:text-white text-sm font-medium">Código interno:</p>
+                <p className="text-gray-700 dark:text-white text-sm font-normal truncate max-w-[120px]" title={poliza.id_mercado}>{poliza.id_mercado || '-'}</p>
               </div>
-              
-              <div>
-                <span className="text-sm text-gray-500">Enlace Documentos:</span>
-                <p className="font-medium text-green-600">COMPLETADO</p>
+              <div className="relative flex items-center justify-between gap-4 w-full">
+                <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
               </div>
-              
-              <div>
-                <span className="text-sm text-gray-500">Estado:</span>
-                <p className="font-medium text-orange-600">PENDIENTE</p>
+              <div className="flex flex-wrap justify-between items-center w-full">
+                <p className="text-gray-700 dark:text-white text-sm font-medium">Aseguradora:</p>
+                <p className="text-gray-700 dark:text-white text-sm font-normal">{poliza.plan_nombre || '-'}</p>
               </div>
-              
-              <div>
-                <span className="text-sm text-gray-500">Última actualización:</span>
-                <p className="font-medium">Dec 03, 2026 6:55 PM</p>
+              <div className="relative flex items-center justify-between gap-4 w-full">
+                <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
               </div>
-            </div>
-            
-            <Separator />
-            
-            {/* Información del hogar */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <h4 className="font-medium">Información del hogar</h4>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsContactInfoVisible(!isContactInfoVisible)}
-                  className="h-8 w-8 p-0"
-                  title={isContactInfoVisible ? "Ocultar información de contacto" : "Mostrar información de contacto"}
-                >
-                  {isContactInfoVisible ? (
-                    <EyeOff className="w-4 h-4" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
-                </Button>
+              <div className="flex flex-wrap justify-between items-center w-full">
+                <p className="text-gray-700 dark:text-white text-sm font-medium">Efectividad:</p>
+                <p className="text-gray-700 dark:text-white text-sm font-normal">{poliza.fecha_efectiva ? new Date(poliza.fecha_efectiva).toLocaleDateString() : '-'}</p>
               </div>
-              
-              <div>
-                <span className="text-sm text-gray-500">Titular:</span>
-                <p className="font-medium">NELSON VADO</p>
+              <div className="relative flex items-center justify-between gap-4 w-full">
+                <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
               </div>
-              
-              <div>
-                <span className="text-sm text-gray-500">Fecha nacimiento:</span>
-                <p className="font-medium">08/20/1988</p>
+              <div className="flex flex-wrap justify-between items-center w-full">
+                <p className="text-gray-700 dark:text-white text-sm font-medium">Número aplicantes:</p>
+                <p className="text-gray-700 dark:text-white text-sm font-normal">1</p>
               </div>
-              
-              <div>
-                <span className="text-sm text-gray-500">Teléfono:</span>
-                <div className="flex items-center justify-between">
-                  <p className="font-medium">
-                    {isContactInfoVisible ? "(555) 123-4772" : "***********4772"}
-                  </p>
-                  {isContactInfoVisible && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => copyToClipboard("(555) 123-4772", "Teléfono")}
-                      className="h-6 w-6 p-0 ml-2"
-                      title="Copiar teléfono"
-                    >
-                      <Copy className="w-3 h-3" />
-                    </Button>
-                  )}
+              <div className="relative flex items-center justify-between gap-4 w-full">
+                <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
+              </div>
+              <div className="flex flex-wrap justify-between items-center w-full">
+                <div className="flex flex-wrap justify-between w-full">
+                  <p className="text-gray-700 dark:text-white text-sm flex items-center gap-1 font-medium">Estatus:</p>
+                  <span className="w-fit inline-flex gap-2 items-center justify-center rounded-md px-1 py-0.5 text-xs font-medium bg-red-50 text-red-600 ring-1 ring-inset ring-red-600/20 dark:bg-red-500 dark:bg-opacity-50 dark:text-slate-50">
+                    {poliza.estado_nombre || 'Quote'}
+                  </span>
                 </div>
               </div>
-              
-              <div>
-                <span className="text-sm text-gray-500">Correo:</span>
-                <div className="flex items-center justify-between">
-                  <p className="font-medium">
-                    {isContactInfoVisible ? "nelson.vado@email.com" : "***********@"}
-                  </p>
-                  {isContactInfoVisible && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => copyToClipboard("nelson.vado@email.com", "Correo")}
-                      className="h-6 w-6 p-0 ml-2"
-                      title="Copiar correo"
-                    >
-                      <Copy className="w-3 h-3" />
-                    </Button>
-                  )}
-                </div>
+              <div className="relative flex items-center justify-between gap-4 w-full">
+                <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
               </div>
-              
-              <div>
-                <span className="text-sm text-gray-500">Ubicación:</span>
-                <p className="font-medium">Georgia 30044</p>
+              <div className="flex flex-wrap justify-between items-center w-full">
+                <p className="text-gray-700 dark:text-white text-sm font-medium">Etiquetas:</p>
+                <select className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md text-xs py-1 px-2 text-gray-700 dark:text-white w-[120px]">
+                  <option>Seleccionar</option>
+                </select>
               </div>
-              
-              <div>
-                <span className="text-sm text-gray-500">Ingresos anuales:</span>
-                <p className="font-medium">$17,000.00</p>
+              <div className="relative flex items-center justify-between gap-4 w-full">
+                <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
               </div>
-              
-              <div>
-                <span className="text-sm text-gray-500"># miembros:</span>
-                <p className="font-medium">DSKTFBY$252f@</p>
+              <div className="flex flex-wrap justify-between items-center w-full">
+                <p className="text-gray-700 dark:text-white text-sm flex items-center gap-1 font-medium">Carpeta personal:</p>
+                <p className="text-gray-700 dark:text-white text-sm font-normal">-</p>
+              </div>
+              <div className="relative flex items-center justify-between gap-4 w-full">
+                <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
+              </div>
+              <div className="flex flex-wrap justify-between items-center w-full">
+                <p className="text-gray-700 dark:text-white text-sm font-medium">Última actualización:</p>
+                <p className="text-gray-700 dark:text-white text-xs font-normal">Hoy</p>
               </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
 
-      {/* Navegación */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="space-y-1">
-            {navigationItems.map((item, index) => (
-              <div key={index}>
-                <Button 
-                  variant={item.active ? "secondary" : "ghost"} 
-                  className={`w-full justify-between p-3 h-auto ${item.active ? 'bg-blue-50 dark:bg-[#1e293b] text-blue-700 dark:text-blue-400' : 'hover:bg-gray-100 dark:hover:bg-[#1e293b]'}`}
+            {/* Información del Hogar */}
+            <div className="flex flex-col gap-1 py-3">
+              <div className="flex items-center justify-between border-b border-gray-100 dark:border-slate-700 pb-1 mb-1.5">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">Información del hogar</p>
+              </div>
+              <div className="flex flex-wrap justify-between items-center w-full">
+                <div className="flex flex-wrap justify-between w-full">
+                  <p className="text-gray-700 dark:text-white text-sm flex items-center gap-1 font-medium">Titular:</p>
+                  <p className="text-gray-700 dark:text-white text-sm font-normal flex items-center gap-1 truncate max-w-[150px]">
+                    {poliza.cliente_principal || '-'}
+                  </p>
+                </div>
+              </div>
+              <div className="relative flex items-center justify-between gap-4 w-full">
+                <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
+              </div>
+              <div className="flex flex-wrap justify-between items-center w-full">
+                <div className="flex flex-wrap items-center justify-between w-full">
+                  <div className="text-gray-700 dark:text-white text-sm font-medium flex items-center gap-1">Fecha nacimiento</div>
+                  <div className="text-gray-700 dark:text-white text-sm font-normal flex items-center gap-1">-</div>
+                </div>
+              </div>
+              <div className="relative flex items-center justify-between gap-4 w-full">
+                <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
+              </div>
+              <div className="flex flex-wrap justify-between items-center w-full">
+                <div className="flex flex-wrap justify-between w-full">
+                  <p className="text-gray-700 dark:text-white text-sm font-medium">Teléfono</p>
+                  <p className="text-gray-700 dark:text-white text-sm font-normal">-</p>
+                </div>
+              </div>
+              <div className="relative flex items-center justify-between gap-4 w-full">
+                <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
+              </div>
+              <div className="flex flex-wrap justify-between items-center w-full">
+                <div className="flex flex-wrap justify-between w-full">
+                  <p className="text-gray-700 dark:text-white text-sm font-medium">Correo</p>
+                  <p className="text-gray-700 dark:text-white text-sm font-normal">-</p>
+                </div>
+              </div>
+              <div className="relative flex items-center justify-between gap-4 w-full">
+                <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
+              </div>
+              <div className="flex flex-wrap justify-between items-center w-full">
+                <p className="text-gray-700 dark:text-white text-sm font-medium">Ubicación:</p>
+                <p className="text-gray-700 dark:text-white text-sm font-normal break-words max-w-full">-</p>
+              </div>
+              <div className="relative flex items-center justify-between gap-4 w-full">
+                <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
+              </div>
+              <div className="flex flex-wrap justify-between items-center w-full">
+                <div className="flex flex-wrap justify-between w-full">
+                  <p className="text-gray-700 dark:text-white text-sm font-medium">Ingresos anuales</p>
+                  <div className="flex items-center">
+                    <p className="text-gray-700 dark:text-white text-sm font-normal break-words max-w-full">-</p>
+                  </div>
+                </div>
+              </div>
+              <div className="relative flex items-center justify-between gap-4 w-full">
+                <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
+              </div>
+              <div className="flex flex-wrap justify-between items-center w-full">
+                <p className="text-gray-700 dark:text-white text-sm font-medium">ID miembro:</p>
+                <p className="text-gray-700 dark:text-white text-sm font-normal break-words max-w-full">-</p>
+              </div>
+            </div>
+
+            {/* Navigation Links */}
+            <div className="flex flex-col gap-1 mt-2">
+              {navItems.map((item) => (
+                <div 
+                  key={item.id}
+                  className={`flex items-center group font-normal rounded-lg transition-colors cursor-pointer ${
+                    activeSection === item.id 
+                      ? 'bg-blue-100 dark:bg-primary/20' 
+                      : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                  }`}
                   onClick={() => {
                     if (item.isChat) {
                       setIsNotasChatOpen(true);
                     } else if (item.isModal) {
                       setIsRegistrosModalOpen(true);
                     } else {
-                      onSectionChange && onSectionChange(item.id);
+                      onSectionChange?.(item.id);
                     }
                   }}
                 >
-                  <div className="flex items-center space-x-3">
-                    <item.icon className="w-4 h-4" />
-                    <span className="text-sm">{item.label}</span>
+                  <div className="flex flex-1 items-center font-normal w-full">
+                    <span className={`px-3 py-2 gap-4 w-11 h-10 flex justify-start items-center rounded-md ${
+                      activeSection === item.id 
+                        ? 'text-primary dark:text-blue-400' 
+                        : 'text-slate-500 dark:text-slate-400 group-hover:text-primary dark:group-hover:text-white'
+                    }`}>
+                      {item.icon}
+                    </span>
+                    <div className="flex justify-between items-center flex-1 pr-2">
+                      <span className={`text-sm text-left ${
+                        activeSection === item.id 
+                          ? 'text-primary dark:text-white font-medium' 
+                          : 'text-gray-700 dark:text-slate-300 group-hover:text-primary dark:group-hover:text-white'
+                      }`}>
+                        {item.label}
+                      </span>
+                      {item.count !== undefined && (
+                        <span className="w-fit inline-flex gap-2 items-center justify-center rounded-md px-1 py-0.5 text-xs font-medium bg-slate-50 text-slate-500 ring-1 ring-inset ring-gray-600/20 dark:bg-slate-700 dark:text-slate-300 dark:ring-slate-600 ml-2">
+                          {item.count}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  {item.count && (
-                    <Badge variant="secondary" className="text-xs">
-                      {item.count}
-                    </Badge>
-                  )}
-                </Button>
-              </div>
-            ))}
+                </div>
+              ))}
+            </div>
+
           </div>
-        </CardContent>
-      </Card>
-      
-      {/* Chat de Notas */}
+          
+          <button className="items-center w-fit cursor-pointer justify-center rounded-md transition-colors py-2 font-medium bg-primary text-white hover:bg-primary/90 h-[34px] px-2.5 text-xs fixed bottom-4 flex lg:hidden gap-1 left-4 z-20 shadow-lg" type="button">
+            <Menu className="w-4 h-4" /> Menú
+          </button>
+        </div>
+
+        {/* Última Nota */}
+        <div className="bg-white p-4 lg:p-6 shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 hidden lg:flex flex-col lg:w-72 py-4 lg:py-4 lg:px-3">
+          <div className="flex items-center justify-between border-b border-gray-100 dark:border-slate-700 pb-1 mb-2">
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">Última nota</p>
+          </div>
+          <div className="p-3 shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-700 !py-2 !px-3 w-full flex gap-3 bg-blue-50 dark:bg-slate-700">
+            <Info className="w-4 h-4 mt-0.5 text-blue-500 dark:text-blue-400 shrink-0" />
+            <p className="text-gray-700 dark:text-gray-300 text-xs font-normal">
+              Todavía no se han creado notas para esta póliza.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <NotasChat 
         isOpen={isNotasChatOpen}
         onClose={() => setIsNotasChatOpen(false)}
@@ -283,12 +292,11 @@ export function PolizaResumen({ poliza, activeSection = 'poliza', onSectionChang
         }}
       />
       
-      {/* Modal de Registros de Actividad */}
       <RegistrosActividadModal 
         isOpen={isRegistrosModalOpen}
         onClose={() => setIsRegistrosModalOpen(false)}
         polizaId={poliza.id_mercado}
       />
-    </div>
+    </>
   );
 }

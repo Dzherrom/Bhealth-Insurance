@@ -2,165 +2,37 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ChevronLeft, FileText, User, Calendar, DollarSign, Shield, Building, Phone, Mail, Clock, MapPin, CreditCard } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from '@/components/ui/skeleton';
-import { PolizaResponse } from '@/types/polizas';
-import { InfoCard, InfoRow } from '@/components/polizas/InfoCard';
-import { PolizaTimeline } from '@/components/polizas/PolizaTimeline';
-import { Familiares } from '@/components/polizas/Familiares';
+import { usePolizaStore } from '@/store/polizaStore';
+import { useAuthStore } from '@/store/authStore';
+
 import { PolizaResumen } from '@/components/polizas/PolizaResumen';
 import { NotasPoliza } from '@/components/polizas/NotasPoliza';
 import { DocumentosPoliza } from '@/components/polizas/DocumentosPoliza';
 import { RecordatoriosPoliza } from '@/components/recordatorios';
-import { usePolizaStore } from '@/store/polizaStore';
 import { InfoPagoPoliza } from '@/components/polizas/InfoPagoPoliza';
 import { DireccionesPoliza } from '@/components/polizas/DireccionesPoliza';
 import { MetadatosPoliza } from '@/components/polizas/MetadatosPoliza';
 import { CalendarioPrimasPoliza } from '@/components/polizas/CalendarioPrimasPoliza';
 import { TareasPoliza } from '@/components/polizas/TareasPoliza';
-import { useAuthStore } from '@/store/authStore';
+import { NotasChat } from '@/components/notas/NotasChat';
+import { RegistrosActividadModal } from '@/components/polizas/RegistrosActividadModal';
 
-/* Mock data comentada — reemplazada por datos reales del API
-const mockPolizaDetails: PolizaResponse = {
-  id: 1,
-  id_mercado: 'POL-2024-001',
-  id_miembro: 'MEM-001',
-  costo_poliza: '1079.88',
-  subsidio: '150.00',
-  prima_mensual: '89.99',
-  fecha_efectiva: '2024-01-15',
-  fecha_envio: '2024-01-10',
-  id_interno: 'INT-001',
-  plan: 1,
-  estado: 1,
-  agente: 1,
-  estado_nombre: 'Activo',
-  plan_nombre: 'Premium',
-  agente_nombre: 'Ana García',
-  clientes_info: [
-    {
-      id: 1,
-      cliente: 1,
-      cliente_details: {
-        primer_nombre: 'Juan',
-        apellido_paterno: 'Pérez',
-        apellido_materno: 'González',
-        telefono: '+1 234 567 8900',
-        email: 'juan.perez@email.com'
-      },
-      es_solicitante_principal: true,
-      relacion: 'SOLICITANTE',
-      direccion_residencia: 1,
-      direccion_postal: 1
-    },
-    {
-      id: 2,
-      cliente: 2,
-      cliente_details: {
-        primer_nombre: 'María',
-        apellido_paterno: 'Pérez',
-        apellido_materno: 'López',
-        telefono: '+1 234 567 8901',
-        email: 'maria.perez@email.com'
-      },
-      es_solicitante_principal: false,
-      relacion: 'CONYUGUE',
-      direccion_residencia: 1,
-      direccion_postal: 1
-    }
-  ],
-  fecha_creacion: '2024-01-10',
-  fecha_modificacion: '2024-01-10'
-};
-
-// Datos de ejemplo para el timeline
-const mockTimelineEvents = [
-  {
-    id: 1,
-    title: 'Póliza creada',
-    description: 'La póliza fue creada por Ana García',
-    date: '2024-01-10T10:00:00Z',
-    type: 'created' as const,
-    status: 'Pendiente'
-  },
-  {
-    id: 2,
-    title: 'Documentos recibidos',
-    description: 'Se recibieron todos los documentos requeridos del cliente',
-    date: '2024-01-12T14:30:00Z',
-    type: 'modified' as const
-  },
-  {
-    id: 3,
-    title: 'Póliza aprobada',
-    description: 'La póliza fue aprobada y está lista para activarse',
-    date: '2024-01-14T09:15:00Z',
-    type: 'approved' as const,
-    status: 'Activo'
-  }
-];
-
-// Datos de ejemplo para familiares
-const mockFamiliares = [
-  {
-    id: 1,
-    nombre: 'Nelson',
-    apellido: 'Vado',
-    relacion: 'Aplicante',
-    telefono: '+1 (404) 555-0102',
-    email: 'nelson.vado@email.com'
-  },
-  {
-    id: 2,
-    nombre: 'María',
-    apellido: 'Vado',
-    relacion: 'Cónyuge',
-    telefono: '+1 (404) 555-0103',
-    email: 'maria.vado@email.com'
-  }
-];
-*/
-
-const getStatusColor = (status: string) => {
-  switch (status.toLowerCase()) {
-    case 'activo':
-      return 'bg-green-100 text-green-800 border-green-200';
-    case 'pendiente':
-      return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-    case 'cancelado':
-      return 'bg-red-100 text-red-800 border-red-200';
-    case 'inactivo':
-      return 'bg-gray-100 text-gray-800 border-gray-200';
-    default:
-      return 'bg-blue-100 text-blue-800 border-blue-200';
-  }
-};
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import api from '@/lib/api';
 
 const formatCurrency = (amount: string | number) => {
-  const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-  return new Intl.NumberFormat('es-US', {
+  const numAmount = typeof amount === 'string' ? parseFloat(amount || '0') : amount;
+  return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 2
   }).format(numAmount);
 };
-
-const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString('es-ES', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-};
-
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 
 export default function PolizaDetailsPage() {
   const router = useRouter();
@@ -173,6 +45,7 @@ export default function PolizaDetailsPage() {
   const [isFinancialModalOpen, setIsFinancialModalOpen] = useState(false);
   const [isFamilyModalOpen, setIsFamilyModalOpen] = useState(false);
   const [currentFamilyMember, setCurrentFamilyMember] = useState<any>(null);
+  const [isAddCardModalOpen, setIsAddCardModalOpen] = useState(false);
 
   useEffect(() => {
     if (params.id) {
@@ -182,30 +55,26 @@ export default function PolizaDetailsPage() {
 
   if (loading) {
     return (
-      <div className="app-page space-y-6">
-        <div className="flex items-center space-x-2">
-          <Skeleton className="h-8 w-8" />
-          <Skeleton className="h-8 w-48" />
+      <div className="pb-10 min-h-screen pt-6 flex-col md:flex-row px-3 flex gap-4">
+        <div className="flex flex-col lg:w-72 space-y-4">
+          <Skeleton className="h-96 w-full" />
         </div>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <Skeleton className="h-40" />
-          <Skeleton className="h-40" />
-          <Skeleton className="h-40" />
+        <div className="flex-1 space-y-4">
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-48 w-full" />
+          <Skeleton className="h-48 w-full" />
         </div>
-        <Skeleton className="h-96" />
       </div>
     );
   }
 
   if (!poliza) {
     return (
-      <div className="app-page">
+      <div className="flex items-center justify-center min-h-[50vh]">
         <div className="text-center space-y-4">
-          <FileText className="w-16 h-16 mx-auto text-gray-400" />
-          <h2 className="text-xl font-semibold text-gray-900">Póliza no encontrada</h2>
-          <p className="text-gray-500">No se pudo encontrar la póliza solicitada.</p>
+          <i className="fa-duotone fa-file-xmark text-4xl text-gray-400"></i>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Póliza no encontrada</h2>
           <Button onClick={() => router.push('/crm/polizas')} variant="outline">
-            <ChevronLeft className="w-4 h-4 mr-2" />
             Volver a pólizas
           </Button>
         </div>
@@ -214,398 +83,497 @@ export default function PolizaDetailsPage() {
   }
 
   const clientePrincipal = poliza.clientes_info.find(c => c.es_solicitante_principal);
-
-  // Derivar familiares desde clientes_info del API
-  const familiares = poliza.clientes_info.map(ci => ({
-    id: ci.id,
-    nombre: ci.cliente_details.primer_nombre,
-    apellido: (ci.cliente_details as any).apellido_paterno ?? '',
-    relacion: ci.relacion,
-    telefono: (ci.cliente_details as any).telefono ?? '',
-    email: (ci.cliente_details as any).email ?? '',
-  }));
-
-  // Handlers para familiares
-  const handleEditFamiliar = (id: number) => {
-    const member = poliza.clientes_info.find(ci => ci.id === id);
-    if (member) {
-      setCurrentFamilyMember(member);
-      setIsFamilyModalOpen(true);
-    }
-  };
-  const handleDeleteFamiliar = (id: number) => {
-    console.log('Eliminar familiar', id);
-  };
-  const handleAddFamiliar = () => {
-    console.log('Agregar familiar');
-  };
+  const aplicanteCount = poliza.clientes_info.filter(c => c.es_solicitante_principal).length;
+  const familiaresCount = poliza.clientes_info.length;
+  const dependientesCount = poliza.clientes_info.filter(c => !c.es_solicitante_principal).length;
 
   return (
-    <div className="app-page space-y-6">
-      {/* Header - cubriendo todo el ancho */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Button 
-            variant="ghost" 
-            size="sm" 
+    <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-transparent">
+      {/* Header Top Navbar */}
+      <div className="flex items-center justify-between px-6 py-4 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-30">
+        <div className="flex items-center gap-3">
+          <button 
+            className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
             onClick={() => router.push('/crm/polizas')}
-            className="hover:bg-gray-100"
           >
-            <ChevronLeft className="w-4 h-4 mr-2" />
-            Volver
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Póliza {poliza.id_mercado}
-            </h1>
-            <p className="text-gray-500">
-              Cliente principal: {clientePrincipal?.cliente_details.primer_nombre} {clientePrincipal?.cliente_details.apellido_paterno}
-            </p>
-          </div>
+            <i className="fa-solid fa-chevron-left text-slate-600 dark:text-slate-300"></i>
+          </button>
+          <h1 className="text-lg font-semibold text-slate-800 dark:text-white">
+            Resumen de póliza - Pólizas
+          </h1>
         </div>
-        <Badge className={getStatusColor(poliza.estado_nombre)}>
-          {poliza.estado_nombre}
-        </Badge>
+        <div className="flex items-center gap-3">
+          <button className="flex gap-2 items-center px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-md text-sm font-medium transition-colors">
+            <i className="fa-solid fa-check-circle"></i> Enviar Póliza
+          </button>
+          <button className="flex gap-2 items-center px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-md text-sm font-medium transition-colors" onClick={() => router.push('/crm/polizas')}>
+            <i className="fa-solid fa-magnifying-glass"></i> Buscar pólizas
+          </button>
+          <button className="flex gap-2 items-center px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-md text-sm font-medium transition-colors">
+            <i className="fa-solid fa-gear"></i> Opciones <i className="fa-solid fa-chevron-down text-xs ml-1"></i>
+          </button>
+        </div>
       </div>
 
-      {/* Layout con división lateral */}
-      <div className="flex gap-6">
-        {/* Panel lateral izquierdo - Resumen */}
-        <PolizaResumen 
-          poliza={{
-            id_mercado: poliza.id_mercado,
-            agente_nombre: poliza.agente_nombre,
-            plan_nombre: poliza.plan_nombre,
-            estado_nombre: poliza.estado_nombre,
-            prima_mensual: poliza.prima_mensual,
-            fecha_efectiva: poliza.fecha_efectiva,
-            cliente_principal: clientePrincipal ? `${clientePrincipal.cliente_details.primer_nombre} ${clientePrincipal.cliente_details.apellido_paterno}` : 'No asignado'
-          }}
-          activeSection={activeSection}
-          onSectionChange={setActiveSection}
-        />
+      <div className="pb-10 flex-1 pt-6 flex-col md:flex-row px-3 flex gap-4">
 
-        {/* Contenido principal */}
-        <div className="flex-1 space-y-6">
-          {activeSection === 'poliza' && (
-            <>
-              {/* Información general */}
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {/* Información básica */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium flex items-center space-x-2">
-              <FileText className="w-4 h-4 text-muted-foreground dark:text-gray-400" />
-              <span>Información Básica</span>
-            </CardTitle>
-            <Button variant="outline" size="sm" onClick={() => setIsBasicInfoModalOpen(true)}>
-              Editar
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <InfoRow label="ID Mercado" value={poliza.id_mercado} />
-              <InfoRow label="ID Miembro" value={poliza.id_miembro} />
-              <InfoRow label="ID Interno" value={poliza.id_interno} />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Información financiera */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium flex items-center space-x-2">
-              <DollarSign className="w-4 h-4 text-muted-foreground dark:text-gray-400" />
-              <span>Información Financiera</span>
-            </CardTitle>
-            <Button variant="outline" size="sm" onClick={() => setIsFinancialModalOpen(true)}>
-              Editar
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <InfoRow 
-                label="Costo Total" 
-                value={<span className="text-lg text-green-600">{formatCurrency(poliza.costo_poliza)}</span>} 
-              />
-              <InfoRow label="Prima Mensual" value={formatCurrency(poliza.prima_mensual)} />
-              <InfoRow 
-                label="Subsidio" 
-                value={<span className="text-blue-600">{formatCurrency(poliza.subsidio)}</span>} 
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Fechas importantes */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium flex items-center space-x-2">
-              <Calendar className="w-4 h-4 text-muted-foreground dark:text-gray-400" />
-              <span>Fechas Importantes</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <InfoRow label="Fecha Efectiva" value={formatDate(poliza.fecha_efectiva)} />
-              {poliza.fecha_envio && (
-                <InfoRow label="Fecha Envío" value={formatDate(poliza.fecha_envio)} />
-              )}
-              <InfoRow label="Fecha Creación" value={formatDate(poliza.fecha_creacion!)} />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Plan y Agente */}
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium flex items-center space-x-2">
-              <Shield className="w-4 h-4 text-muted-foreground dark:text-gray-400" />
-              <span>Plan de Seguro</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <InfoRow 
-                label="Nombre del Plan" 
-                value={<span className="text-lg text-blue-600">{poliza.plan_nombre}</span>} 
-              />
-              <InfoRow label="Plan ID" value={poliza.plan ? poliza.plan.toString() : 'N/A'} />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium flex items-center space-x-2">
-              <Building className="w-4 h-4 text-muted-foreground dark:text-gray-400" />
-              <span>Agente Asignado</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <InfoRow label="Nombre del Agente" value={poliza.agente_nombre} />
-              <InfoRow label="Agente ID" value={poliza.agente ? poliza.agente.toString() : 'N/A'} />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-sm font-medium flex items-center space-x-2">
-            <MapPin className="w-4 h-4 text-muted-foreground dark:text-gray-400" />
-            <span>Direcciones</span>
-          </CardTitle>
-          <Button variant="outline" size="sm" onClick={() => setActiveSection('direcciones')}>
-            Gestionar
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground dark:text-gray-400">Administra direcciones fisica, postal y de facturacion en la seccion Direcciones.</p>
-        </CardContent>
-      </Card>
-
-      {/* Familiares */}
-      <Familiares 
-        familiares={familiares}
-        onEdit={handleEditFamiliar}
-        onDelete={handleDeleteFamiliar}
-        onAdd={handleAddFamiliar}
+      {/* Sidebar Left */}
+      <PolizaResumen 
+        poliza={{
+          id_mercado: poliza.id_mercado,
+          agente_nombre: poliza.agente_nombre,
+          plan_nombre: poliza.plan_nombre,
+          estado_nombre: poliza.estado_nombre,
+          prima_mensual: poliza.prima_mensual?.toString() || '0',
+          fecha_efectiva: poliza.fecha_efectiva,
+          cliente_principal: clientePrincipal ? `${clientePrincipal.cliente_details.primer_nombre} ${clientePrincipal.cliente_details.apellido_paterno}` : 'No asignado'
+        }}
+        activeSection={activeSection}
+        onSectionChange={setActiveSection}
       />
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-sm font-medium flex items-center space-x-2">
-            <CreditCard className="w-4 h-4 text-muted-foreground dark:text-gray-400" />
-            <span>Pagos y cronograma</span>
-          </CardTitle>
-          <Button variant="outline" size="sm" onClick={() => setActiveSection('pagos')}>
-            Gestionar
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground dark:text-gray-400">Gestiona medios de pago, cronograma y tarjetas en la seccion Medios de Pago.</p>
-        </CardContent>
-      </Card>
+      {/* Floating right buttons */}
+      <div className="fixed h-screen transition-all top-0 right-0 flex justify-center z-[20]">
+        <div className="flex flex-col my-auto shadow-lg p-1 bg-white dark:bg-slate-800 gap-1 rounded-l-lg border dark:border-slate-700">
+          <button className="flex gap-2 items-center cursor-pointer justify-center rounded-md py-2 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 text-primary dark:hover:bg-slate-100 dark:hover:bg-opacity-10 dark:text-primary-300 dark:hover:text-primary-50 h-[30px] px-2 text-xs bg-slate-50 dark:bg-slate-700 w-full hover:bg-primary transition-colors hover:text-white" type="button" title="Póliza">
+            <i className="lg:text-base fa-solid fa-shield-halved"></i>
+          </button>
+          <button className="flex gap-2 items-center cursor-pointer justify-center rounded-md py-2 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 text-primary dark:hover:bg-slate-100 dark:hover:bg-opacity-10 dark:text-primary-300 dark:hover:text-primary-50 h-[30px] px-2 text-xs bg-slate-50 dark:bg-slate-700 w-full hover:bg-primary transition-colors hover:text-white" type="button" title="Familia">
+            <i className="lg:text-base fa-solid fa-family"></i>
+          </button>
+          <button className="flex gap-2 items-center cursor-pointer justify-center rounded-md py-2 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 text-primary dark:hover:bg-slate-100 dark:hover:bg-opacity-10 dark:text-primary-300 dark:hover:text-primary-50 h-[30px] px-2 text-xs bg-slate-50 dark:bg-slate-700 w-full hover:bg-primary transition-colors hover:text-white" type="button" title="Dirección">
+            <i className="lg:text-base fa-solid fa-location-arrow"></i>
+          </button>
+          <button className="flex gap-2 items-center cursor-pointer justify-center rounded-md py-2 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 text-primary dark:hover:bg-slate-100 dark:hover:bg-opacity-10 dark:text-primary-300 dark:hover:text-primary-50 h-[30px] px-2 text-xs bg-slate-50 dark:bg-slate-700 w-full hover:bg-primary transition-colors hover:text-white" type="button" title="Tarjetas">
+            <i className="lg:text-base fa-solid fa-credit-card"></i>
+          </button>
+          <button className="flex gap-2 items-center cursor-pointer justify-center rounded-md py-2 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 text-primary dark:hover:bg-slate-100 dark:hover:bg-opacity-10 dark:text-primary-300 dark:hover:text-primary-50 h-[30px] px-2 text-xs bg-slate-50 dark:bg-slate-700 w-full hover:bg-primary transition-colors hover:text-white" type="button" title="Documentos">
+            <i className="lg:text-base fa-solid fa-book"></i>
+          </button>
+          <button className="flex gap-2 items-center cursor-pointer justify-center rounded-md py-2 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 text-primary dark:hover:bg-slate-100 dark:hover:bg-opacity-10 dark:text-primary-300 dark:hover:text-primary-50 h-[30px] px-2 text-xs bg-slate-50 dark:bg-slate-700 w-full hover:bg-primary transition-colors hover:text-white" type="button" title="Otras pólizas">
+            <i className="lg:text-base fa-solid fa-shield-plus"></i>
+          </button>
+        </div>
+      </div>
 
-              {/* Notas de la póliza */}
-              <NotasPoliza polizaId={params.id as string} />
-
-              {/* Timeline de la póliza — sin endpoint de historial aún */}
-              <PolizaTimeline events={[]} />
-            </>
-          )}
-          
-          {activeSection === 'documentos' && (
-            <DocumentosPoliza polizaId={params.id as string} />
-          )}
-          
-          {activeSection === 'recordatorios' && (
-              <RecordatoriosPoliza polizaId={params.id as string} />
-            )}
-
-            {activeSection === 'pagos' && (
-              <InfoPagoPoliza poliza={poliza} />
-            )}
-            
-            {activeSection === 'direcciones' && (
-              <DireccionesPoliza poliza={poliza} />
-            )}
-            
-            {activeSection === 'metadatos' && (
-              <MetadatosPoliza poliza={poliza} />
-            )}
-
-            {activeSection === 'calendario' && (
-              <CalendarioPrimasPoliza polizaId={poliza.id} />
-            )}
-
-            {activeSection === 'tareas' && (
-              <TareasPoliza polizaId={poliza.id} userId={user?.id} />
-            )}
-            
-            {activeSection !== 'poliza' && activeSection !== 'documentos' && activeSection !== 'recordatorios' && activeSection !== 'pagos' && activeSection !== 'direcciones' && activeSection !== 'metadatos' && activeSection !== 'calendario' && activeSection !== 'tareas' && (
-              <div className="text-center py-8 text-gray-500">
-                <p>Sección en desarrollo: {activeSection}</p>
+      {/* Main Content Area */}
+      <div className="flex max-w-full lg:max-w-[calc(100%-308px)] flex-col gap-4 w-full" id="summary">
+        {activeSection === 'poliza' && (
+          <>
+            {/* Header Insurance Card */}
+            <div className="relative">
+              <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 dark:shadow-none flex w-auto flex-col gap-2 p-4 lg:p-4">
+                <div className="flex flex-wrap items-start md:items-center justify-between">
+                  <div className="flex flex-wrap flex-col md:flex-row gap-3 md:gap-4">
+                    <div className="flex items-center justify-center rounded-lg overflow-hidden bg-blue-100 dark:bg-primary/20 w-8 h-8 md:w-11 md:h-11">
+                      <i className="text-blue-500 dark:text-blue-400 fas fa-house-chimney-medical"></i>
+                    </div>
+                    <div className="flex flex-col">
+                      <h2 className="text-gray-700 dark:text-white text-base font-semibold flex items-center gap-1">
+                        {poliza.plan_nombre || 'No se ha seleccionado aseguradora'}
+                      </h2>
+                      <div className="flex gap-2 items-center">
+                        <h2 className="text-gray-700 dark:text-gray-300 text-sm font-normal flex items-center gap-1">
+                          Health Insurance (ACA)
+                        </h2>
+                        <button className="gap-2 w-fit cursor-pointer justify-center rounded-md transition-colors font-medium text-xs text-primary p-0.5 h-fit flex items-center" type="button">
+                          <i className="fa-solid fa-edit"></i>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap">
+                    <div className="flex gap-2">
+                      <button className="items-center w-fit cursor-pointer justify-center rounded-md transition-colors py-2 font-medium text-primary bg-transparent hover:bg-slate-50 dark:hover:bg-slate-700 h-[30px] px-2 text-xs flex gap-2 border border-primary dark:border-primary/50" type="button" onClick={() => setIsBasicInfoModalOpen(true)}>
+                        <i className="fa-solid fa-magnifying-glass"></i>Detalles del plan
+                      </button>
+                      <button className="flex gap-2 items-center w-fit cursor-pointer justify-center rounded-md transition-colors py-2 font-medium bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs" type="button" onClick={() => setIsFinancialModalOpen(true)}>
+                        <i className="fa-duotone fa-edit"></i>Editar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="relative flex items-center justify-between gap-4 w-full">
+                  <hr className="border-slate-200 dark:border-slate-600 flex-1 mx-2 my-2" />
+                </div>
+                <div className="grid grid-cols-12 mb-2">
+                  <div className="col-span-12 flex flex-col pb-2">
+                    <h2 className="dark:text-white text-base font-normal text-primary flex items-center gap-1">
+                      {poliza.plan_nombre || 'No se ha seleccionado un plan'}
+                    </h2>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-gray-700 dark:text-gray-300 text-xs font-normal flex items-center gap-1">Metal no seleccionado</span>
+                      <div className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-600"></div>
+                      <span className="text-gray-700 dark:text-gray-300 text-xs font-medium flex items-center gap-1">
+                        ID del plan: <span className="font-normal">{poliza.plan || 'No se proporcionó ID del plan'}</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 w-full mb-2">
+                  <div className="flex col-span-1 md:col-span-4 flex-col gap-1 rounded-md">
+                    <span className="text-gray-700 dark:text-gray-300 text-sm font-medium">Prima mensual</span>
+                    <div className="flex items-start justify-start">
+                      <span className="text-gray-700 dark:text-white text-sm font-medium leading-none mt-1">$</span>
+                      <span className="text-gray-700 dark:text-white text-2xl font-semibold leading-none">{poliza.prima_mensual?.toString().split('.')[0] || '0'}</span>
+                      <span className="text-gray-700 dark:text-white text-sm font-medium leading-none mt-1">.{poliza.prima_mensual?.toString().split('.')[1] || '00'}</span>
+                    </div>
+                  </div>
+                  <div className="flex col-span-1 md:col-span-4 flex-col gap-1 rounded-md">
+                    <span className="text-gray-700 dark:text-gray-300 text-sm font-medium">Total de ahorros</span>
+                    <div className="flex items-start justify-start">
+                      <span className="text-gray-700 dark:text-white text-sm font-medium leading-none mt-1">$</span>
+                      <span className="text-gray-700 dark:text-white text-2xl font-semibold leading-none">{poliza.subsidio?.toString().split('.')[0] || '0'}</span>
+                      <span className="text-gray-700 dark:text-white text-sm font-medium leading-none mt-1">.{poliza.subsidio?.toString().split('.')[1] || '00'}</span>
+                    </div>
+                  </div>
+                  <div className="flex col-span-1 md:col-span-4 flex-col gap-1 rounded-md">
+                    <span className="text-gray-700 dark:text-gray-300 text-sm font-medium">Costo Total</span>
+                    <div className="flex items-start justify-start">
+                      <span className="text-gray-700 dark:text-white text-sm font-medium leading-none mt-1">$</span>
+                      <span className="text-gray-700 dark:text-white text-2xl font-semibold leading-none">{poliza.costo_poliza?.toString().split('.')[0] || '0'}</span>
+                      <span className="text-gray-700 dark:text-white text-sm font-medium leading-none mt-1">.{poliza.costo_poliza?.toString().split('.')[1] || '00'}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="relative flex items-center justify-between gap-4 w-full">
+                  <hr className="border-slate-200 dark:border-slate-600 flex-1 mx-2 my-2" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 gap-y-2 w-full">
+                  <div className="col-span-1 md:col-span-4 flex-col">
+                    <div className="text-gray-700 dark:text-gray-300 text-sm font-medium">ID del miembro</div>
+                    <div className="text-gray-700 dark:text-white text-sm font-normal break-all">{poliza.id_miembro || '-'}</div>
+                  </div>
+                  <div className="col-span-1 md:col-span-4 flex-col">
+                    <div className="text-gray-700 dark:text-gray-300 text-sm font-medium">ID del mercado</div>
+                    <div className="text-gray-700 dark:text-white text-sm font-normal break-all">{poliza.id_mercado || '-'}</div>
+                  </div>
+                  <div className="col-span-1 md:col-span-4 flex-col">
+                    <div className="text-gray-700 dark:text-gray-300 text-sm font-medium">Fecha de efectividad</div>
+                    <div className="text-gray-700 dark:text-white text-sm font-normal">{poliza.fecha_efectiva ? new Date(poliza.fecha_efectiva).toLocaleDateString() : '-'}</div>
+                  </div>
+                  <div className="col-span-1 md:col-span-4 flex-col">
+                    <div className="text-gray-700 dark:text-gray-300 text-sm font-medium">NPN utilizado en ID del mercado</div>
+                    <div className="text-gray-700 dark:text-white text-sm font-normal break-all">-</div>
+                  </div>
+                  <div className="col-span-1 md:col-span-4 flex-col">
+                    <div className="text-gray-700 dark:text-gray-300 text-sm font-medium">FFM utilizado en el mercado</div>
+                    <div className="text-gray-700 dark:text-white text-sm font-normal break-all">-</div>
+                  </div>
+                  <div className="col-span-1 md:col-span-4 flex-col">
+                    <div className="text-gray-700 dark:text-gray-300 text-sm font-medium">Fecha de cancelación</div>
+                    <div className="text-gray-700 dark:text-white text-sm font-normal">-</div>
+                  </div>
+                  <div className="col-span-1 md:col-span-4 flex-col">
+                    <div className="text-gray-700 dark:text-gray-300 text-sm font-medium">Nueva venta / Renovación</div>
+                    <div className="text-gray-700 dark:text-white text-sm font-normal break-all">Venta nueva</div>
+                  </div>
+                </div>
               </div>
-            )}
-        </div>
-      </div>
+            </div>
 
-      {/* Modals */}
-      <EditBasicInfoModal 
-        open={isBasicInfoModalOpen} 
-        onOpenChange={setIsBasicInfoModalOpen} 
-        data={poliza} 
-      />
-      <EditFinancialModal 
-        open={isFinancialModalOpen} 
-        onOpenChange={setIsFinancialModalOpen} 
-        data={poliza} 
-      />
-      <EditFamilyModal 
-        open={isFamilyModalOpen} 
-        onOpenChange={setIsFamilyModalOpen} 
-        member={currentFamilyMember} 
-      />
+            {/* Family Members */}
+            <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 dark:shadow-none flex w-auto flex-col p-4 lg:p-4">
+              <div className="flex items-center flex-wrap justify-between mb-2">
+                <h2 className="text-gray-700 dark:text-white text-base font-semibold">Miembros de la familia</h2>
+                <div className="flex gap-2 flex-wrap items-center">
+                  <button className="items-center w-fit cursor-pointer justify-center rounded-md transition-colors py-1.5 font-medium text-primary bg-transparent hover:bg-slate-50 dark:hover:bg-slate-700 px-2 text-xs flex gap-2 border border-transparent hover:border-slate-200 dark:hover:border-slate-600" type="button">
+                    <i className="fa-solid fa-magnifying-glass"></i>Buscar contacto
+                  </button>
+                  <button className="flex gap-2 items-center w-fit cursor-pointer justify-center rounded-md transition-colors py-1.5 font-medium bg-primary text-white hover:bg-primary/90 px-2 text-xs" type="button" onClick={() => { setCurrentFamilyMember(null); setIsFamilyModalOpen(true); }}>
+                    <i className="fa-solid fa-plus"></i>Agregar miembro
+                  </button>
+                </div>
+              </div>
+              <hr className="border-slate-200 dark:border-slate-600 flex-1 mx-2 mb-4" />
+              
+              <div className="flex flex-wrap gap-4 mb-4">
+                <div className="flex flex-col lg:flex-row gap-6">
+                  <div className="flex flex-col">
+                    <h2 className="text-gray-700 dark:text-gray-300 text-sm font-medium flex items-center gap-2">Total de aplicantes</h2>
+                    <p className="dark:text-white text-base flex items-center gap-1 text-primary font-semibold">{aplicanteCount}</p>
+                  </div>
+                  <div className="flex flex-col">
+                    <h2 className="text-gray-700 dark:text-gray-300 text-sm font-medium flex items-center gap-2">Total de miembros</h2>
+                    <p className="dark:text-white text-base flex items-center gap-1 text-primary font-semibold">{familiaresCount}</p>
+                  </div>
+                  <div className="flex flex-col">
+                    <h2 className="text-gray-700 dark:text-gray-300 text-sm font-medium flex items-center gap-2">Total de dependientes</h2>
+                    <p className="dark:text-white text-base flex items-center gap-1 text-primary font-semibold">{dependientesCount}</p>
+                  </div>
+                </div>
+                <div className="ml-auto">
+                  <button className="flex gap-2 items-center w-fit cursor-pointer text-primary bg-transparent hover:bg-slate-50 dark:hover:bg-slate-700 text-sm px-2 py-1 rounded" type="button">
+                    <i className="fa-solid fa-edit"></i>Editar
+                  </button>
+                </div>
+              </div>
+
+              {/* Miembros list - Using map based on API data */}
+              <div className="flex flex-col gap-4">
+                {poliza.clientes_info.map((member) => (
+                  <div key={member.id} className="border border-slate-200 dark:border-slate-700 rounded-md p-3 dark:bg-slate-900/50">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center rounded-lg bg-blue-100 dark:bg-primary/20 w-10 h-10">
+                        <i className="text-blue-500 dark:text-blue-400 fas fa-lg fa-user"></i>
+                      </div>
+                      <div className="flex flex-col flex-1">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-primary font-medium">{member.cliente_details.primer_nombre} {member.cliente_details.apellido_paterno}</span>
+                            <span className="text-xs bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-0.5 rounded">
+                              {member.relacion}
+                            </span>
+                            {member.es_solicitante_principal && (
+                              <span className="text-xs flex items-center gap-1 text-green-600 dark:text-green-400">
+                                <i className="fa-solid fa-check-circle"></i> Aplicante
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex gap-1">
+                            <Button variant="outline" size="sm" className="h-7 text-xs border-primary text-primary hover:bg-primary/10" onClick={() => { setCurrentFamilyMember(member); setIsFamilyModalOpen(true); }}>Ver</Button>
+                            <Button variant="outline" size="sm" className="h-7 w-7 p-0 border-primary text-primary hover:bg-primary/10">
+                              <i className="fa-solid fa-chevron-down"></i>
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="text-gray-500 dark:text-gray-400 text-xs mt-1">
+                          {member.cliente_details.email || 'Sin correo'} • {member.cliente_details.telefono || 'Sin teléfono'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Addresses */}
+            <div className="flex w-full gap-4 flex-col lg:flex-row">
+              <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 flex-1 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-gray-700 dark:text-white text-base font-semibold">Dirección física</h2>
+                  <button className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md" type="button">
+                    <i className="fa-duotone fa-edit"></i>Editar
+                  </button>
+                </div>
+                <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm dark:text-gray-300">-</p>
+                </div>
+              </div>
+              <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 flex-1 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-gray-700 dark:text-white text-base font-semibold">Dirección postal</h2>
+                  <button className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md" type="button">
+                    <i className="fa-duotone fa-edit"></i>Editar
+                  </button>
+                </div>
+                <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
+                <div className="border border-dashed border-slate-200 dark:border-slate-700 rounded-md py-4 text-center">
+                  <p className="text-sm dark:text-gray-400">No hay una dirección asociada con esta póliza.</p>
+                </div>
+              </div>
+              <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 flex-1 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-gray-700 dark:text-white text-base font-semibold">Dirección de facturación</h2>
+                  <button className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md" type="button">
+                    <i className="fa-duotone fa-edit"></i>Editar
+                  </button>
+                </div>
+                <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
+                <div className="border border-dashed border-slate-200 dark:border-slate-700 rounded-md py-4 text-center">
+                  <p className="text-sm dark:text-gray-400">No hay una dirección asociada con esta póliza.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Info */}
+            <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-gray-700 dark:text-white text-base font-semibold">Información de pago</h2>
+                <button className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md" type="button">
+                  <i className="fa-duotone fa-edit"></i>Editar
+                </button>
+              </div>
+              <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400 font-medium">Pago recurrente</div>
+                  <div className="text-sm dark:text-white">-</div>
+                </div>
+                <div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400 font-medium">Fecha del primer pago</div>
+                  <div className="text-sm dark:text-white">-</div>
+                </div>
+                <div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400 font-medium">Día de pago preferido</div>
+                  <div className="text-sm dark:text-white">-</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Cards */}
+            <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-gray-700 dark:text-white text-base font-semibold">Tarjetas de pago</h2>
+                <button className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md" type="button" onClick={() => setIsAddCardModalOpen(true)}>
+                  <i className="fa-solid fa-plus"></i>Agregar
+                </button>
+              </div>
+              <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
+              <div className="border border-dashed border-slate-200 dark:border-slate-700 rounded-md py-8 text-center flex flex-col items-center">
+                <i className="fa-solid fa-credit-card text-2xl text-gray-400 mb-2"></i>
+                <p className="font-medium dark:text-white">No se encontró información de la tarjeta</p>
+                <p className="text-sm dark:text-gray-400 mt-1">Aún no tienes ninguna tarjeta de crédito o débito asociada.</p>
+              </div>
+            </div>
+
+            {/* Bank Accounts */}
+            <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-gray-700 dark:text-white text-base font-semibold">Cuentas bancarias</h2>
+                <button className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md" type="button">
+                  <i className="fa-solid fa-plus"></i>Agregar
+                </button>
+              </div>
+              <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
+              <div className="border border-dashed border-slate-200 dark:border-slate-700 rounded-md py-8 text-center flex flex-col items-center">
+                <i className="fa-solid fa-building-columns text-2xl text-gray-400 mb-2"></i>
+                <p className="font-medium dark:text-white">No se encontró información de la cuenta bancaria</p>
+                <p className="text-sm dark:text-gray-400 mt-1">Aún no tienes ninguna cuenta bancaria asociada.</p>
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-gray-700 dark:text-white text-base font-semibold">Notas o comentarios</h2>
+                <button className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md" type="button">
+                  <i className="fa-duotone fa-edit"></i>Editar
+                </button>
+              </div>
+              <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
+              <div className="text-sm dark:text-gray-300">-</div>
+            </div>
+
+            {/* Doctor */}
+            <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-gray-700 dark:text-white text-base font-semibold">Información del médico principal</h2>
+                <button className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md" type="button">
+                  <i className="fa-duotone fa-edit"></i>Editar
+                </button>
+              </div>
+              <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
+              <div className="text-sm dark:text-gray-300">-</div>
+            </div>
+
+            {/* Medications */}
+            <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-gray-700 dark:text-white text-base font-semibold">Medicamentos necesarios</h2>
+                <button className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md" type="button">
+                  <i className="fa-duotone fa-edit"></i>Editar
+                </button>
+              </div>
+              <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
+              <div className="text-sm dark:text-gray-300">-</div>
+            </div>
+
+            {/* Other policies */}
+            <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 p-4">
+              <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+                <h2 className="text-gray-700 dark:text-white text-base font-semibold">Otras pólizas del aplicante</h2>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm dark:text-gray-300">Año de efectividad:</span>
+                  <div className="flex gap-3 text-sm dark:text-gray-300">
+                    <label className="flex items-center gap-1 cursor-pointer"><input type="checkbox" className="rounded" /> 2026</label>
+                    <label className="flex items-center gap-1 cursor-pointer"><input type="checkbox" className="rounded" /> 2025</label>
+                    <label className="flex items-center gap-1 cursor-pointer"><input type="checkbox" className="rounded" /> 2024</label>
+                  </div>
+                </div>
+              </div>
+              <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
+              
+              <div className="border border-slate-100 dark:border-slate-700 rounded-md overflow-hidden">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-slate-50 dark:bg-slate-700/50 text-gray-700 dark:text-gray-300">
+                    <tr>
+                      <th className="px-4 py-3 font-medium">Agente</th>
+                      <th className="px-4 py-3 font-medium">Cliente</th>
+                      <th className="px-4 py-3 font-medium">Póliza</th>
+                      <th className="px-4 py-3 font-medium">Estatus</th>
+                      <th className="px-4 py-3 font-medium">Asignado a</th>
+                      <th className="px-4 py-3 font-medium">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td colSpan={6} className="text-center py-10 dark:bg-slate-800">
+                        <i className="fa-solid fa-shield-halved text-2xl text-gray-400 mb-2 block"></i>
+                        <p className="font-medium dark:text-white">No hay registros para mostrar aquí.</p>
+                        <p className="text-xs text-gray-500 mt-1">Por favor, inicie una nueva búsqueda</p>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Other Tabs Rendering (Keep old component mounting for other tabs) */}
+        {activeSection === 'documentos' && <DocumentosPoliza polizaId={params.id as string} />}
+        {activeSection === 'recordatorios' && <RecordatoriosPoliza polizaId={params.id as string} />}
+        {activeSection === 'pagos' && <InfoPagoPoliza poliza={poliza} />}
+        {activeSection === 'direcciones' && <DireccionesPoliza poliza={poliza} />}
+        {activeSection === 'metadatos' && <MetadatosPoliza poliza={poliza} />}
+        {activeSection === 'calendario' && <CalendarioPrimasPoliza polizaId={poliza.id} />}
+        {activeSection === 'tareas' && <TareasPoliza polizaId={poliza.id} userId={user?.id} />}
+        
+        {/* If note or signature form logic is needed later, just standard placeholders */}
+      </div>
 
     </div>
+    {/* Footer */}
+    <div className="flex flex-col md:flex-row py-6 md:py-0 items-start md:items-center justify-between min-h-14 w-full bg-white dark:bg-slate-800 px-6 mt-4">
+      <span className="text-sm pl-2 md:pl-0 mb-4 md:mb-0 font-light text-gray-700 dark:text-gray-300">
+        Copyrights © <a href="https://apizeal.com" className="text-blue-500 hover:underline">Apizeal</a> , 2026. Todos los derechos reservados.
+      </span>
+      <div className="flex flex-col md:flex-row md:items-center gap-2">
+        <button className="flex gap-2 items-center w-fit cursor-pointer rounded-md transition-colors py-2 font-medium text-primary bg-transparent hover:bg-slate-50 dark:hover:bg-slate-700 h-[34px] px-2.5 text-xs justify-start" type="button">Privacidad</button>
+        <button className="flex gap-2 items-center w-fit cursor-pointer rounded-md transition-colors py-2 font-medium text-primary bg-transparent hover:bg-slate-50 dark:hover:bg-slate-700 h-[34px] px-2.5 text-xs justify-end" type="button">Acuerdo de licencia</button>
+        <button className="flex gap-2 items-center w-fit cursor-pointer rounded-md transition-colors py-2 font-medium text-primary bg-transparent hover:bg-slate-50 dark:hover:bg-slate-700 h-[34px] px-2.5 text-xs justify-end" type="button">Términos y condiciones</button>
+      </div>
+    </div>
+      <EditFamilyModal open={isFamilyModalOpen} onOpenChange={setIsFamilyModalOpen} member={currentFamilyMember} polizaId={poliza.id} />
+      <AddCardModal open={isAddCardModalOpen} onOpenChange={setIsAddCardModalOpen} polizaId={poliza.id} />
+      <EditFinancialModal open={isFinancialModalOpen} onOpenChange={setIsFinancialModalOpen} poliza={poliza} />
+      <EditBasicInfoModal open={isBasicInfoModalOpen} onOpenChange={setIsBasicInfoModalOpen} poliza={poliza} />
+  </div>
   );
 }
 
-
-function EditBasicInfoModal({ open, onOpenChange, data }: { open: boolean, onOpenChange: (open: boolean) => void, data: any }) {
-  const { updatePoliza } = usePolizaStore();
+function EditFamilyModal({ open, onOpenChange, member, polizaId }: { open: boolean, onOpenChange: (open: boolean) => void, member: any, polizaId: number }) {
   const { toast } = useToast();
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const updates = {
-      id_mercado: formData.get("id_mercado")?.toString(),
-      id_miembro: formData.get("id_miembro")?.toString(),
-      id_interno: formData.get("id_interno")?.toString(),
+    const data = {
+      primer_nombre: formData.get("nombre")?.toString(),
+      apellido_paterno: formData.get("apellido_paterno")?.toString(),
     };
     try {
-        if(data?.id) await updatePoliza(data.id, updates);
-        toast({
-            title: "Éxito",
-            description: "Información básica actualizada correctamente.",
-        });
-        onOpenChange(false);
+      if (member?.cliente) {
+        await api.clientes.patch(member.cliente, data);
+        toast({ title: "Éxito", description: "Familiar actualizado." });
+      } else {
+        toast({ title: "Atención", description: "La creación de nuevos familiares requerirá actualizar los datos completos.", variant: "default" });
+      }
+      onOpenChange(false);
     } catch (error) {
-        toast({
-            title: "Error",
-            description: "Error al actualizar la póliza.",
-            variant: "destructive",
-        });
+      toast({ title: "Error", description: "Error al actualizar familiar.", variant: "destructive" });
     }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader><DialogTitle>Editar Información Básica</DialogTitle></DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-2">
-            <Label htmlFor="id_mercado">ID Mercado</Label>
-            <Input id="id_mercado" name="id_mercado" defaultValue={data?.id_mercado || ''} />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="id_miembro">ID Miembro</Label>
-            <Input id="id_miembro" name="id_miembro" defaultValue={data?.id_miembro || ''} />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="id_interno">ID Interno</Label>
-            <Input id="id_interno" name="id_interno" defaultValue={data?.id_interno || ''} />
-          </div>
-          <DialogFooter><Button type="submit">Guardar Cambios</Button></DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function EditFinancialModal({ open, onOpenChange, data }: { open: boolean, onOpenChange: (open: boolean) => void, data: any }) {
-  const { updatePoliza } = usePolizaStore();
-  const { toast } = useToast();
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const updates = {
-      costo_poliza: formData.get("costo_poliza") ? Number(formData.get("costo_poliza")) : undefined,
-      prima_mensual: formData.get("prima_mensual") ? Number(formData.get("prima_mensual")) : undefined,
-      subsidio: formData.get("subsidio") ? Number(formData.get("subsidio")) : undefined,
-    };
-    try {
-        if(data?.id) await updatePoliza(data.id, updates);
-        toast({
-            title: "Éxito",
-            description: "Información financiera actualizada correctamente.",
-        });
-        onOpenChange(false);
-    } catch (error) {
-        toast({
-            title: "Error",
-            description: "Error al actualizar la póliza.",
-            variant: "destructive",
-        });
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader><DialogTitle>Editar Información Financiera</DialogTitle></DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-2">
-            <Label htmlFor="costo_poliza">Costo Total</Label>
-            <Input id="costo_poliza" name="costo_poliza" type="number" step="0.01" defaultValue={data?.costo_poliza} />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="prima_mensual">Prima Mensual</Label>
-            <Input id="prima_mensual" name="prima_mensual" type="number" step="0.01" defaultValue={data?.prima_mensual} />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="subsidio">Subsidio</Label>
-            <Input id="subsidio" name="subsidio" type="number" step="0.01" defaultValue={data?.subsidio} />
-          </div>
-          <DialogFooter><Button type="submit">Guardar Cambios</Button></DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function EditFamilyModal({ open, onOpenChange, member }: { open: boolean, onOpenChange: (open: boolean) => void, member: any }) {
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    console.log("Updating Family Member:", member, formData.get("nombre"));
-    // Implement API call for family member
-    onOpenChange(false);
   };
 
   return (
@@ -615,15 +583,15 @@ function EditFamilyModal({ open, onOpenChange, member }: { open: boolean, onOpen
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-2">
             <Label htmlFor="nombre">Nombre</Label>
-            <Input id="nombre" name="nombre" defaultValue={member?.cliente_details?.primer_nombre} />
+            <Input id="nombre" name="nombre" defaultValue={member?.cliente_details?.primer_nombre} required />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="apellido_paterno">Apellido</Label>
-            <Input id="apellido_paterno" name="apellido_paterno" defaultValue={member?.cliente_details?.apellido_paterno} />
+            <Input id="apellido_paterno" name="apellido_paterno" defaultValue={member?.cliente_details?.apellido_paterno} required />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="relacion">Relación</Label>
-            <Input id="relacion" name="relacion" defaultValue={member?.relacion} />
+            <Input id="relacion" name="relacion" defaultValue={member?.relacion || 'DEPENDENT'} disabled={!!member} />
           </div>
           <DialogFooter><Button type="submit">Guardar Cambios</Button></DialogFooter>
         </form>
@@ -632,3 +600,124 @@ function EditFamilyModal({ open, onOpenChange, member }: { open: boolean, onOpen
   );
 }
 
+function AddCardModal({ open, onOpenChange, polizaId }: { open: boolean, onOpenChange: (open: boolean) => void, polizaId: number }) {
+  const { toast } = useToast();
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      numero_tarjeta: formData.get("numero_tarjeta")?.toString(),
+      fecha_expiracion: formData.get("fecha_expiracion")?.toString(),
+      cvv: formData.get("cvv")?.toString(),
+      nombre_titular: formData.get("nombre_titular")?.toString(),
+      zip_code: formData.get("zip_code")?.toString(),
+      poliza: polizaId,
+    };
+    try {
+        await api.tarjetasCredito.create(data);
+        toast({ title: "Éxito", description: "Tarjeta agregada correctamente." });
+        onOpenChange(false);
+    } catch (error) {
+        toast({ title: "Error", description: "Error al agregar la tarjeta.", variant: "destructive" });
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Agregar Tarjeta de Pago</DialogTitle></DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid gap-2">
+            <Label htmlFor="nombre_titular">Nombre del Titular</Label>
+            <Input id="nombre_titular" name="nombre_titular" required />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="numero_tarjeta">Número de Tarjeta</Label>
+            <Input id="numero_tarjeta" name="numero_tarjeta" required />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="fecha_expiracion">Expiración (MM/YY)</Label>
+              <Input id="fecha_expiracion" name="fecha_expiracion" required />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="cvv">CVV</Label>
+              <Input id="cvv" name="cvv" required />
+            </div>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="zip_code">Código Postal</Label>
+            <Input id="zip_code" name="zip_code" required />
+          </div>
+          <DialogFooter><Button type="submit">Guardar Tarjeta</Button></DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditFinancialModal({ open, onOpenChange, poliza }: { open: boolean, onOpenChange: (open: boolean) => void, poliza: any }) {
+  const { toast } = useToast();
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const updates = {
+      prima_mensual: Number(formData.get('prima_mensual')),
+      subsidio: Number(formData.get('subsidio')),
+      costo_poliza: Number(formData.get('costo_poliza')),
+    };
+    try {
+      await api.polizas.patch(poliza.id, updates);
+      toast({ title: "Éxito", description: "Datos financieros actualizados correctamente." });
+      onOpenChange(false);
+    } catch (error) {
+      toast({ title: "Error", description: "No se pudieron actualizar los datos.", variant: "destructive" });
+    }
+  };
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Editar Información Financiera</DialogTitle></DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid gap-2"><Label>Prima Mensual</Label><Input type="number" step="0.01" name="prima_mensual" defaultValue={poliza.prima_mensual} /></div>
+          <div className="grid gap-2"><Label>Subsidio</Label><Input type="number" step="0.01" name="subsidio" defaultValue={poliza.subsidio} /></div>
+          <div className="grid gap-2"><Label>Costo de la Póliza</Label><Input type="number" step="0.01" name="costo_poliza" defaultValue={poliza.costo_poliza} /></div>
+          <DialogFooter><Button type="submit">Guardar</Button></DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditBasicInfoModal({ open, onOpenChange, poliza }: { open: boolean, onOpenChange: (open: boolean) => void, poliza: any }) {
+  const { toast } = useToast();
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const updates = {
+      id_mercado: formData.get('id_mercado')?.toString(),
+      id_miembro: formData.get('id_miembro')?.toString(),
+      id_interno: formData.get('id_interno')?.toString(),
+    };
+    try {
+      await api.polizas.patch(poliza.id, updates);
+      toast({ title: "Éxito", description: "Información básica actualizada correctamente." });
+      onOpenChange(false);
+    } catch (error) {
+      toast({ title: "Error", description: "No se pudo actualizar la información.", variant: "destructive" });
+    }
+  };
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Editar Detalles del Plan</DialogTitle></DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid gap-2"><Label>ID de Mercado</Label><Input name="id_mercado" defaultValue={poliza.id_mercado} /></div>
+          <div className="grid gap-2"><Label>ID de Miembro</Label><Input name="id_miembro" defaultValue={poliza.id_miembro} /></div>
+          <div className="grid gap-2"><Label>ID Interno</Label><Input name="id_interno" defaultValue={poliza.id_interno || ''} /></div>
+          <DialogFooter><Button type="submit">Guardar</Button></DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
