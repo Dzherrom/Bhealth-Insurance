@@ -19,6 +19,7 @@ import { CalendarioPrimasPoliza } from '@/components/polizas/CalendarioPrimasPol
 import { TareasPoliza } from '@/components/polizas/TareasPoliza';
 import { NotasChat } from '@/components/notas/NotasChat';
 import { RegistrosActividadModal } from '@/components/polizas/RegistrosActividadModal';
+import { AddFamilyMemberCard } from '@/components/polizas/AddFamilyMemberCard';
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -45,6 +46,7 @@ export default function PolizaDetailsPage() {
   const [isBasicInfoModalOpen, setIsBasicInfoModalOpen] = useState(false);
   const [isFinancialModalOpen, setIsFinancialModalOpen] = useState(false);
   const [isFamilyModalOpen, setIsFamilyModalOpen] = useState(false);
+  const [showAddMemberCard, setShowAddMemberCard] = useState(false);
   const [currentFamilyMember, setCurrentFamilyMember] = useState<any>(null);
   const [isAddCardModalOpen, setIsAddCardModalOpen] = useState(false);
 
@@ -291,16 +293,26 @@ export default function PolizaDetailsPage() {
             <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 dark:shadow-none flex w-auto flex-col p-4 lg:p-4">
               <div className="flex items-center flex-wrap justify-between mb-2">
                 <h2 className="text-gray-700 dark:text-white text-base font-semibold">Miembros de la familia</h2>
-                <div className="flex gap-2 flex-wrap items-center">
-                  <button className="items-center w-fit cursor-pointer justify-center rounded-md transition-colors py-1.5 font-medium text-primary bg-transparent hover:bg-slate-50 dark:hover:bg-slate-700 px-2 text-xs flex gap-2 border border-transparent hover:border-slate-200 dark:hover:border-slate-600" type="button">
-                    <i className="fa-solid fa-magnifying-glass"></i>Buscar contacto
-                  </button>
-                  <button className="flex gap-2 items-center w-fit cursor-pointer justify-center rounded-md transition-colors py-1.5 font-medium bg-primary text-white hover:bg-primary/90 px-2 text-xs" type="button" onClick={() => { setCurrentFamilyMember(null); setIsFamilyModalOpen(true); }}>
-                    <i className="fa-solid fa-plus"></i>Agregar miembro
-                  </button>
-                </div>
+                <button
+                  className="flex gap-2 items-center w-fit cursor-pointer justify-center rounded-md transition-colors py-1.5 font-medium bg-primary text-white hover:bg-primary/90 px-2 text-xs"
+                  type="button"
+                  onClick={() => {
+                    setShowAddMemberCard((prev) => !prev);
+                    setCurrentFamilyMember(null);
+                  }}
+                >
+                  <i className="fa-solid fa-plus"></i>Agregar miembro
+                </button>
               </div>
               <hr className="border-slate-200 dark:border-slate-600 flex-1 mx-2 mb-4" />
+
+              {showAddMemberCard && poliza && (
+                <AddFamilyMemberCard
+                  poliza={poliza}
+                  onClose={() => setShowAddMemberCard(false)}
+                  onSaved={() => poliza.id && fetchPolizaById(poliza.id)}
+                />
+              )}
               
               <div className="flex flex-wrap gap-4 mb-4">
                 <div className="flex flex-col lg:flex-row gap-6">
