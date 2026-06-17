@@ -478,10 +478,25 @@ class CambioDeVida(models.Model):
 
 
 class InfoPago(models.Model):
+    ESTADO_PENDIENTE = 'PENDIENTE'
+    ESTADO_AL_DIA = 'AL_DIA'
+    ESTADO_VENCIDO = 'VENCIDO'
+    ESTADO_CHOICES = [
+        (ESTADO_PENDIENTE, 'Pendiente'),
+        (ESTADO_AL_DIA, 'Al día'),
+        (ESTADO_VENCIDO, 'Vencido'),
+    ]
+
     poliza = models.OneToOneField(Poliza, on_delete=models.CASCADE, related_name='info_pago', verbose_name="Póliza")
     pago_recurrente = models.BooleanField(default=False, verbose_name="Pago Recurrente")
     fecha_primer_pago = models.DateField(null=True, blank=True, verbose_name="Fecha Primer Pago")
     dia_pago_preferido = models.IntegerField(null=True, blank=True, verbose_name="Día de Pago Preferido (1-31)")
+    estado_pago = models.CharField(
+        max_length=50,
+        choices=ESTADO_CHOICES,
+        default=ESTADO_PENDIENTE,
+        verbose_name="Estado de Pago",
+    )
 
     def __str__(self):
         return f"Pago Info {self.poliza}"

@@ -745,7 +745,15 @@ export const tiposProductoApi = createCrudApi<TipoProducto>('tipos-producto');
 // �💳 Pagos
 export const tarjetasCreditoApi = createCrudApi<any>('tarjetas_credito');
 export const cuentasBancariasApi = createCrudApi<any>('cuentas_bancarias');
-export const infoPagoApi = createCrudApi<any>('info_pago');
+export const infoPagoApi = {
+  ...createCrudApi<any>('info_pago'),
+  getByPoliza: async (polizaId: number): Promise<any | null> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/info_pago/?poliza=${polizaId}`, { method: 'GET' });
+    const payload = await handleApiResponse<any>(response);
+    const list = Array.isArray(payload) ? payload : payload?.results || [];
+    return list.find((item: any) => Number(item.poliza) === Number(polizaId)) || null;
+  },
+};
 export const reportesComisionApi = createCrudApi<any>('reportes_comision');
 export const configuracionComisionesApi = createCrudApi<any>('configuracion-comisiones');
 export const consentRequestsApi = createCrudApi<any>('consent-requests');

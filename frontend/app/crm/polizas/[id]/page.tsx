@@ -19,13 +19,14 @@ import { NotasChat } from '@/components/notas/NotasChat';
 import { RegistrosActividadModal } from '@/components/polizas/RegistrosActividadModal';
 import { AddFamilyMemberCard } from '@/components/polizas/AddFamilyMemberCard';
 import { EditFamilyMemberModal } from '@/components/polizas/EditFamilyMemberModal';
+import { EditInfoPagoModal } from '@/components/polizas/EditInfoPagoModal';
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import api from '@/lib/api';
-import { formatDireccion } from '@/components/polizas/polizaUtils';
+import { formatDireccion, formatFechaDisplay } from '@/components/polizas/polizaUtils';
 
 const formatCurrency = (amount: string | number) => {
   const numAmount = typeof amount === 'string' ? parseFloat(amount || '0') : amount;
@@ -39,7 +40,7 @@ const formatCurrency = (amount: string | number) => {
 export default function PolizaDetailsPage() {
   const router = useRouter();
   const params = useParams();
-  const { polizaSeleccionada: poliza, isLoading: loading, fetchPolizaById } = usePolizaStore();
+  const { polizaSeleccionada: poliza, isLoading: loading, error, fetchPolizaById } = usePolizaStore();
   const [activeSection, setActiveSection] = useState('poliza');
 
   const [isBasicInfoModalOpen, setIsBasicInfoModalOpen] = useState(false);
@@ -48,6 +49,8 @@ export default function PolizaDetailsPage() {
   const [showAddMemberCard, setShowAddMemberCard] = useState(false);
   const [currentFamilyMember, setCurrentFamilyMember] = useState<any>(null);
   const [isAddCardModalOpen, setIsAddCardModalOpen] = useState(false);
+  const [isEditInfoPagoOpen, setIsEditInfoPagoOpen] = useState(false);
+  const [isAddBankModalOpen, setIsAddBankModalOpen] = useState(false);
 
   useEffect(() => {
     if (params.id) {
@@ -70,6 +73,26 @@ export default function PolizaDetailsPage() {
     );
   }
 
+  if (!loading && error && !poliza) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="text-center space-y-4">
+          <i className="fa-duotone fa-triangle-exclamation text-4xl text-amber-500"></i>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">No se pudo cargar la póliza</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md">{error}</p>
+          <div className="flex gap-2 justify-center">
+            <Button onClick={() => params.id && fetchPolizaById(Number(params.id))} variant="default">
+              Reintentar
+            </Button>
+            <Button onClick={() => router.push('/crm/polizas')} variant="outline">
+              Volver a pólizas
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!poliza) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
@@ -84,10 +107,22 @@ export default function PolizaDetailsPage() {
     );
   }
 
-  const clientePrincipal = poliza.clientes_info.find(c => c.es_solicitante_principal);
-  const aplicanteCount = poliza.clientes_info.filter(c => c.es_solicitante_principal).length;
-  const familiaresCount = poliza.clientes_info.length;
-  const dependientesCount = poliza.clientes_info.filter(c => !c.es_solicitante_principal).length;
+  const clientesInfo = poliza.clientes_info || [];
+  const clientePrincipal = clientesInfo.find(c => c.es_solicitante_principal);
+  const aplicanteCount = clientesInfo.filter(c => c.es_solicitante_principal).length;
+  const familiaresCount = clientesInfo.length;
+  const dependientesCount = clientesInfo.filter(c => !c.es_solicitante_principal).length;
+  const infoPago = (poliza as any).info_pago ?? null;
+  const tarjetasPago = (poliza as any).tarjetas_credito || [];
+  const cuentasBancarias = (poliza as any).cuentas_bancarias || [];
+
+  const maskCardNumber = (numero?: string) => {
+    if (!numero) return '****';
+    const digits = numero.replace(/\D/g, '');
+    return `****${digits.slice(-4) || numero.slice(-4)}`;
+  };
+
+  const refreshPoliza = () => poliza.id && fetchPolizaById(poliza.id, { silent: true });
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-transparent">
@@ -334,7 +369,7 @@ export default function PolizaDetailsPage() {
 
               {/* Miembros list - Using map based on API data */}
               <div className="flex flex-col gap-4">
-                {poliza.clientes_info.map((member) => (
+                {clientesInfo.map((member) => (
                   <div key={member.id} className="border border-slate-200 dark:border-slate-700 rounded-md p-3 dark:bg-slate-900/50">
                     <div className="flex items-center gap-3">
                       <div className="flex items-center justify-center rounded-lg bg-blue-100 dark:bg-primary/20 w-10 h-10">
@@ -428,23 +463,27 @@ export default function PolizaDetailsPage() {
             <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 p-4">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-gray-700 dark:text-white text-base font-semibold">Información de pago</h2>
-                <button className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md" type="button">
-                  <i className="fa-duotone fa-edit"></i>Editar
+                <button
+                  className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md"
+                  type="button"
+                  onClick={() => setIsEditInfoPagoOpen(true)}
+                >
+                  <i className="fa-duotone fa-edit"></i>{infoPago ? 'Editar' : 'Agregar'}
                 </button>
               </div>
               <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <div className="text-sm text-gray-500 dark:text-gray-400 font-medium">Pago recurrente</div>
-                  <div className="text-sm dark:text-white">-</div>
+                  <div className="text-sm dark:text-white">{infoPago ? (infoPago.pago_recurrente ? 'Sí' : 'No') : '-'}</div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-500 dark:text-gray-400 font-medium">Fecha del primer pago</div>
-                  <div className="text-sm dark:text-white">-</div>
+                  <div className="text-sm dark:text-white">{formatFechaDisplay(infoPago?.fecha_primer_pago)}</div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-500 dark:text-gray-400 font-medium">Día de pago preferido</div>
-                  <div className="text-sm dark:text-white">-</div>
+                  <div className="text-sm dark:text-white">{infoPago?.dia_pago_preferido ?? '-'}</div>
                 </div>
               </div>
             </div>
@@ -458,27 +497,59 @@ export default function PolizaDetailsPage() {
                 </button>
               </div>
               <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
-              <div className="border border-dashed border-slate-200 dark:border-slate-700 rounded-md py-8 text-center flex flex-col items-center">
-                <i className="fa-solid fa-credit-card text-2xl text-gray-400 mb-2"></i>
-                <p className="font-medium dark:text-white">No se encontró información de la tarjeta</p>
-                <p className="text-sm dark:text-gray-400 mt-1">Aún no tienes ninguna tarjeta de crédito o débito asociada.</p>
-              </div>
+              {tarjetasPago.length === 0 ? (
+                <div className="border border-dashed border-slate-200 dark:border-slate-700 rounded-md py-8 text-center flex flex-col items-center">
+                  <i className="fa-solid fa-credit-card text-2xl text-gray-400 mb-2"></i>
+                  <p className="font-medium dark:text-white">No se encontró información de la tarjeta</p>
+                  <p className="text-sm dark:text-gray-400 mt-1">Aún no tienes ninguna tarjeta de crédito o débito asociada.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {tarjetasPago.map((tarjeta: any) => (
+                    <div key={tarjeta.id} className="border border-slate-200 dark:border-slate-700 rounded-md p-3 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-primary dark:text-white">
+                          {tarjeta.tipo_tarjeta} {maskCardNumber(tarjeta.numero)}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {tarjeta.nombre_titular} · Vence {tarjeta.fecha_vencimiento || 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Bank Accounts */}
             <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 p-4">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-gray-700 dark:text-white text-base font-semibold">Cuentas bancarias</h2>
-                <button className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md" type="button">
+                <button className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md" type="button" onClick={() => setIsAddBankModalOpen(true)}>
                   <i className="fa-solid fa-plus"></i>Agregar
                 </button>
               </div>
               <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
-              <div className="border border-dashed border-slate-200 dark:border-slate-700 rounded-md py-8 text-center flex flex-col items-center">
-                <i className="fa-solid fa-building-columns text-2xl text-gray-400 mb-2"></i>
-                <p className="font-medium dark:text-white">No se encontró información de la cuenta bancaria</p>
-                <p className="text-sm dark:text-gray-400 mt-1">Aún no tienes ninguna cuenta bancaria asociada.</p>
-              </div>
+              {cuentasBancarias.length === 0 ? (
+                <div className="border border-dashed border-slate-200 dark:border-slate-700 rounded-md py-8 text-center flex flex-col items-center">
+                  <i className="fa-solid fa-building-columns text-2xl text-gray-400 mb-2"></i>
+                  <p className="font-medium dark:text-white">No se encontró información de la cuenta bancaria</p>
+                  <p className="text-sm dark:text-gray-400 mt-1">Aún no tienes ninguna cuenta bancaria asociada.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {cuentasBancarias.map((cuenta: any) => (
+                    <div key={cuenta.id} className="border border-slate-200 dark:border-slate-700 rounded-md p-3">
+                      <p className="text-sm font-medium text-primary dark:text-white">
+                        {cuenta.nombre_banco} ****{String(cuenta.numero_cuenta || '').slice(-4)}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {cuenta.titular_cuenta} · ABA {cuenta.aba_routing || 'N/A'}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Notes */}
@@ -593,7 +664,25 @@ export default function PolizaDetailsPage() {
         member={currentFamilyMember}
         onSaved={() => poliza.id && fetchPolizaById(poliza.id)}
       />
-      <AddCardModal open={isAddCardModalOpen} onOpenChange={setIsAddCardModalOpen} polizaId={poliza.id} />
+      <AddCardModal
+        open={isAddCardModalOpen}
+        onOpenChange={setIsAddCardModalOpen}
+        polizaId={poliza.id}
+        onSaved={refreshPoliza}
+      />
+      <AddBankAccountModal
+        open={isAddBankModalOpen}
+        onOpenChange={setIsAddBankModalOpen}
+        polizaId={poliza.id}
+        onSaved={refreshPoliza}
+      />
+      <EditInfoPagoModal
+        open={isEditInfoPagoOpen}
+        onOpenChange={setIsEditInfoPagoOpen}
+        polizaId={poliza.id}
+        infoPago={infoPago}
+        onSaved={refreshPoliza}
+      />
       <EditFinancialModal open={isFinancialModalOpen} onOpenChange={setIsFinancialModalOpen} poliza={poliza} />
       <EditPlanDetailsModal
         open={isBasicInfoModalOpen}
@@ -605,23 +694,24 @@ export default function PolizaDetailsPage() {
   );
 }
 
-function AddCardModal({ open, onOpenChange, polizaId }: { open: boolean, onOpenChange: (open: boolean) => void, polizaId: number }) {
+function AddCardModal({ open, onOpenChange, polizaId, onSaved }: { open: boolean, onOpenChange: (open: boolean) => void, polizaId: number, onSaved?: () => void }) {
   const { toast } = useToast();
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const data = {
-      numero_tarjeta: formData.get("numero_tarjeta")?.toString(),
-      fecha_expiracion: formData.get("fecha_expiracion")?.toString(),
+      tipo_tarjeta: formData.get("tipo_tarjeta")?.toString() || 'VISA',
+      numero: formData.get("numero")?.toString(),
+      fecha_vencimiento: formData.get("fecha_vencimiento")?.toString(),
       cvv: formData.get("cvv")?.toString(),
       nombre_titular: formData.get("nombre_titular")?.toString(),
-      zip_code: formData.get("zip_code")?.toString(),
       poliza: polizaId,
     };
     try {
         await api.tarjetasCredito.create(data);
         toast({ title: "Éxito", description: "Tarjeta agregada correctamente." });
         onOpenChange(false);
+        onSaved?.();
     } catch (error) {
         toast({ title: "Error", description: "Error al agregar la tarjeta.", variant: "destructive" });
     }
@@ -633,28 +723,83 @@ function AddCardModal({ open, onOpenChange, polizaId }: { open: boolean, onOpenC
         <DialogHeader><DialogTitle>Agregar Tarjeta de Pago</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-2">
+            <Label htmlFor="tipo_tarjeta">Tipo de tarjeta</Label>
+            <select id="tipo_tarjeta" name="tipo_tarjeta" className="flex h-10 w-full rounded-md border border-input bg-white dark:bg-slate-800 px-3 py-1 text-sm" defaultValue="VISA">
+              <option value="VISA">VISA</option>
+              <option value="MASTERCARD">Mastercard</option>
+              <option value="AMEX">American Express</option>
+              <option value="DISCOVER">Discover</option>
+            </select>
+          </div>
+          <div className="grid gap-2">
             <Label htmlFor="nombre_titular">Nombre del Titular</Label>
             <Input id="nombre_titular" name="nombre_titular" required />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="numero_tarjeta">Número de Tarjeta</Label>
-            <Input id="numero_tarjeta" name="numero_tarjeta" required />
+            <Label htmlFor="numero">Número de Tarjeta</Label>
+            <Input id="numero" name="numero" required />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="fecha_expiracion">Expiración (MM/YY)</Label>
-              <Input id="fecha_expiracion" name="fecha_expiracion" required />
+              <Label htmlFor="fecha_vencimiento">Expiración (MM/YY)</Label>
+              <Input id="fecha_vencimiento" name="fecha_vencimiento" placeholder="MM/YY" required />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="cvv">CVV</Label>
               <Input id="cvv" name="cvv" required />
             </div>
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="zip_code">Código Postal</Label>
-            <Input id="zip_code" name="zip_code" required />
-          </div>
           <DialogFooter><Button type="submit">Guardar Tarjeta</Button></DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AddBankAccountModal({ open, onOpenChange, polizaId, onSaved }: { open: boolean, onOpenChange: (open: boolean) => void, polizaId: number, onSaved?: () => void }) {
+  const { toast } = useToast();
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      nombre_banco: formData.get("nombre_banco")?.toString(),
+      numero_cuenta: formData.get("numero_cuenta")?.toString(),
+      aba_routing: formData.get("aba_routing")?.toString(),
+      titular_cuenta: formData.get("titular_cuenta")?.toString(),
+      poliza: polizaId,
+    };
+    try {
+      await api.cuentasBancarias.create(data);
+      toast({ title: "Éxito", description: "Cuenta bancaria agregada correctamente." });
+      onOpenChange(false);
+      onSaved?.();
+    } catch (error) {
+      toast({ title: "Error", description: "Error al agregar la cuenta bancaria.", variant: "destructive" });
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Agregar Cuenta Bancaria</DialogTitle></DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid gap-2">
+            <Label htmlFor="nombre_banco">Nombre del banco</Label>
+            <Input id="nombre_banco" name="nombre_banco" required />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="numero_cuenta">Número de cuenta</Label>
+            <Input id="numero_cuenta" name="numero_cuenta" required />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="aba_routing">ABA / Routing</Label>
+            <Input id="aba_routing" name="aba_routing" required />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="titular_cuenta">Titular de la cuenta</Label>
+            <Input id="titular_cuenta" name="titular_cuenta" required />
+          </div>
+          <DialogFooter><Button type="submit">Guardar Cuenta</Button></DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

@@ -1,3 +1,18 @@
+export function parseDateForInput(value?: string | null): string {
+  if (!value) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+
+  const mdy = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (mdy) {
+    const [, m, d, y] = mdy;
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+
+  const parsed = new Date(value);
+  if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];
+  return '';
+}
+
 export function formatFechaDisplay(value?: string | null): string {
   if (!value) return '-';
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {

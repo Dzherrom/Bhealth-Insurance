@@ -217,9 +217,19 @@ class EstadoPolizaSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class InfoPagoSerializer(serializers.ModelSerializer):
+    fecha_primer_pago = serializers.DateField(
+        required=False,
+        allow_null=True,
+        input_formats=['%Y-%m-%d', '%m/%d/%Y'],
+    )
+
     class Meta:
         model = InfoPago
         fields = '__all__'
+
+    def create(self, validated_data):
+        validated_data.setdefault('estado_pago', InfoPago.ESTADO_PENDIENTE)
+        return super().create(validated_data)
 
 from .encryption import encrypt_text, decrypt_text
 
@@ -515,7 +525,7 @@ class PolizaSerializer(serializers.ModelSerializer):
     direccion_facturacion_details = serializers.SerializerMethodField()
 
     # Payment Info
-    info_pago = InfoPagoSerializer(read_only=True)
+    info_pago = InfoPagoSerializer(read_only=True, allow_null=True)
     tarjetas_credito = TarjetaCreditoSerializer(many=True, read_only=True)
     cuentas_bancarias = CuentaBancariaSerializer(many=True, read_only=True)
     

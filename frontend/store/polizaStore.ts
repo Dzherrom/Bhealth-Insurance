@@ -36,7 +36,7 @@ export interface PolizaState {
 
   // Acciones - CRUD
   fetchPolizas: (filtros?: { cliente_id?: string; page?: number; page_size?: number; [key: string]: any }) => Promise<void>;
-  fetchPolizaById: (id: number) => Promise<void>;
+  fetchPolizaById: (id: number, options?: { silent?: boolean }) => Promise<void>;
   createPoliza: (data: PolizaCreateRequest) => Promise<PolizaResponse>;
   updatePoliza: (id: number, data: PolizaUpdateRequest) => Promise<PolizaResponse>;
   deletePoliza: (id: number) => Promise<void>;
@@ -111,8 +111,10 @@ export const usePolizaStore = create<PolizaState>()(
       },
 
       // Obtener póliza por ID
-      fetchPolizaById: async (id: number) => {
-        set({ isLoading: true, error: null });
+      fetchPolizaById: async (id: number, options?: { silent?: boolean }) => {
+        if (!options?.silent) {
+          set({ isLoading: true, error: null });
+        }
         try {
           const poliza = await polizasApi.get(id);
           set({ 
