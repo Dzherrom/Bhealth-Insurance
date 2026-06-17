@@ -1,23 +1,21 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { 
-  FileText, 
-  Upload, 
-  Search, 
-  Download, 
-  Eye, 
+import {
+  FileText,
+  Upload,
+  Search,
+  Eye,
   Trash2,
-  FolderOpen
+  FolderOpen,
 } from 'lucide-react';
-import { documentosApi } from '@/lib/api';
+import { documentosApi, resolveApiMediaUrl } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
-import { useAuthStore } from '@/store/authStore';
 
 interface Documento {
   id: number;
@@ -26,10 +24,13 @@ interface Documento {
   categoria: string;
   fechaCargado: string;
   cargadoPor: string;
+  archivoUrl?: string;
+  descargaBloqueada?: boolean;
 }
 
 interface DocumentosPolizaProps {
   polizaId?: string;
+  onDocumentsChange?: () => void;
 }
 
 const CATEGORIAS = [
@@ -42,6 +43,8 @@ const CATEGORIAS = [
   { id: 'CONSENTIMIENTO', label: 'Consentimiento' },
   { id: 'OTRO', label: 'Otro' },
 ];
+
+const CATEGORIA_LABELS = Object.fromEntries(CATEGORIAS.map((cat) => [cat.id, cat.label]));
 
 const getFileIcon = (tipo: string) => {
   switch (tipo) {
@@ -56,64 +59,96 @@ const getFileIcon = (tipo: string) => {
   }
 };
 
-export function DocumentosPoliza({ polizaId }: DocumentosPolizaProps) {
+const inferFileType = (fileName: string): Documento['tipo'] => {
+  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+  if (ext === 'pdf') return 'pdf';
+  if (ext === 'png') return 'png';
+  if (['jpg', 'jpeg', 'gif', 'webp'].includes(ext)) return 'jpg';
+  return 'doc';
+};
+
+const mapApiDocumento = (d: any): Documento => {
+  const nombre = d.titulo || d.archivo?.split('/').pop() || 'Documento';
+
+  return {
+    id: d.id ?? 0,
+    nombre,
+    tipo: inferFileType(nombre),
+    categoria: d.categoria || 'OTRO',
+    fechaCargado: d.fecha_subida
+      ? new Date(d.fecha_subida).toLocaleString('es-ES')
+      : 'Sin fecha',
+    cargadoPor: d.subido_por_username || (d.subido_por ? `Usuario #${d.subido_por}` : 'Sistema'),
+    archivoUrl: resolveApiMediaUrl(d.archivo),
+    descargaBloqueada: Boolean(d.descarga_bloqueada),
+  };
+};
+
+export function DocumentosPoliza({ polizaId, onDocumentsChange }: DocumentosPolizaProps) {
   const [documentos, setDocumentos] = useState<Documento[]>([]);
   const [isLoadingDocs, setIsLoadingDocs] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  const { user } = useAuthStore();
 
-  useEffect(() => {
-    loadDocumentos();
-  }, [polizaId]);
-
-  const loadDocumentos = async () => {
+  const loadDocumentos = useCallback(async () => {
     if (!polizaId) return;
     setIsLoadingDocs(true);
     try {
-      const todos = await documentosApi.list();
-      let docs = (todos as any[]);
-      if ((todos as any).results) docs = (todos as any).results;
-
-      const dePoliza = docs.filter(d => String(d.poliza) === String(polizaId));
-      
-      setDocumentos(dePoliza.map((d: any) => ({
-        id: d.id ?? 0,
-        nombre: d.titulo || d.archivo?.split('/').pop() || 'Documento',
-        tipo: 'pdf', // mock logic
-        categoria: d.categoria || 'OTRO',
-        fechaCargado: new Date(d.fecha_subida).toLocaleString('es-ES') ?? 'Sin fecha',
-        cargadoPor: d.subido_por_nombre || `Usuario #${d.subido_por}`,
-      })));
+      const docs = await documentosApi.listByPoliza(polizaId);
+      setDocumentos(docs.map(mapApiDocumento));
     } catch (err) {
       console.error('Error al cargar documentos:', err);
+      toast({
+        title: 'Error al cargar documentos',
+        description: 'No se pudieron obtener los documentos de esta póliza.',
+        variant: 'destructive',
+      });
     } finally {
       setIsLoadingDocs(false);
     }
-  };
+  }, [polizaId]);
+
+  useEffect(() => {
+    loadDocumentos();
+  }, [loadDocumentos]);
 
   const handleDescargar = async (documento: Documento) => {
+    if (documento.descargaBloqueada) {
+      toast({
+        title: 'Descarga no permitida',
+        description: 'No tienes permisos para descargar este documento.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
-      const apiDoc = await documentosApi.get(documento.id) as any;
-      if (apiDoc?.archivo) {
-        window.open(apiDoc.archivo, '_blank');
+      let url = documento.archivoUrl;
+      if (!url) {
+        const apiDoc = (await documentosApi.get(documento.id)) as any;
+        url = resolveApiMediaUrl(apiDoc?.archivo);
+      }
+
+      if (url) {
+        window.open(url, '_blank', 'noopener,noreferrer');
       } else {
         toast({ title: 'Archivo no disponible', variant: 'destructive' });
       }
     } catch (err) {
       console.error('Error al descargar:', err);
+      toast({ title: 'Error al abrir el documento', variant: 'destructive' });
     }
   };
 
   const handleEliminar = async (documento: Documento) => {
-    if(!window.confirm('¿Seguro de eliminar este documento?')) return;
+    if (!window.confirm('¿Seguro de eliminar este documento?')) return;
     try {
       await documentosApi.delete(documento.id);
       toast({ title: 'Documento eliminado' });
-      setDocumentos(prev => prev.filter(doc => doc.id !== documento.id));
+      setDocumentos((prev) => prev.filter((doc) => doc.id !== documento.id));
+      onDocumentsChange?.();
     } catch (err) {
       console.error('Error al eliminar:', err);
       toast({ title: 'Error al eliminar', variant: 'destructive' });
@@ -136,35 +171,38 @@ export function DocumentosPoliza({ polizaId }: DocumentosPolizaProps) {
       formData.append('titulo', file.name);
       formData.append('poliza', polizaId);
       formData.append('categoria', categoriaSeleccionada);
-      if (user?.id) formData.append('subido_por', String(user.id));
 
-      await (documentosApi as any).createRaw(formData);
+      await documentosApi.createFormData(formData);
       toast({ title: 'Documento subido' });
-      loadDocumentos();
-    } catch(err) {
+      await loadDocumentos();
+      onDocumentsChange?.();
+    } catch (err) {
       console.error('Error uploading:', err);
-      toast({ title: 'Error al subir documento', variant: 'destructive' });
+      toast({
+        title: 'Error al subir documento',
+        description: err instanceof Error ? err.message : 'No se pudo guardar el archivo.',
+        variant: 'destructive',
+      });
     } finally {
       setIsUploading(false);
-      if(fileInputRef.current) fileInputRef.current.value = '';
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  const getDocCount = (catId: string) => documentos.filter(d => d.categoria === catId).length;
+  const getDocCount = (catId: string) => documentos.filter((d) => d.categoria === catId).length;
 
   const docsMostrados = documentos
-    .filter(doc => categoriaSeleccionada ? doc.categoria === categoriaSeleccionada : true)
-    .filter(doc => doc.nombre.toLowerCase().includes(searchTerm.toLowerCase()));
+    .filter((doc) => (categoriaSeleccionada ? doc.categoria === categoriaSeleccionada : true))
+    .filter((doc) => doc.nombre.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
     <Card className="w-full">
       <CardHeader>
         <CardTitle className="text-xl font-semibold">Directorios de Documentos</CardTitle>
         <p className="text-sm text-gray-500">Selecciona una carpeta para ver o subir documentos.</p>
-        
-        {/* Carpetas */}
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-          {CATEGORIAS.map(cat => (
+          {CATEGORIAS.map((cat) => (
             <Button
               key={cat.id}
               variant={categoriaSeleccionada === cat.id ? 'default' : 'outline'}
@@ -180,9 +218,8 @@ export function DocumentosPoliza({ polizaId }: DocumentosPolizaProps) {
           ))}
         </div>
       </CardHeader>
-      
+
       <CardContent>
-        {/* Barra de herramientas */}
         <div className="flex flex-col sm:flex-row gap-4 mb-4 items-center justify-between">
           <div className="flex-1 relative w-full sm:max-w-xs">
             <Search className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
@@ -193,17 +230,17 @@ export function DocumentosPoliza({ polizaId }: DocumentosPolizaProps) {
               className="pl-10"
             />
           </div>
-          
+
           {categoriaSeleccionada && (
             <div className="flex items-center space-x-2">
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleFileUpload} 
-                className="hidden" 
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                className="hidden"
               />
-              <Button 
-                variant="default" 
+              <Button
+                variant="default"
                 className="bg-blue-600 hover:bg-blue-700"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploading}
@@ -214,14 +251,16 @@ export function DocumentosPoliza({ polizaId }: DocumentosPolizaProps) {
             </div>
           )}
         </div>
-        
+
         {isLoadingDocs ? (
           <p className="text-center text-gray-500 py-8">Cargando documentos...</p>
         ) : docsMostrados.length === 0 ? (
           <p className="text-center text-gray-500 py-8">
-            {categoriaSeleccionada 
-              ? 'La carpeta está vacía.' 
-              : 'Selecciona una carpeta o no hay documentos.'}
+            {categoriaSeleccionada
+              ? 'La carpeta está vacía.'
+              : documentos.length === 0
+                ? 'No hay documentos en esta póliza.'
+                : 'Selecciona una carpeta para ver los documentos.'}
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -229,7 +268,7 @@ export function DocumentosPoliza({ polizaId }: DocumentosPolizaProps) {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[50%]">Nombre de archivo</TableHead>
-                  <TableHead>Etiqueta</TableHead>
+                  <TableHead>Categoría</TableHead>
                   <TableHead>Cargado Por</TableHead>
                   <TableHead>Fecha</TableHead>
                   <TableHead className="text-center">Acción</TableHead>
@@ -248,7 +287,7 @@ export function DocumentosPoliza({ polizaId }: DocumentosPolizaProps) {
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary" className="text-xs">
-                        Documento
+                        {CATEGORIA_LABELS[documento.categoria] || documento.categoria}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -259,10 +298,22 @@ export function DocumentosPoliza({ polizaId }: DocumentosPolizaProps) {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-center gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDescargar(documento)} title="Descargar">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handleDescargar(documento)}
+                          title="Ver / Descargar"
+                          disabled={documento.descargaBloqueada}
+                        >
                           <Eye className="w-4 h-4 text-blue-600" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-red-700 text-red-500" onClick={() => handleEliminar(documento)}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 hover:text-red-700 text-red-500"
+                          onClick={() => handleEliminar(documento)}
+                        >
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>

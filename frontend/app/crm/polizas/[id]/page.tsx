@@ -180,6 +180,7 @@ export default function PolizaDetailsPage() {
           direccion_fisica_details: poliza.direccion_fisica_details,
           direccion_postal_details: poliza.direccion_postal_details,
           direccion_facturacion_details: poliza.direccion_facturacion_details,
+          documentos: (poliza as any).documentos,
         }}
         activeSection={activeSection}
         onSectionChange={setActiveSection}
@@ -660,7 +661,12 @@ export default function PolizaDetailsPage() {
         )}
 
         {/* Other Tabs Rendering (Keep old component mounting for other tabs) */}
-        {activeSection === 'documentos' && <DocumentosPoliza polizaId={params.id as string} />}
+        {activeSection === 'documentos' && (
+          <DocumentosPoliza
+            polizaId={params.id as string}
+            onDocumentsChange={refreshPoliza}
+          />
+        )}
         {activeSection === 'recordatorios' && <RecordatoriosPoliza polizaId={params.id as string} />}
         {activeSection === 'pagos' && <InfoPagoPoliza poliza={poliza} />}
         {activeSection === 'direcciones' && (

@@ -314,16 +314,23 @@ class EtiquetaSerializer(serializers.ModelSerializer):
 
 class DocumentoSerializer(serializers.ModelSerializer):
     subido_por_username = serializers.ReadOnlyField(source='subido_por.username')
-    cliente_nombre = serializers.ReadOnlyField(source='cliente.__str__')
+    cliente_nombre = serializers.SerializerMethodField()
     etiquetas_details = EtiquetaSerializer(source='etiquetas', many=True, read_only=True)
     etiquetas_ids = serializers.PrimaryKeyRelatedField(
-        many=True, write_only=True, queryset=Etiqueta.objects.all(), source='etiquetas'
+        many=True, write_only=True, queryset=Etiqueta.objects.all(), source='etiquetas', required=False
     )
 
     class Meta:
         model = Documento
         fields = '__all__'
         read_only_fields = ('subido_por', 'fecha_subida')
+
+    def get_cliente_nombre(self, obj):
+        return str(obj.cliente) if obj.cliente_id else None
+
+    def create(self, validated_data):
+        validated_data.setdefault('estado_documento', Documento.ESTADO_DOCUMENTO_CHOICES[0][0])
+        return super().create(validated_data)
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)

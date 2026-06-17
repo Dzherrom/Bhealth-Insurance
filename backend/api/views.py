@@ -859,9 +859,10 @@ class DocumentoViewSet(viewsets.ModelViewSet):
     serializer_class = DocumentoSerializer
     permission_classes = [permissions.IsAuthenticated]
     filterset_fields = ['poliza']
+    parser_classes = [MultiPartParser, FormParser]
 
     def perform_create(self, serializer):
-        documento = serializer.save(subido_por=self.request.user)
+        serializer.save(subido_por=self.request.user)
 
     def perform_destroy(self, instance):
         poliza = instance.poliza

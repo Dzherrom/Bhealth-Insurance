@@ -117,11 +117,20 @@ const getAuthHeadersWithoutContentType = (): HeadersInit => {
 const handleApiResponse = async <T>(response: Response): Promise<T> => {
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
+    const fieldErrors = Object.entries(errorData)
+      .filter(([key]) => !['detail', 'message', 'error', 'non_field_errors'].includes(key))
+      .flatMap(([key, value]) => {
+        if (Array.isArray(value)) return value.map((item) => `${key}: ${item}`);
+        if (typeof value === 'string') return [`${key}: ${value}`];
+        return [];
+      });
+
     const rawMessage =
       errorData.detail ||
       errorData.message ||
       errorData.error ||
       errorData.non_field_errors?.[0] ||
+      fieldErrors[0] ||
       errorData.username?.[0] ||
       errorData.password?.[0] ||
       `HTTP ${response.status}`;
@@ -489,13 +498,15 @@ interface Etiqueta extends OptionalBaseEntity {
 }
 
 interface Documento extends OptionalBaseEntity {
-  nombre: string;
-  archivo: string;
-  tipo?: string;
-  cliente?: number;
+  titulo: string;
+  archivo?: string | null;
+  categoria?: string;
+  cliente?: number | null;
   poliza?: number;
-  usuario: number;
+  subido_por?: number | null;
+  subido_por_username?: string;
   fecha_subida?: string;
+  descarga_bloqueada?: boolean;
 }
 
 interface Cita extends OptionalBaseEntity {
@@ -734,7 +745,20 @@ export const historialApi = createReadOnlyApi<Historial>('historial');
 export const etiquetasApi = createCrudApi<Etiqueta>('etiquetas');
 
 // 📂 Documentos
-export const documentosApi = createCrudApi<Documento>('documentos');
+export const documentosApi = {
+  ...createCrudApi<Documento>('documentos'),
+
+  listByPoliza: async (polizaId: number | string): Promise<Documento[]> => {
+    const response = await fetchWithAuth(
+      `${API_BASE_URL}/documentos/?poliza=${encodeURIComponent(String(polizaId))}`,
+      { method: 'GET' }
+    );
+    const payload = await handleApiResponse<any>(response);
+    if (Array.isArray(payload)) return payload;
+    if (payload?.results && Array.isArray(payload.results)) return payload.results;
+    return [];
+  },
+};
 
 // 📅 Citas
 export const citasApi = createCrudApi<Cita>('citas');

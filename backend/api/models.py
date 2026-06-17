@@ -404,6 +404,12 @@ class Documento(models.Model):
         ('CONSENTIMIENTO', 'Consentimiento'),
         ('OTRO', 'Otro'),
     ]
+    ESTADO_DOCUMENTO_CHOICES = [
+        ('SUBIDO', 'Subido'),
+        ('PENDIENTE_REVISION', 'Pendiente de revisión'),
+        ('APROBADO', 'Aprobado'),
+        ('RECHAZADO', 'Rechazado'),
+    ]
     poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='documentos')
     cliente = models.ForeignKey(Cliente, on_delete=models.SET_NULL, null=True, blank=True, related_name='documentos', verbose_name="Cliente")
     archivo = models.FileField(upload_to='documentos_poliza/', verbose_name="Archivo")
@@ -411,6 +417,12 @@ class Documento(models.Model):
     fecha_subida = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Subida")
     fecha_vencimiento = models.DateField(null=True, blank=True, verbose_name="Fecha de Vencimiento")
     categoria = models.CharField(max_length=50, choices=CATEGORIA_CHOICES, default='OTRO', verbose_name="Categoría")
+    estado_documento = models.CharField(
+        max_length=50,
+        choices=ESTADO_DOCUMENTO_CHOICES,
+        default='SUBIDO',
+        verbose_name="Estado del Documento",
+    )
     subido_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, verbose_name="Subido Por")
     etiquetas = models.ManyToManyField(Etiqueta, related_name='documentos', blank=True)
 

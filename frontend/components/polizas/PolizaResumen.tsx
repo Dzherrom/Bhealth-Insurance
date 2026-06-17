@@ -48,6 +48,7 @@ interface PolizaResumenProps {
     direccion_fisica_details?: any;
     direccion_postal_details?: any;
     direccion_facturacion_details?: any;
+    documentos?: any[];
   };
   activeSection?: string;
   onSectionChange?: (section: string) => void;
@@ -165,7 +166,7 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
 
   const navItems = [
     { id: 'poliza', icon: <i className="fa-duotone fa-shield-halved"></i>, label: 'Póliza' },
-    { id: 'documentos', icon: <i className="fa-duotone fa-folder"></i>, label: 'Documentos', count: 1 },
+    { id: 'documentos', icon: <i className="fa-duotone fa-folder"></i>, label: 'Documentos', count: polizaContext?.documentos?.length ?? 0 },
     { id: 'notas', icon: <i className="fa-duotone fa-sticky-note"></i>, label: 'Notas', count: 0, isChat: true },
     { id: 'recordatorios', icon: <i className="fa-duotone fa-bell-on"></i>, label: 'Recordatorios', count: 0 },
     { id: 'formularios', icon: <i className="fa-duotone fa-file-signature"></i>, label: 'Formularios de Firma', count: 0 },

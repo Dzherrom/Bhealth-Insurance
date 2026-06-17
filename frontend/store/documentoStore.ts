@@ -122,15 +122,16 @@ export const useDocumentoStore = create<DocumentoState>()(
           if (data.archivo instanceof File) {
             const formData = new FormData();
             formData.append('archivo', data.archivo);
-            formData.append('nombre', data.nombre);
-            formData.append('tipo', data.tipo);
+            formData.append('titulo', data.nombre);
             if (data.poliza) formData.append('poliza', data.poliza.toString());
             if (data.cliente) formData.append('cliente', data.cliente.toString());
-            if (data.descripcion) formData.append('descripcion', data.descripcion);
+            if (data.categoria) formData.append('categoria', data.categoria);
             uploadData = formData;
           }
 
-          const newDocumento = await documentosApi.create(uploadData);
+          const newDocumento = data.archivo instanceof File
+            ? await documentosApi.createFormData(uploadData)
+            : await documentosApi.create(uploadData);
           
           // Agregar a la lista
           set(state => ({
