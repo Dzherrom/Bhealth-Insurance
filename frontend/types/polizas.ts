@@ -49,6 +49,9 @@ export interface PolizaCreateRequest {
 
 export interface PolizaUpdateRequest extends Partial<Omit<PolizaCreateRequest, 'clientes_data'>> {
   clientes_data?: ClientePolizaData[];
+  notas_comentarios?: string | null;
+  info_medico_principal?: string | null;
+  medicamentos_necesarios?: string | null;
 }
 
 // ===============================
@@ -71,6 +74,9 @@ export interface PolizaResponse extends BaseEntity {
   plan_nombre: string;
   agente_nombre: string;
   clientes_info: ClientePolizaDetails[];
+  notas_comentarios?: string | null;
+  info_medico_principal?: string | null;
+  medicamentos_necesarios?: string | null;
   fecha_creacion?: string;
   fecha_modificacion?: string;
 }

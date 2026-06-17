@@ -20,6 +20,7 @@ import { RegistrosActividadModal } from '@/components/polizas/RegistrosActividad
 import { AddFamilyMemberCard } from '@/components/polizas/AddFamilyMemberCard';
 import { EditFamilyMemberModal } from '@/components/polizas/EditFamilyMemberModal';
 import { EditInfoPagoModal } from '@/components/polizas/EditInfoPagoModal';
+import { EditPolizaTextFieldModal } from '@/components/polizas/EditPolizaTextFieldModal';
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -52,6 +53,9 @@ export default function PolizaDetailsPage() {
   const [isAddCardModalOpen, setIsAddCardModalOpen] = useState(false);
   const [isEditInfoPagoOpen, setIsEditInfoPagoOpen] = useState(false);
   const [isAddBankModalOpen, setIsAddBankModalOpen] = useState(false);
+  const [isEditNotasOpen, setIsEditNotasOpen] = useState(false);
+  const [isEditMedicoOpen, setIsEditMedicoOpen] = useState(false);
+  const [isEditMedicamentosOpen, setIsEditMedicamentosOpen] = useState(false);
 
   useEffect(() => {
     if (params.id) {
@@ -557,36 +561,60 @@ export default function PolizaDetailsPage() {
             <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 p-4">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-gray-700 dark:text-white text-base font-semibold">Notas o comentarios</h2>
-                <button className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md" type="button">
-                  <i className="fa-duotone fa-edit"></i>Editar
+                <button
+                  className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md"
+                  type="button"
+                  onClick={() => setIsEditNotasOpen(true)}
+                >
+                  <i className="fa-duotone fa-edit"></i>{poliza.notas_comentarios ? 'Editar' : 'Agregar'}
                 </button>
               </div>
               <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
-              <div className="text-sm dark:text-gray-300">-</div>
+              {poliza.notas_comentarios ? (
+                <p className="text-sm dark:text-gray-300 whitespace-pre-wrap">{poliza.notas_comentarios}</p>
+              ) : (
+                <div className="text-sm dark:text-gray-400">-</div>
+              )}
             </div>
 
             {/* Doctor */}
             <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 p-4">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-gray-700 dark:text-white text-base font-semibold">Información del médico principal</h2>
-                <button className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md" type="button">
-                  <i className="fa-duotone fa-edit"></i>Editar
+                <button
+                  className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md"
+                  type="button"
+                  onClick={() => setIsEditMedicoOpen(true)}
+                >
+                  <i className="fa-duotone fa-edit"></i>{poliza.info_medico_principal ? 'Editar' : 'Agregar'}
                 </button>
               </div>
               <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
-              <div className="text-sm dark:text-gray-300">-</div>
+              {poliza.info_medico_principal ? (
+                <p className="text-sm dark:text-gray-300 whitespace-pre-wrap">{poliza.info_medico_principal}</p>
+              ) : (
+                <div className="text-sm dark:text-gray-400">-</div>
+              )}
             </div>
 
             {/* Medications */}
             <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 p-4">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-gray-700 dark:text-white text-base font-semibold">Medicamentos necesarios</h2>
-                <button className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md" type="button">
-                  <i className="fa-duotone fa-edit"></i>Editar
+                <button
+                  className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md"
+                  type="button"
+                  onClick={() => setIsEditMedicamentosOpen(true)}
+                >
+                  <i className="fa-duotone fa-edit"></i>{poliza.medicamentos_necesarios ? 'Editar' : 'Agregar'}
                 </button>
               </div>
               <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
-              <div className="text-sm dark:text-gray-300">-</div>
+              {poliza.medicamentos_necesarios ? (
+                <p className="text-sm dark:text-gray-300 whitespace-pre-wrap">{poliza.medicamentos_necesarios}</p>
+              ) : (
+                <div className="text-sm dark:text-gray-400">-</div>
+              )}
             </div>
 
             {/* Other policies */}
@@ -682,6 +710,36 @@ export default function PolizaDetailsPage() {
         onOpenChange={setIsEditInfoPagoOpen}
         polizaId={poliza.id}
         infoPago={infoPago}
+        onSaved={refreshPoliza}
+      />
+      <EditPolizaTextFieldModal
+        open={isEditNotasOpen}
+        onOpenChange={setIsEditNotasOpen}
+        polizaId={poliza.id}
+        title={poliza.notas_comentarios ? 'Editar notas o comentarios' : 'Agregar notas o comentarios'}
+        label="Notas o comentarios"
+        field="notas_comentarios"
+        value={poliza.notas_comentarios}
+        onSaved={refreshPoliza}
+      />
+      <EditPolizaTextFieldModal
+        open={isEditMedicoOpen}
+        onOpenChange={setIsEditMedicoOpen}
+        polizaId={poliza.id}
+        title={poliza.info_medico_principal ? 'Editar información del médico principal' : 'Agregar información del médico principal'}
+        label="Información del médico principal"
+        field="info_medico_principal"
+        value={poliza.info_medico_principal}
+        onSaved={refreshPoliza}
+      />
+      <EditPolizaTextFieldModal
+        open={isEditMedicamentosOpen}
+        onOpenChange={setIsEditMedicamentosOpen}
+        polizaId={poliza.id}
+        title={poliza.medicamentos_necesarios ? 'Editar medicamentos necesarios' : 'Agregar medicamentos necesarios'}
+        label="Medicamentos necesarios"
+        field="medicamentos_necesarios"
+        value={poliza.medicamentos_necesarios}
         onSaved={refreshPoliza}
       />
       <EditFinancialModal open={isFinancialModalOpen} onOpenChange={setIsFinancialModalOpen} poliza={poliza} />

@@ -256,6 +256,10 @@ class Poliza(models.Model):
     import_batch = models.ForeignKey(ImportBatch, on_delete=models.SET_NULL, null=True, blank=True, related_name='polizas')
     etiquetas = models.ManyToManyField('Etiqueta', related_name='polizas_etiquetadas', blank=True, verbose_name="Etiquetas")
 
+    notas_comentarios = models.TextField(blank=True, null=True, verbose_name="Notas o Comentarios")
+    info_medico_principal = models.TextField(blank=True, null=True, verbose_name="Información del Médico Principal")
+    medicamentos_necesarios = models.TextField(blank=True, null=True, verbose_name="Medicamentos Necesarios")
+
     def __str__(self):
         return self.id_mercado
 
