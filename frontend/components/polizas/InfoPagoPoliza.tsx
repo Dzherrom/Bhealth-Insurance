@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cuentasBancariasApi, infoPagoApi, tarjetasCreditoApi } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
+import { UsBankCombobox } from '@/components/polizas/UsBankCombobox';
 
 interface InfoPagoPolizaProps {
   poliza: any;
@@ -386,7 +387,13 @@ export function InfoPagoPoliza({ poliza }: InfoPagoPolizaProps) {
         <DialogContent>
           <DialogHeader><DialogTitle>{editingBank ? 'Editar cuenta' : 'Nueva cuenta'}</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <div><Label>Banco</Label><Input value={bankForm.nombre_banco} onChange={(e) => setBankForm((p: any) => ({ ...p, nombre_banco: e.target.value }))} /></div>
+            <div>
+              <Label>Banco</Label>
+              <UsBankCombobox
+                value={bankForm.nombre_banco}
+                onChange={(nombre_banco) => setBankForm((p: any) => ({ ...p, nombre_banco }))}
+              />
+            </div>
             <div><Label>Numero de cuenta</Label><Input value={bankForm.numero_cuenta} onChange={(e) => setBankForm((p: any) => ({ ...p, numero_cuenta: e.target.value }))} /></div>
             <div><Label>ABA / Routing</Label><Input value={bankForm.aba_routing} onChange={(e) => setBankForm((p: any) => ({ ...p, aba_routing: e.target.value }))} /></div>
             <div><Label>Titular</Label><Input value={bankForm.titular_cuenta} onChange={(e) => setBankForm((p: any) => ({ ...p, titular_cuenta: e.target.value }))} /></div>

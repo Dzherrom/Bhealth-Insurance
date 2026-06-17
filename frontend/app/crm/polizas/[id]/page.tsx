@@ -27,6 +27,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import api from '@/lib/api';
 import { formatDireccion, formatFechaDisplay } from '@/components/polizas/polizaUtils';
+import { UsBankCombobox } from '@/components/polizas/UsBankCombobox';
 
 const formatCurrency = (amount: string | number) => {
   const numAmount = typeof amount === 'string' ? parseFloat(amount || '0') : amount;
@@ -758,6 +759,12 @@ function AddCardModal({ open, onOpenChange, polizaId, onSaved }: { open: boolean
 
 function AddBankAccountModal({ open, onOpenChange, polizaId, onSaved }: { open: boolean, onOpenChange: (open: boolean) => void, polizaId: number, onSaved?: () => void }) {
   const { toast } = useToast();
+  const [nombreBanco, setNombreBanco] = useState('');
+
+  useEffect(() => {
+    if (!open) setNombreBanco('');
+  }, [open]);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -785,7 +792,13 @@ function AddBankAccountModal({ open, onOpenChange, polizaId, onSaved }: { open: 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-2">
             <Label htmlFor="nombre_banco">Nombre del banco</Label>
-            <Input id="nombre_banco" name="nombre_banco" required />
+            <UsBankCombobox
+              id="nombre_banco"
+              name="nombre_banco"
+              value={nombreBanco}
+              onChange={setNombreBanco}
+              required
+            />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="numero_cuenta">Número de cuenta</Label>
