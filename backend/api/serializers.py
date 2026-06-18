@@ -6,7 +6,7 @@ from .models import (
     EstadoPoliza, Poliza, PolizaCliente, Licencia, Nota, HistorialPoliza,
     NotaAdjunto,
     Etiqueta, Documento, Tarea, CambioDeVida, UserProfile, TipoProducto,
-    InfoPago, TarjetaCredito, CuentaBancaria, PolizaViewer, Cita, Medico, Medicamento, Recordatorio,
+    InfoPago, TarjetaCredito, CuentaBancaria, PolizaViewer, Cita, Medico, Medicamento, MedicoPoliza, Recordatorio,
     Contrato, ReporteComision, ConfiguracionComision, Notificacion, PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal, ConfiguracionNotificacion
 )
 
@@ -150,13 +150,45 @@ class ClienteSerializer(serializers.ModelSerializer):
     direccion_fisica_details = DireccionSerializer(source='direccion_fisica', read_only=True)
     direccion_postal_details = DireccionSerializer(source='direccion_postal', read_only=True)
     direccion_facturacion_details = DireccionSerializer(source='direccion_facturacion', read_only=True)
+    nombre_completo = serializers.SerializerMethodField()
 
     class Meta:
         model = Cliente
         fields = '__all__'
 
+    def get_nombre_completo(self, obj):
+        parts = [obj.primer_nombre, obj.segundo_nombre, obj.apellido_paterno, obj.apellido_materno]
+        return ' '.join(part for part in parts if part).strip()
+
     def validate(self, attrs):
-        # La dirección ahora está ligada a la Póliza, por lo que no es obligatoria para crear Cliente
+        email = attrs.get('email')
+        if email is None and self.instance is not None:
+            email = self.instance.email
+        if email:
+            email = email.strip().lower()
+            attrs['email'] = email
+            qs = Cliente.objects.filter(email__iexact=email)
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError({
+                    'email': 'Ya existe un cliente registrado con este correo electrónico.',
+                })
+
+        ssn = attrs.get('ssn')
+        if ssn is None and self.instance is not None:
+            ssn = self.instance.ssn
+        if ssn:
+            ssn = ssn.strip()
+            attrs['ssn'] = ssn
+            qs = Cliente.objects.filter(ssn=ssn)
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError({
+                    'ssn': 'Ya existe un cliente registrado con este SSN.',
+                })
+
         return attrs
 
     def to_internal_value(self, data):
@@ -428,6 +460,12 @@ class MedicoSerializer(serializers.ModelSerializer):
         model = Medico
         fields = '__all__'
 
+class MedicoPolizaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MedicoPoliza
+        fields = ['id', 'poliza', 'nombre', 'especializacion', 'hospital', 'fecha_creacion']
+        read_only_fields = ('fecha_creacion',)
+
 class MedicamentoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Medicamento
@@ -569,6 +607,7 @@ class PolizaSerializer(serializers.ModelSerializer):
     documentos = DocumentoSerializer(many=True, read_only=True)
     citas = CitaSerializer(many=True, read_only=True)
     medicamentos = MedicamentoSerializer(many=True, read_only=True)
+    medicos_principales = MedicoPolizaSerializer(many=True, read_only=True)
     historial = HistorialPolizaSerializer(many=True, read_only=True)
     recordatorios = RecordatorioSerializer(many=True, read_only=True)
     transferencias = PolizaTransferenciaSerializer(many=True, read_only=True)
@@ -591,9 +630,11 @@ class PolizaSerializer(serializers.ModelSerializer):
             'direccion_fisica', 'direccion_fisica_details',
             'direccion_postal', 'direccion_postal_details',
             'direccion_facturacion', 'direccion_facturacion_details',
-            'notas_comentarios', 'info_medico_principal', 'medicamentos_necesarios',
+            'notas_comentarios', 'info_medico_principal', 'medico_especializacion', 'medico_hospital',
+            'medicamentos_necesarios', 'medicamentos_dosis',
             'info_pago', 'tarjetas_credito', 'cuentas_bancarias',
-            'otras_polizas', 'notas', 'etiquetas', 'etiquetas_ids', 'documentos', 'citas', 'medicamentos', 'historial', 'recordatorios', 'transferencias',
+            'otras_polizas', 'notas', 'etiquetas', 'etiquetas_ids', 'documentos', 'citas',
+            'medicamentos', 'medicos_principales', 'historial', 'recordatorios', 'transferencias',
             'request_user_role',
             'active_viewers',
             'ultima_actualizacion', 'es_duplicado', 'ultimo_duplicado'

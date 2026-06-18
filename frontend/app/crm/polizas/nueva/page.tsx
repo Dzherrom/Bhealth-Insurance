@@ -4,6 +4,15 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { getCurrentToken, API_BASE_URL, agentesApi } from '@/lib/api';
+import { ClienteCombobox } from '@/components/clientes/ClienteCombobox';
+import {
+  buildContactEntriesFromWizard,
+  getClienteDisplayName,
+  mapClienteToWizardAddress,
+  mapClienteToWizardPersonal,
+  validateContactsAgainstDatabase,
+} from '@/lib/clienteUtils';
+import type { Cliente } from '@/types';
 import { ArrowLeft, Plus, ChevronRight, Trash2 } from 'lucide-react';
 import { ProductSelection } from '@/components/polizas/ProductSelection';
 
@@ -16,12 +25,15 @@ interface FamilyMember {
   sexo: string;
   telefono: string;
   email: string;
+  ssn: string;
   usaTabaco: boolean;
   peso: string;
   estatura: string;
   condicionMedica: string;
   relacion: string;
 }
+
+type ApplicantMode = 'new' | 'existing';
 
 interface PlanCard {
   id: number;
@@ -36,6 +48,9 @@ export default function NuevaPolizaWizard() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [applicantMode, setApplicantMode] = useState<ApplicantMode>('new');
+  const [selectedExistingCliente, setSelectedExistingCliente] = useState<Cliente | null>(null);
+  const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false);
 
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
   const [agentes, setAgentes] = useState<any[]>([]);
@@ -88,6 +103,7 @@ export default function NuevaPolizaWizard() {
     sexo: 'Masculino',
     telefono: '',
     email: '',
+    ssn: '',
     esAplicante: true,
     usaTabaco: false,
     peso: '',
@@ -104,6 +120,90 @@ export default function NuevaPolizaWizard() {
     zipCode: '',
     condado: '',
   });
+
+  const emptyFamilyMember = (relacion: string): FamilyMember => ({
+    primerNombre: '',
+    segundoNombre: '',
+    apellidoPaterno: '',
+    apellidoMaterno: '',
+    fechaNacimiento: '',
+    sexo: 'Masculino',
+    telefono: '',
+    email: '',
+    ssn: '',
+    usaTabaco: false,
+    peso: '',
+    estatura: '',
+    condicionMedica: '',
+    relacion,
+  });
+
+  const resetPersonalForm = () => {
+    setFormData((prev) => ({
+      ...prev,
+      primerNombre: '',
+      segundoNombre: '',
+      apellidoPaterno: '',
+      apellidoMaterno: '',
+      fechaNacimiento: '',
+      sexo: 'Masculino',
+      telefono: '',
+      email: '',
+      ssn: '',
+      usaTabaco: false,
+      peso: '',
+      estatura: '',
+      condicionMedica: '',
+      direccion1: '',
+      direccion2: '',
+      ciudad: '',
+      estadoProvincia: '',
+      zipCode: '',
+      condado: '',
+    }));
+    setCounties([]);
+  };
+
+  const applyExistingCliente = (cliente: Cliente) => {
+    setSelectedExistingCliente(cliente);
+    const personal = mapClienteToWizardPersonal(cliente);
+    const address = mapClienteToWizardAddress(cliente);
+    setFormData((prev) => ({
+      ...prev,
+      ...personal,
+      ...address,
+    }));
+    if (address.zipCode.length >= 5) {
+      handleZipChange({ target: { value: address.zipCode, name: 'zipCode' } } as React.ChangeEvent<HTMLInputElement>);
+    }
+  };
+
+  const handleApplicantModeChange = (mode: ApplicantMode) => {
+    setApplicantMode(mode);
+    setError(null);
+    setSelectedExistingCliente(null);
+    resetPersonalForm();
+  };
+
+  const buildValidationContacts = () =>
+    buildContactEntriesFromWizard({
+      applicantMode,
+      selectedExistingClienteId: selectedExistingCliente?.id,
+      principal: { email: formData.email, ssn: formData.ssn },
+      conyuge,
+      dependientes,
+    });
+
+  const validateDuplicateContacts = async () => {
+    setIsCheckingDuplicates(true);
+    try {
+      return await validateContactsAgainstDatabase(buildValidationContacts());
+    } finally {
+      setIsCheckingDuplicates(false);
+    }
+  };
+
+  const isPersonalFormReadOnly = applicantMode === 'existing' && Boolean(selectedExistingCliente);
 
   const stepsInfo = [
     { id: 1, title: 'Información', subtitle: 'de la póliza' },
@@ -135,21 +235,7 @@ export default function NuevaPolizaWizard() {
   };
 
   const handleAddConyuge = () => {
-    setConyuge({
-      primerNombre: '',
-      segundoNombre: '',
-      apellidoPaterno: '',
-      apellidoMaterno: '',
-      fechaNacimiento: '',
-      sexo: 'Femenino',
-      telefono: '',
-      email: '',
-      usaTabaco: false,
-      peso: '',
-      estatura: '',
-      condicionMedica: '',
-      relacion: 'CONYUGE',
-    });
+    setConyuge(emptyFamilyMember('CONYUGE'));
   };
 
   const handleRemoveConyuge = () => {
@@ -157,24 +243,7 @@ export default function NuevaPolizaWizard() {
   };
 
   const handleAddDependiente = () => {
-    setDependientes(prev => [
-      ...prev,
-      {
-        primerNombre: '',
-        segundoNombre: '',
-        apellidoPaterno: '',
-        apellidoMaterno: '',
-        fechaNacimiento: '',
-        sexo: 'Masculino',
-        telefono: '',
-        email: '',
-        usaTabaco: false,
-        peso: '',
-        estatura: '',
-        condicionMedica: '',
-        relacion: 'DEPENDIENTE',
-      }
-    ]);
+    setDependientes(prev => [...prev, emptyFamilyMember('DEPENDIENTE')]);
   };
 
   const handleDependienteChange = (index: number, field: keyof FamilyMember, value: string | boolean) => {
@@ -190,7 +259,7 @@ export default function NuevaPolizaWizard() {
     setDependientes(prev => prev.filter((_, idx) => idx !== index));
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (step === 1) {
       if (!formData.agenteId || !selectedProductId) {
         setError('Por favor seleccione agente y producto antes de continuar.');
@@ -198,24 +267,41 @@ export default function NuevaPolizaWizard() {
       }
     }
     if (step === 2) {
-      if (!formData.primerNombre?.trim() || !formData.apellidoPaterno?.trim()) {
-        setError('Complete el nombre y apellido del solicitante principal.');
-        return;
+      if (applicantMode === 'existing') {
+        if (!selectedExistingCliente) {
+          setError('Seleccione un cliente existente o cambie a "Cliente nuevo".');
+          return;
+        }
+      } else {
+        if (!formData.primerNombre?.trim() || !formData.apellidoPaterno?.trim()) {
+          setError('Complete el nombre y apellido del solicitante principal.');
+          return;
+        }
+        if (!formData.fechaNacimiento || !validateDate(formData.fechaNacimiento)) {
+          setError('Ingrese una fecha de nacimiento válida para el solicitante principal.');
+          return;
+        }
+        if (!formData.sexo?.trim()) {
+          setError('Complete el sexo del solicitante principal.');
+          return;
+        }
+        if (!formData.telefono?.trim()) {
+          setError('Complete el teléfono del solicitante principal.');
+          return;
+        }
+        if (!formData.email?.trim()) {
+          setError('Complete el correo electrónico del solicitante principal.');
+          return;
+        }
+        if (!formData.ssn?.trim()) {
+          setError('Complete el SSN del solicitante principal.');
+          return;
+        }
       }
-      if (!formData.fechaNacimiento || !validateDate(formData.fechaNacimiento)) {
-        setError('Ingrese una fecha de nacimiento válida para el solicitante principal.');
-        return;
-      }
-      if (!formData.sexo?.trim()) {
-        setError('Complete el sexo del solicitante principal.');
-        return;
-      }
-      if (!formData.telefono?.trim()) {
-        setError('Complete el teléfono del solicitante principal.');
-        return;
-      }
-      if (!formData.email?.trim()) {
-        setError('Complete el correo electrónico del solicitante principal.');
+
+      const duplicateError = await validateDuplicateContacts();
+      if (duplicateError) {
+        setError(duplicateError);
         return;
       }
     }
@@ -231,6 +317,12 @@ export default function NuevaPolizaWizard() {
       const familyError = validateFamilyMembers();
       if (familyError) {
         setError(familyError);
+        return;
+      }
+
+      const duplicateError = await validateDuplicateContacts();
+      if (duplicateError) {
+        setError(duplicateError);
         return;
       }
     }
@@ -295,26 +387,53 @@ export default function NuevaPolizaWizard() {
     }
 
     // Validate main applicant required fields
-    if (!formData.primerNombre?.trim() || !formData.apellidoPaterno?.trim()) {
-      setError('Complete el nombre y apellido del solicitante principal.');
-      setLoading(false);
-      return;
-    }
+    if (applicantMode === 'existing') {
+      if (!selectedExistingCliente) {
+        setError('Seleccione un cliente existente para continuar.');
+        setLoading(false);
+        return;
+      }
+    } else {
+      if (!formData.primerNombre?.trim() || !formData.apellidoPaterno?.trim()) {
+        setError('Complete el nombre y apellido del solicitante principal.');
+        setLoading(false);
+        return;
+      }
 
-    if (!formData.fechaNacimiento || !validateDate(formData.fechaNacimiento)) {
-      setError('Ingrese una fecha de nacimiento válida para el solicitante principal.');
-      setLoading(false);
-      return;
-    }
+      if (!formData.fechaNacimiento || !validateDate(formData.fechaNacimiento)) {
+        setError('Ingrese una fecha de nacimiento válida para el solicitante principal.');
+        setLoading(false);
+        return;
+      }
 
-    if (!formData.sexo?.trim() || !formData.telefono?.trim() || !formData.email?.trim()) {
-      setError('Complete el sexo, teléfono y correo del solicitante principal.');
-      setLoading(false);
-      return;
+      if (!formData.sexo?.trim() || !formData.telefono?.trim() || !formData.email?.trim()) {
+        setError('Complete el sexo, teléfono y correo del solicitante principal.');
+        setLoading(false);
+        return;
+      }
     }
 
     if (!formData.ingresoAnual?.toString().trim() || !formData.tamanoFamilia?.toString().trim()) {
       setError('El ingreso anual y tamaño familiar son obligatorios.');
+      setLoading(false);
+      return;
+    }
+
+    const duplicateError = await validateDuplicateContacts();
+    if (duplicateError) {
+      setError(duplicateError);
+      setLoading(false);
+      return;
+    }
+
+    if (applicantMode === 'existing' && !selectedExistingCliente) {
+      setError('Seleccione un cliente existente para continuar.');
+      setLoading(false);
+      return;
+    }
+
+    if (applicantMode === 'new' && !formData.ssn?.trim()) {
+      setError('Complete el SSN del solicitante principal.');
       setLoading(false);
       return;
     }
@@ -383,42 +502,50 @@ export default function NuevaPolizaWizard() {
         peso: member.peso || '',
         estatura: member.estatura || '',
         condicion_medica: member.condicionMedica || '',
-        // Generate a short SSN-like temporary string capped to 20 chars to satisfy backend max_length
-        ssn: (() => {
-          const raw = `TMP-${fallbackPrefix}-${Date.now().toString().slice(-6)}-${Math.random().toString(36).slice(2,6)}`;
-          return raw.slice(0, 20);
-        })()
+        ssn: member.ssn?.trim()
+          ? member.ssn.trim()
+          : (() => {
+              const raw = `TMP-${fallbackPrefix}-${Date.now().toString().slice(-6)}-${Math.random().toString(36).slice(2, 6)}`;
+              return raw.slice(0, 20);
+            })(),
       });
 
-      // 1) Crear cliente principal
-      const clientBody = createClientPayload({
-        primerNombre: formData.primerNombre,
-        segundoNombre: formData.segundoNombre,
-        apellidoPaterno: formData.apellidoPaterno,
-        apellidoMaterno: formData.apellidoMaterno,
-        fechaNacimiento: formData.fechaNacimiento,
-        sexo: formData.sexo,
-        telefono: formData.telefono,
-        email: formData.email,
-        usaTabaco: formData.usaTabaco,
-        peso: formData.peso,
-        estatura: formData.estatura,
-        condicionMedica: formData.condicionMedica,
-        relacion: 'PRINCIPAL'
-      }, 'cliente', true)
+      let clientePrincipalId: number;
 
-      const resCliente = await fetch(`${API_BASE_URL}/clientes/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(clientBody)
-      });
+      if (applicantMode === 'existing' && selectedExistingCliente) {
+        clientePrincipalId = selectedExistingCliente.id;
+      } else {
+        const clientBody = createClientPayload({
+          primerNombre: formData.primerNombre,
+          segundoNombre: formData.segundoNombre,
+          apellidoPaterno: formData.apellidoPaterno,
+          apellidoMaterno: formData.apellidoMaterno,
+          fechaNacimiento: formData.fechaNacimiento,
+          sexo: formData.sexo,
+          telefono: formData.telefono,
+          email: formData.email,
+          ssn: formData.ssn,
+          usaTabaco: formData.usaTabaco,
+          peso: formData.peso,
+          estatura: formData.estatura,
+          condicionMedica: formData.condicionMedica,
+          relacion: 'PRINCIPAL',
+        }, 'cliente', true);
 
-      if (!resCliente.ok) {
-        const txt = await resCliente.text();
-        console.error('Create client failed:', resCliente.status, txt, clientBody);
-        throw new Error('Error al crear el cliente principal: ' + txt);
+        const resCliente = await fetch(`${API_BASE_URL}/clientes/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(clientBody),
+        });
+
+        if (!resCliente.ok) {
+          const txt = await resCliente.text();
+          console.error('Create client failed:', resCliente.status, txt, clientBody);
+          throw new Error('Error al crear el cliente principal: ' + txt);
+        }
+        const clienteCreado = await resCliente.json();
+        clientePrincipalId = clienteCreado.id;
       }
-      const clienteCreado = await resCliente.json();
 
       // 2) Crear dirección (vinculada a la póliza)
       const direccionBody = {
@@ -442,11 +569,11 @@ export default function NuevaPolizaWizard() {
       // 3) Crear póliza (no enviar estado para que backend ponga QUOTE por defecto)
       const clientes_data: any[] = [
         {
-          cliente: clienteCreado.id,
+          cliente: clientePrincipalId,
           es_solicitante_principal: true,
           relacion: 'PRINCIPAL',
-          direccion_residencia: direccionCreada.id
-        }
+          direccion_residencia: direccionCreada.id,
+        },
       ];
 
       if (conyuge && conyuge.primerNombre && conyuge.apellidoPaterno) {
@@ -618,72 +745,140 @@ export default function NuevaPolizaWizard() {
           {step === 2 && (
             <div className="space-y-[30px] animate-in fade-in slide-in-from-right-8 duration-300">
               <h3 className="text-[18px] font-bold text-[#0f172a] dark:text-white border-b border-[#e2e8f0] dark:border-[#334155] pb-[10px]">2. Información Personal</h3>
+
+              <div className="flex flex-col gap-3">
+                <p className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Tipo de solicitante</p>
+                <div className="inline-flex rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] p-1 bg-white dark:bg-[#1e293b] w-fit">
+                  <button
+                    type="button"
+                    onClick={() => handleApplicantModeChange('new')}
+                    className={`px-4 py-2 text-[13px] font-semibold rounded-[8px] transition-colors ${
+                      applicantMode === 'new'
+                        ? 'bg-[#4f46e5] text-white'
+                        : 'text-[#64748b] dark:text-gray-400 hover:text-[#0f172a] dark:hover:text-white'
+                    }`}
+                  >
+                    Cliente nuevo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleApplicantModeChange('existing')}
+                    className={`px-4 py-2 text-[13px] font-semibold rounded-[8px] transition-colors ${
+                      applicantMode === 'existing'
+                        ? 'bg-[#4f46e5] text-white'
+                        : 'text-[#64748b] dark:text-gray-400 hover:text-[#0f172a] dark:hover:text-white'
+                    }`}
+                  >
+                    Cliente existente
+                  </button>
+                </div>
+              </div>
+
+              {applicantMode === 'existing' ? (
+                <div className="space-y-4">
+                  <div className="flex flex-col gap-[8px]">
+                    <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Buscar cliente</label>
+                    <ClienteCombobox
+                      value={selectedExistingCliente}
+                      onChange={(cliente) => {
+                        if (cliente) {
+                          applyExistingCliente(cliente);
+                        } else {
+                          setSelectedExistingCliente(null);
+                          resetPersonalForm();
+                        }
+                      }}
+                      placeholder="Nombre, email, teléfono o SSN..."
+                    />
+                  </div>
+
+                  {selectedExistingCliente ? (
+                    <div className="rounded-[12px] border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/70 dark:bg-emerald-950/20 p-4">
+                      <p className="text-[13px] font-semibold text-emerald-800 dark:text-emerald-200 mb-1">Cliente seleccionado</p>
+                      <p className="text-[14px] font-medium text-[#0f172a] dark:text-white">
+                        {getClienteDisplayName(selectedExistingCliente)}
+                      </p>
+                      <p className="text-[12px] text-[#64748b] dark:text-gray-400 mt-1">
+                        {[selectedExistingCliente.email, selectedExistingCliente.telefono, selectedExistingCliente.ssn]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-[24px]">
                 <div className="flex flex-col gap-[8px]">
                   <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Primer Nombre</label>
-                  <input type="text" name="primerNombre" value={formData.primerNombre} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                  <input type="text" name="primerNombre" value={formData.primerNombre} onChange={handleChange} readOnly={isPersonalFormReadOnly} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5] read-only:bg-[#f1f5f9] dark:read-only:bg-[#0f172a]" />
                 </div>
                 <div className="flex flex-col gap-[8px]">
                   <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Segundo Nombre</label>
-                  <input type="text" name="segundoNombre" value={formData.segundoNombre} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                  <input type="text" name="segundoNombre" value={formData.segundoNombre} onChange={handleChange} readOnly={isPersonalFormReadOnly} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5] read-only:bg-[#f1f5f9] dark:read-only:bg-[#0f172a]" />
                 </div>
                 <div className="flex flex-col gap-[8px]">
                   <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Apellido Paterno</label>
-                  <input type="text" name="apellidoPaterno" value={formData.apellidoPaterno} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                  <input type="text" name="apellidoPaterno" value={formData.apellidoPaterno} onChange={handleChange} readOnly={isPersonalFormReadOnly} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5] read-only:bg-[#f1f5f9] dark:read-only:bg-[#0f172a]" />
                 </div>
                 <div className="flex flex-col gap-[8px]">
                   <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Apellido Materno</label>
-                  <input type="text" name="apellidoMaterno" value={formData.apellidoMaterno} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                  <input type="text" name="apellidoMaterno" value={formData.apellidoMaterno} onChange={handleChange} readOnly={isPersonalFormReadOnly} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5] read-only:bg-[#f1f5f9] dark:read-only:bg-[#0f172a]" />
                 </div>
                 <div className="flex flex-col gap-[8px]">
                   <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Fecha de Nacimiento</label>
-                  <input type="date" name="fechaNacimiento" value={formData.fechaNacimiento} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                  <input type="date" name="fechaNacimiento" value={formData.fechaNacimiento} onChange={handleChange} readOnly={isPersonalFormReadOnly} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5] read-only:bg-[#f1f5f9] dark:read-only:bg-[#0f172a]" />
                 </div>
                 <div className="flex flex-col gap-[8px]">
                   <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Sexo</label>
-                  <select name="sexo" value={formData.sexo} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5] bg-white dark:bg-[#1e293b] text-[#0f172a] dark:text-white">
+                  <select name="sexo" value={formData.sexo} onChange={handleChange} disabled={isPersonalFormReadOnly} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5] bg-white dark:bg-[#1e293b] text-[#0f172a] dark:text-white disabled:bg-[#f1f5f9] dark:disabled:bg-[#0f172a]">
                     <option value="Masculino">Masculino</option>
                     <option value="Femenino">Femenino</option>
                   </select>
                 </div>
                 <div className="flex flex-col gap-[8px]">
                   <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Teléfono *</label>
-                  <input type="text" name="telefono" value={formData.telefono} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                  <input type="text" name="telefono" value={formData.telefono} onChange={handleChange} readOnly={isPersonalFormReadOnly} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5] read-only:bg-[#f1f5f9] dark:read-only:bg-[#0f172a]" />
                 </div>
                 <div className="flex flex-col gap-[8px]">
                   <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Correo Electrónico *</label>
-                  <input type="email" name="email" value={formData.email} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                  <input type="email" name="email" value={formData.email} onChange={handleChange} readOnly={isPersonalFormReadOnly} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5] read-only:bg-[#f1f5f9] dark:read-only:bg-[#0f172a]" />
                 </div>
+                {applicantMode === 'new' ? (
+                  <div className="flex flex-col gap-[8px]">
+                    <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">SSN *</label>
+                    <input type="text" name="ssn" value={formData.ssn} onChange={handleChange} placeholder="XXX-XX-XXXX" className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                  </div>
+                ) : null}
               </div>
 
               <div className="border border-[#e2e8f0] dark:border-[#334155] rounded-[12px] p-[20px] bg-white dark:bg-[#1e293b] space-y-[16px]">
                 <h4 className="text-[14px] font-bold text-[#0f172a] dark:text-white">Detalles Clínicos & Estatus</h4>
                 
                 <div className="flex items-center gap-[12px]">
-                  <input type="checkbox" id="esAplicante" name="esAplicante" checked={formData.esAplicante} onChange={handleChange} className="w-5 h-5 rounded text-[#4f46e5] focus:ring-[#4f46e5]" />
+                  <input type="checkbox" id="esAplicante" name="esAplicante" checked={formData.esAplicante} onChange={handleChange} disabled={isPersonalFormReadOnly} className="w-5 h-5 rounded text-[#4f46e5] focus:ring-[#4f46e5]" />
                   <label htmlFor="esAplicante" className="text-[14px] font-medium text-[#334155] dark:text-gray-200">Este miembro es un aplicante principal</label>
                 </div>
 
                 <div className="flex items-center gap-[12px]">
-                  <input type="checkbox" id="usaTabaco" name="usaTabaco" checked={formData.usaTabaco} onChange={handleChange} className="w-5 h-5 rounded text-[#4f46e5] focus:ring-[#4f46e5]" />
+                  <input type="checkbox" id="usaTabaco" name="usaTabaco" checked={formData.usaTabaco} onChange={handleChange} disabled={isPersonalFormReadOnly} className="w-5 h-5 rounded text-[#4f46e5] focus:ring-[#4f46e5]" />
                   <label htmlFor="usaTabaco" className="text-[14px] font-medium text-[#334155] dark:text-gray-200">¿Usa Tabaco?</label>
                 </div>
 
                 <div className="grid grid-cols-2 gap-[24px]">
                   <div className="flex flex-col gap-[8px]">
                     <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Peso</label>
-                    <input type="text" name="peso" placeholder="Ej. 75 kg" value={formData.peso} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                    <input type="text" name="peso" placeholder="Ej. 75 kg" value={formData.peso} onChange={handleChange} readOnly={isPersonalFormReadOnly} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5] read-only:bg-[#f1f5f9] dark:read-only:bg-[#0f172a]" />
                   </div>
                   <div className="flex flex-col gap-[8px]">
                     <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Estatura</label>
-                    <input type="text" name="estatura" placeholder="Ej. 1.75 m" value={formData.estatura} onChange={handleChange} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                    <input type="text" name="estatura" placeholder="Ej. 1.75 m" value={formData.estatura} onChange={handleChange} readOnly={isPersonalFormReadOnly} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5] read-only:bg-[#f1f5f9] dark:read-only:bg-[#0f172a]" />
                   </div>
                 </div>
 
                 <div className="flex flex-col gap-[8px]">
                   <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Condición Médica</label>
-                  <textarea name="condicionMedica" value={formData.condicionMedica} onChange={handleChange} className="min-h-[100px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] p-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5] resize-y" />
+                  <textarea name="condicionMedica" value={formData.condicionMedica} onChange={handleChange} readOnly={isPersonalFormReadOnly} className="min-h-[100px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] p-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5] resize-y read-only:bg-[#f1f5f9] dark:read-only:bg-[#0f172a]" />
                 </div>
               </div>
 
@@ -691,8 +886,8 @@ export default function NuevaPolizaWizard() {
                 <button onClick={handleBack} className="text-[#64748b] dark:text-gray-400 hover:text-[#0f172a] dark:text-white py-[10px] px-[20px] font-semibold text-[14px]">
                   Atrás
                 </button>
-                <button onClick={handleNext} className="bg-[#4f46e5] hover:bg-[#4338ca] text-white py-[10px] px-[24px] text-[14px] font-semibold rounded-[10px] shadow-sm flex items-center gap-2">
-                  Siguiente Paso <ChevronRight className="w-4 h-4" />
+                <button onClick={handleNext} disabled={isCheckingDuplicates} className="bg-[#4f46e5] hover:bg-[#4338ca] disabled:opacity-60 text-white py-[10px] px-[24px] text-[14px] font-semibold rounded-[10px] shadow-sm flex items-center gap-2">
+                  {isCheckingDuplicates ? 'Validando...' : 'Siguiente Paso'} <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -771,6 +966,10 @@ export default function NuevaPolizaWizard() {
                         <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Correo Electrónico (opcional)</label>
                         <input type="email" value={conyuge.email} onChange={(e) => handleConyugeChange('email', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                       </div>
+                      <div className="flex flex-col gap-[8px]">
+                        <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">SSN (opcional)</label>
+                        <input type="text" value={conyuge.ssn} onChange={(e) => handleConyugeChange('ssn', e.target.value)} placeholder="XXX-XX-XXXX" className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                      </div>
                     </div>
                   </div>
                 )}
@@ -818,6 +1017,10 @@ export default function NuevaPolizaWizard() {
                         <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Correo Electrónico (opcional)</label>
                         <input type="email" value={dep.email} onChange={(e) => handleDependienteChange(index, 'email', e.target.value)} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
                       </div>
+                      <div className="flex flex-col gap-[8px]">
+                        <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">SSN (opcional)</label>
+                        <input type="text" value={dep.ssn} onChange={(e) => handleDependienteChange(index, 'ssn', e.target.value)} placeholder="XXX-XX-XXXX" className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]" />
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -827,8 +1030,8 @@ export default function NuevaPolizaWizard() {
                 <button onClick={handleBack} className="text-[#64748b] dark:text-gray-400 hover:text-[#0f172a] dark:text-white py-[10px] px-[20px] font-semibold text-[14px]">
                   Atrás
                 </button>
-                <button onClick={handleNext} className="bg-[#4f46e5] hover:bg-[#4338ca] text-white py-[10px] px-[24px] text-[14px] font-semibold rounded-[10px] shadow-sm flex items-center gap-2">
-                  Siguiente Paso <ChevronRight className="w-4 h-4" />
+                <button onClick={handleNext} disabled={isCheckingDuplicates} className="bg-[#4f46e5] hover:bg-[#4338ca] disabled:opacity-60 text-white py-[10px] px-[24px] text-[14px] font-semibold rounded-[10px] shadow-sm flex items-center gap-2">
+                  {isCheckingDuplicates ? 'Validando...' : 'Siguiente Paso'} <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
             </div>

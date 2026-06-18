@@ -573,8 +573,48 @@ export const agentesApi = {
 };
 
 // 👥 Clientes
+export interface ClienteDuplicateCheckResult {
+  duplicado: boolean;
+  conflictos: Array<{
+    field: 'email' | 'ssn';
+    cliente_id: number;
+    nombre: string;
+  }>;
+}
+
 export const clientesApi = {
   ...createCrudApi<Cliente, ClienteCreate, ClienteUpdate>('clientes'),
+
+  search: async (query: string, limit = 20): Promise<Cliente[]> => {
+    const params = new URLSearchParams({
+      search: query.trim(),
+      page_size: String(limit),
+    });
+    const response = await fetchWithAuth(`${API_BASE_URL}/clientes/?${params.toString()}`, {
+      method: 'GET',
+    });
+    const payload = await handleApiResponse<any>(response);
+    if (Array.isArray(payload)) return payload;
+    if (payload?.results && Array.isArray(payload.results)) return payload.results;
+    return [];
+  },
+
+  verificarDuplicado: async (params: {
+    email?: string | null;
+    ssn?: string | null;
+    excludeId?: number;
+  }): Promise<ClienteDuplicateCheckResult> => {
+    const searchParams = new URLSearchParams();
+    if (params.email?.trim()) searchParams.set('email', params.email.trim());
+    if (params.ssn?.trim()) searchParams.set('ssn', params.ssn.trim());
+    if (params.excludeId) searchParams.set('exclude_id', String(params.excludeId));
+
+    const response = await fetchWithAuth(
+      `${API_BASE_URL}/clientes/verificar-duplicado/?${searchParams.toString()}`,
+      { method: 'GET' }
+    );
+    return handleApiResponse<ClienteDuplicateCheckResult>(response);
+  },
 };
 
 // 🏦 Aseguradoras
@@ -736,7 +776,20 @@ export const cambiosDeVidaApi = {
 };
 
 // 📝 Notas
-export const notasApi = createCrudApi<Nota>('notas');
+export const notasApi = {
+  ...createCrudApi<Nota>('notas'),
+
+  listByPoliza: async (polizaId: number | string): Promise<Nota[]> => {
+    const response = await fetchWithAuth(
+      `${API_BASE_URL}/notas/?poliza=${encodeURIComponent(String(polizaId))}`,
+      { method: 'GET' }
+    );
+    const payload = await handleApiResponse<any>(response);
+    if (Array.isArray(payload)) return payload;
+    if (payload?.results && Array.isArray(payload.results)) return payload.results;
+    return [];
+  },
+};
 
 // 🕰️ Historial (Solo lectura)
 export const historialApi = createReadOnlyApi<Historial>('historial');
@@ -762,6 +815,56 @@ export const documentosApi = {
 
 // 📅 Citas
 export const citasApi = createCrudApi<Cita>('citas');
+
+export interface MedicoPoliza {
+  id: number;
+  poliza: number;
+  nombre: string;
+  especializacion?: string | null;
+  hospital?: string | null;
+  fecha_creacion?: string;
+}
+
+export interface MedicamentoPoliza {
+  id: number;
+  poliza: number;
+  nombre: string;
+  dosis?: string | null;
+  frecuencia?: string | null;
+  fecha_inicio?: string | null;
+  fecha_fin?: string | null;
+  activo?: boolean;
+}
+
+export const medicosPolizaApi = {
+  ...createCrudApi<MedicoPoliza>('medicos-poliza'),
+
+  listByPoliza: async (polizaId: number | string): Promise<MedicoPoliza[]> => {
+    const response = await fetchWithAuth(
+      `${API_BASE_URL}/medicos-poliza/?poliza=${encodeURIComponent(String(polizaId))}`,
+      { method: 'GET' }
+    );
+    const payload = await handleApiResponse<any>(response);
+    if (Array.isArray(payload)) return payload;
+    if (payload?.results && Array.isArray(payload.results)) return payload.results;
+    return [];
+  },
+};
+
+export const medicamentosApi = {
+  ...createCrudApi<MedicamentoPoliza>('medicamentos'),
+
+  listByPoliza: async (polizaId: number | string): Promise<MedicamentoPoliza[]> => {
+    const response = await fetchWithAuth(
+      `${API_BASE_URL}/medicamentos/?poliza=${encodeURIComponent(String(polizaId))}`,
+      { method: 'GET' }
+    );
+    const payload = await handleApiResponse<any>(response);
+    if (Array.isArray(payload)) return payload;
+    if (payload?.results && Array.isArray(payload.results)) return payload.results;
+    return [];
+  },
+};
 
 // � Tipos de Producto
 export const tiposProductoApi = createCrudApi<TipoProducto>('tipos-producto');

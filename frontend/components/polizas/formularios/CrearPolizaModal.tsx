@@ -4,8 +4,8 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { usePolizaStore } from '@/store/polizaStore';
 import { useCatalogoStore } from '@/store';
-import { clientesApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { ClienteCombobox } from '@/components/clientes/ClienteCombobox';
 import type { Cliente, PolizaCreateRequest, RelacionFamiliar } from '@/types';
 
 import {
@@ -113,8 +113,7 @@ export function CrearPolizaModal({ isOpen, onClose, onCreated }: CrearPolizaModa
     fetchAseguradoras,
   } = useCatalogoStore();
   const { toast } = useToast();
-  const [clientes, setClientes] = React.useState<Cliente[]>([]);
-  const [isLoadingClientes, setIsLoadingClientes] = React.useState(false);
+  const [selectedCliente, setSelectedCliente] = React.useState<Cliente | null>(null);
   const [direccionResidenciaTexto, setDireccionResidenciaTexto] = React.useState('');
 
   const { register, handleSubmit, reset, watch, setValue } = useForm<PolizaFormValues>({
@@ -134,14 +133,17 @@ export function CrearPolizaModal({ isOpen, onClose, onCreated }: CrearPolizaModa
     if (!clienteIdSeleccionado) {
       setValue('direccion_residencia', '');
       setDireccionResidenciaTexto('');
+      if (!selectedCliente) return;
+      setSelectedCliente(null);
       return;
     }
 
-    const clienteSeleccionado = clientes.find((cliente) => cliente.id === Number(clienteIdSeleccionado));
-    const direccionData = getDireccionResidenciaDataFromCliente(clienteSeleccionado);
-    setValue('direccion_residencia', direccionData.id);
-    setDireccionResidenciaTexto(direccionData.texto);
-  }, [clienteIdSeleccionado, clientes, setValue]);
+    if (selectedCliente && String(selectedCliente.id) === String(clienteIdSeleccionado)) {
+      const direccionData = getDireccionResidenciaDataFromCliente(selectedCliente);
+      setValue('direccion_residencia', direccionData.id);
+      setDireccionResidenciaTexto(direccionData.texto);
+    }
+  }, [clienteIdSeleccionado, selectedCliente, setValue]);
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -159,29 +161,23 @@ export function CrearPolizaModal({ isOpen, onClose, onCreated }: CrearPolizaModa
       }
     };
 
-    const loadClientes = async () => {
-      setIsLoadingClientes(true);
-      try {
-        const list = await clientesApi.list();
-        setClientes(Array.isArray(list) ? list : []);
-      } catch {
-        setClientes([]);
-      } finally {
-        setIsLoadingClientes(false);
-      }
-    };
-
     loadCatalogs();
-    loadClientes();
   }, [isOpen, fetchAgentes, fetchEstadosPoliza, fetchPlanes, fetchAseguradoras]);
 
-  const clientesOrdenados = React.useMemo(() => {
-    return [...clientes].sort((a, b) => {
-      const nombreA = (a.nombre_completo || `${a.primer_nombre} ${a.apellido_paterno}`).trim();
-      const nombreB = (b.nombre_completo || `${b.primer_nombre} ${b.apellido_paterno}`).trim();
-      return nombreA.localeCompare(nombreB, 'es');
-    });
-  }, [clientes]);
+  const handleClienteChange = (cliente: Cliente | null) => {
+    setSelectedCliente(cliente);
+    setValue('cliente_id', cliente ? String(cliente.id) : '');
+
+    if (!cliente) {
+      setValue('direccion_residencia', '');
+      setDireccionResidenciaTexto('');
+      return;
+    }
+
+    const direccionData = getDireccionResidenciaDataFromCliente(cliente);
+    setValue('direccion_residencia', direccionData.id);
+    setDireccionResidenciaTexto(direccionData.texto);
+  };
 
   const agentesActivos = React.useMemo(
     () => agentes.filter((agente) => isEnabled((agente as unknown as { activo?: boolean }).activo)),
@@ -228,6 +224,7 @@ export function CrearPolizaModal({ isOpen, onClose, onCreated }: CrearPolizaModa
 
   const handleOpenChange = (open: boolean) => {
     if (!open && !isCreating) {
+      setSelectedCliente(null);
       onClose();
     }
   };
@@ -284,6 +281,7 @@ export function CrearPolizaModal({ isOpen, onClose, onCreated }: CrearPolizaModa
         direccion_residencia: '',
       });
       setDireccionResidenciaTexto('');
+      setSelectedCliente(null);
       onClose();
       onCreated?.(poliza.id);
     } catch (error) {
@@ -319,29 +317,14 @@ export function CrearPolizaModal({ isOpen, onClose, onCreated }: CrearPolizaModa
               <Input {...register('id_interno', { required: true })} placeholder="..." />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 md:col-span-2">
               <Label>Cliente principal</Label>
-              <select
-                {...register('cliente_id', { required: true })}
-                className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-                disabled={isLoadingClientes}
-              >
-                <option value="">{isLoadingClientes ? 'Cargando clientes...' : 'Seleccione cliente principal'}</option>
-                {clientesOrdenados.map((cliente) => {
-                  const nombre = (
-                    cliente.nombre_completo ||
-                    `${cliente.primer_nombre} ${cliente.segundo_nombre || ''} ${cliente.apellido_paterno} ${cliente.apellido_materno || ''}`
-                  )
-                    .replace(/\s+/g, ' ')
-                    .trim();
-
-                  return (
-                    <option key={cliente.id} value={cliente.id}>
-                      {nombre}
-                    </option>
-                  );
-                })}
-              </select>
+              <ClienteCombobox
+                value={selectedCliente}
+                onChange={handleClienteChange}
+                placeholder="Buscar cliente por nombre, email, teléfono o SSN..."
+              />
+              <input type="hidden" {...register('cliente_id', { required: true })} />
             </div>
 
             <div className="space-y-2">

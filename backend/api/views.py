@@ -24,7 +24,7 @@ from django.db.models.functions import TruncMonth, TruncYear
 from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
     EstadoPoliza, Poliza, Nota, HistorialPoliza, Etiqueta, Documento, Tarea, CambioDeVida,
-    PolizaViewer, Cita, Medico, Recordatorio, IntentoLoginFallido,
+    PolizaViewer, Cita, Medico, Medicamento, MedicoPoliza, Recordatorio, IntentoLoginFallido,
     Contrato, ReporteComision, Notificacion, TarjetaCredito, CuentaBancaria, InfoPago,
     PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal, registrar_auditoria_global
 )
@@ -446,6 +446,50 @@ class ClienteViewSet(viewsets.ModelViewSet):
     queryset = Cliente.objects.all()
     serializer_class = ClienteSerializer
     permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = [
+        'primer_nombre', 'segundo_nombre', 'apellido_paterno', 'apellido_materno',
+        'email', 'ssn', 'telefono',
+    ]
+    ordering_fields = ['primer_nombre', 'apellido_paterno', 'fecha_creacion']
+    ordering = ['apellido_paterno', 'primer_nombre']
+
+    @action(detail=False, methods=['get'], url_path='verificar-duplicado')
+    def verificar_duplicado(self, request):
+        email = (request.query_params.get('email') or '').strip().lower()
+        ssn = (request.query_params.get('ssn') or '').strip()
+        exclude_id = request.query_params.get('exclude_id')
+
+        conflictos = []
+
+        if email:
+            qs = Cliente.objects.filter(email__iexact=email)
+            if exclude_id:
+                qs = qs.exclude(pk=exclude_id)
+            cliente = qs.first()
+            if cliente:
+                conflictos.append({
+                    'field': 'email',
+                    'cliente_id': cliente.id,
+                    'nombre': f'{cliente.primer_nombre} {cliente.apellido_paterno}'.strip(),
+                })
+
+        if ssn:
+            qs = Cliente.objects.filter(ssn=ssn)
+            if exclude_id:
+                qs = qs.exclude(pk=exclude_id)
+            cliente = qs.first()
+            if cliente:
+                conflictos.append({
+                    'field': 'ssn',
+                    'cliente_id': cliente.id,
+                    'nombre': f'{cliente.primer_nombre} {cliente.apellido_paterno}'.strip(),
+                })
+
+        return Response({
+            'duplicado': len(conflictos) > 0,
+            'conflictos': conflictos,
+        })
 
 class AseguradoraViewSet(viewsets.ModelViewSet):
     queryset = Aseguradora.objects.all()
@@ -1044,6 +1088,18 @@ class MedicoViewSet(viewsets.ModelViewSet):
     queryset = Medico.objects.all()
     serializer_class = MedicoSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+class MedicoPolizaViewSet(viewsets.ModelViewSet):
+    queryset = MedicoPoliza.objects.all()
+    serializer_class = MedicoPolizaSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filterset_fields = ['poliza']
+
+class MedicamentoViewSet(viewsets.ModelViewSet):
+    queryset = Medicamento.objects.all()
+    serializer_class = MedicamentoSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filterset_fields = ['poliza']
 
 class ZipCodeLookupView(APIView):
     permission_classes = [permissions.IsAuthenticated]

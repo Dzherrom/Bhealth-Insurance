@@ -8,7 +8,6 @@ import { usePolizaStore } from '@/store/polizaStore';
 
 import { PolizaResumen } from '@/components/polizas/PolizaResumen';
 import { EditPlanDetailsModal } from '@/components/polizas/EditPlanDetailsModal';
-import { NotasPoliza } from '@/components/polizas/NotasPoliza';
 import { DocumentosPoliza } from '@/components/polizas/DocumentosPoliza';
 import { RecordatoriosPoliza } from '@/components/recordatorios';
 import { InfoPagoPoliza } from '@/components/polizas/InfoPagoPoliza';
@@ -20,7 +19,10 @@ import { RegistrosActividadModal } from '@/components/polizas/RegistrosActividad
 import { AddFamilyMemberCard } from '@/components/polizas/AddFamilyMemberCard';
 import { EditFamilyMemberModal } from '@/components/polizas/EditFamilyMemberModal';
 import { EditInfoPagoModal } from '@/components/polizas/EditInfoPagoModal';
-import { EditPolizaTextFieldModal } from '@/components/polizas/EditPolizaTextFieldModal';
+import { EditMedicoPolizaModal } from '@/components/polizas/EditMedicoPolizaModal';
+import { EditMedicamentoModal } from '@/components/polizas/EditMedicamentoModal';
+import type { MedicoPoliza, MedicamentoPoliza } from '@/lib/api';
+import { UltimaNotaCard } from '@/components/polizas/UltimaNotaCard';
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -53,9 +55,11 @@ export default function PolizaDetailsPage() {
   const [isAddCardModalOpen, setIsAddCardModalOpen] = useState(false);
   const [isEditInfoPagoOpen, setIsEditInfoPagoOpen] = useState(false);
   const [isAddBankModalOpen, setIsAddBankModalOpen] = useState(false);
-  const [isEditNotasOpen, setIsEditNotasOpen] = useState(false);
-  const [isEditMedicoOpen, setIsEditMedicoOpen] = useState(false);
-  const [isEditMedicamentosOpen, setIsEditMedicamentosOpen] = useState(false);
+  const [medicoModalOpen, setMedicoModalOpen] = useState(false);
+  const [selectedMedico, setSelectedMedico] = useState<MedicoPoliza | null>(null);
+  const [medicamentoModalOpen, setMedicamentoModalOpen] = useState(false);
+  const [selectedMedicamento, setSelectedMedicamento] = useState<MedicamentoPoliza | null>(null);
+  const [isNotasChatOpen, setIsNotasChatOpen] = useState(false);
 
   useEffect(() => {
     if (params.id) {
@@ -120,6 +124,29 @@ export default function PolizaDetailsPage() {
   const infoPago = (poliza as any).info_pago ?? null;
   const tarjetasPago = (poliza as any).tarjetas_credito || [];
   const cuentasBancarias = (poliza as any).cuentas_bancarias || [];
+  const polizaNotas = (poliza as any).notas || [];
+  const medicosPrincipales: MedicoPoliza[] = (poliza as any).medicos_principales ?? [];
+  const medicamentosLista: MedicamentoPoliza[] = (poliza as any).medicamentos ?? [];
+
+  const openAddMedico = () => {
+    setSelectedMedico(null);
+    setMedicoModalOpen(true);
+  };
+
+  const openEditMedico = (medico: MedicoPoliza) => {
+    setSelectedMedico(medico);
+    setMedicoModalOpen(true);
+  };
+
+  const openAddMedicamento = () => {
+    setSelectedMedicamento(null);
+    setMedicamentoModalOpen(true);
+  };
+
+  const openEditMedicamento = (medicamento: MedicamentoPoliza) => {
+    setSelectedMedicamento(medicamento);
+    setMedicamentoModalOpen(true);
+  };
 
   const maskCardNumber = (numero?: string) => {
     if (!numero) return '****';
@@ -181,10 +208,12 @@ export default function PolizaDetailsPage() {
           direccion_postal_details: poliza.direccion_postal_details,
           direccion_facturacion_details: poliza.direccion_facturacion_details,
           documentos: (poliza as any).documentos,
+          notas: polizaNotas,
         }}
         activeSection={activeSection}
         onSectionChange={setActiveSection}
         onPolizaUpdate={() => poliza.id && fetchPolizaById(poliza.id)}
+        onOpenNotasChat={() => setIsNotasChatOpen(true)}
       />
 
       {/* Floating right buttons */}
@@ -561,40 +590,82 @@ export default function PolizaDetailsPage() {
             {/* Notes */}
             <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 p-4">
               <div className="flex items-center justify-between mb-2">
-                <h2 className="text-gray-700 dark:text-white text-base font-semibold">Notas o comentarios</h2>
+                <h2 className="text-gray-700 dark:text-white text-base font-semibold">Notas</h2>
                 <button
                   className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md"
                   type="button"
-                  onClick={() => setIsEditNotasOpen(true)}
+                  onClick={() => setIsNotasChatOpen(true)}
                 >
-                  <i className="fa-duotone fa-edit"></i>{poliza.notas_comentarios ? 'Editar' : 'Agregar'}
+                  <i className="fa-duotone fa-plus"></i>Agregar nota
                 </button>
               </div>
               <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
-              {poliza.notas_comentarios ? (
-                <p className="text-sm dark:text-gray-300 whitespace-pre-wrap">{poliza.notas_comentarios}</p>
-              ) : (
-                <div className="text-sm dark:text-gray-400">-</div>
-              )}
+              <UltimaNotaCard notas={polizaNotas} variant="section" />
             </div>
 
-            {/* Doctor */}
+            {/* Doctors */}
             <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 p-4">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-gray-700 dark:text-white text-base font-semibold">Información del médico principal</h2>
                 <button
                   className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md"
                   type="button"
-                  onClick={() => setIsEditMedicoOpen(true)}
+                  onClick={openAddMedico}
                 >
-                  <i className="fa-duotone fa-edit"></i>{poliza.info_medico_principal ? 'Editar' : 'Agregar'}
+                  <i className="fa-duotone fa-plus"></i>
+                  Agregar médico
                 </button>
               </div>
               <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
-              {poliza.info_medico_principal ? (
-                <p className="text-sm dark:text-gray-300 whitespace-pre-wrap">{poliza.info_medico_principal}</p>
+
+              {medicosPrincipales.length > 0 ? (
+                <div className="space-y-3">
+                  {medicosPrincipales.map((medico) => (
+                    <div
+                      key={medico.id}
+                      className="rounded-lg border border-emerald-100 dark:border-emerald-900/40 bg-gradient-to-br from-emerald-50/80 to-white dark:from-emerald-950/20 dark:to-slate-900/40 p-4"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                          <i className="fa-solid fa-user-doctor text-lg"></i>
+                        </div>
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <p className="text-sm font-medium text-slate-900 dark:text-white whitespace-pre-wrap">
+                            {medico.nombre}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {medico.especializacion ? (
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/80 dark:bg-slate-800 px-2.5 py-1 text-xs text-emerald-800 dark:text-emerald-200 border border-emerald-100 dark:border-emerald-900/50">
+                                <i className="fa-solid fa-stethoscope text-[10px]"></i>
+                                {medico.especializacion}
+                              </span>
+                            ) : null}
+                            {medico.hospital ? (
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/80 dark:bg-slate-800 px-2.5 py-1 text-xs text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                <i className="fa-solid fa-hospital text-[10px]"></i>
+                                {medico.hospital}
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => openEditMedico(medico)}
+                          className="flex gap-1.5 items-center text-primary hover:text-primary/80 text-xs font-medium shrink-0"
+                        >
+                          <i className="fa-duotone fa-edit"></i>
+                          Editar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : (
-                <div className="text-sm dark:text-gray-400">-</div>
+                <div className="border border-dashed border-slate-200 dark:border-slate-700 rounded-md py-8 text-center">
+                  <i className="fa-solid fa-user-doctor text-2xl text-emerald-300 dark:text-emerald-800 mb-2 block"></i>
+                  <p className="text-sm font-medium dark:text-white">No hay médicos registrados</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Agrega el médico principal u otros especialistas.</p>
+                </div>
               )}
             </div>
 
@@ -605,16 +676,65 @@ export default function PolizaDetailsPage() {
                 <button
                   className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md"
                   type="button"
-                  onClick={() => setIsEditMedicamentosOpen(true)}
+                  onClick={openAddMedicamento}
                 >
-                  <i className="fa-duotone fa-edit"></i>{poliza.medicamentos_necesarios ? 'Editar' : 'Agregar'}
+                  <i className="fa-duotone fa-plus"></i>
+                  Agregar medicamento
                 </button>
               </div>
               <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
-              {poliza.medicamentos_necesarios ? (
-                <p className="text-sm dark:text-gray-300 whitespace-pre-wrap">{poliza.medicamentos_necesarios}</p>
+
+              {medicamentosLista.length > 0 ? (
+                <div className="space-y-3">
+                  {medicamentosLista.map((medicamento) => (
+                    <div
+                      key={medicamento.id}
+                      className="relative overflow-hidden rounded-xl border border-violet-100 dark:border-violet-900/40 bg-gradient-to-br from-violet-50 via-white to-indigo-50 dark:from-violet-950/30 dark:via-slate-900 dark:to-indigo-950/20 p-5 shadow-sm"
+                    >
+                      <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-violet-200/30 dark:bg-violet-800/20 blur-2xl" />
+                      <div className="relative flex items-start gap-4">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-violet-600 text-white shadow-md shadow-violet-200 dark:shadow-none">
+                          <i className="fa-solid fa-pills text-xl"></i>
+                        </div>
+                        <div className="min-w-0 flex-1 space-y-3">
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-violet-600 dark:text-violet-300 mb-1">
+                              Medicamento
+                            </p>
+                            <p className="text-sm font-medium text-slate-900 dark:text-white whitespace-pre-wrap leading-relaxed">
+                              {medicamento.nombre}
+                            </p>
+                          </div>
+                          {medicamento.dosis ? (
+                            <div className="inline-flex items-center gap-2 rounded-lg bg-white/70 dark:bg-slate-800/80 border border-violet-100 dark:border-violet-900/50 px-3 py-2">
+                              <i className="fa-solid fa-syringe text-violet-500 text-xs"></i>
+                              <div>
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-500 dark:text-violet-300">
+                                  Dosis
+                                </p>
+                                <p className="text-sm text-slate-700 dark:text-slate-200">{medicamento.dosis}</p>
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => openEditMedicamento(medicamento)}
+                          className="flex gap-1.5 items-center text-primary hover:text-primary/80 text-xs font-medium shrink-0 relative z-10"
+                        >
+                          <i className="fa-duotone fa-edit"></i>
+                          Editar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : (
-                <div className="text-sm dark:text-gray-400">-</div>
+                <div className="border border-dashed border-violet-200 dark:border-violet-900/40 rounded-xl py-8 text-center bg-violet-50/30 dark:bg-violet-950/10">
+                  <i className="fa-solid fa-pills text-2xl text-violet-300 dark:text-violet-700 mb-2 block"></i>
+                  <p className="text-sm font-medium dark:text-white">No hay medicamentos registrados</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Agrega los medicamentos cubiertos por el seguro.</p>
+                </div>
               )}
             </div>
 
@@ -718,34 +838,18 @@ export default function PolizaDetailsPage() {
         infoPago={infoPago}
         onSaved={refreshPoliza}
       />
-      <EditPolizaTextFieldModal
-        open={isEditNotasOpen}
-        onOpenChange={setIsEditNotasOpen}
+      <EditMedicoPolizaModal
+        open={medicoModalOpen}
+        onOpenChange={setMedicoModalOpen}
         polizaId={poliza.id}
-        title={poliza.notas_comentarios ? 'Editar notas o comentarios' : 'Agregar notas o comentarios'}
-        label="Notas o comentarios"
-        field="notas_comentarios"
-        value={poliza.notas_comentarios}
+        medico={selectedMedico}
         onSaved={refreshPoliza}
       />
-      <EditPolizaTextFieldModal
-        open={isEditMedicoOpen}
-        onOpenChange={setIsEditMedicoOpen}
+      <EditMedicamentoModal
+        open={medicamentoModalOpen}
+        onOpenChange={setMedicamentoModalOpen}
         polizaId={poliza.id}
-        title={poliza.info_medico_principal ? 'Editar información del médico principal' : 'Agregar información del médico principal'}
-        label="Información del médico principal"
-        field="info_medico_principal"
-        value={poliza.info_medico_principal}
-        onSaved={refreshPoliza}
-      />
-      <EditPolizaTextFieldModal
-        open={isEditMedicamentosOpen}
-        onOpenChange={setIsEditMedicamentosOpen}
-        polizaId={poliza.id}
-        title={poliza.medicamentos_necesarios ? 'Editar medicamentos necesarios' : 'Agregar medicamentos necesarios'}
-        label="Medicamentos necesarios"
-        field="medicamentos_necesarios"
-        value={poliza.medicamentos_necesarios}
+        medicamento={selectedMedicamento}
         onSaved={refreshPoliza}
       />
       <EditFinancialModal open={isFinancialModalOpen} onOpenChange={setIsFinancialModalOpen} poliza={poliza} />
@@ -754,6 +858,20 @@ export default function PolizaDetailsPage() {
         onOpenChange={setIsBasicInfoModalOpen}
         poliza={poliza}
         onSaved={() => poliza.id && fetchPolizaById(poliza.id)}
+      />
+      <NotasChat
+        isOpen={isNotasChatOpen}
+        onClose={() => setIsNotasChatOpen(false)}
+        onClosed={refreshPoliza}
+        polizaInfo={{
+          cliente: clientePrincipal
+            ? `${clientePrincipal.cliente_details.primer_nombre} ${clientePrincipal.cliente_details.apellido_paterno}`
+            : 'No asignado',
+          plan: poliza.plan_nombre || '',
+          id: String(poliza.id),
+          estado: poliza.estado_nombre,
+          etiquetas: poliza.etiquetas,
+        }}
       />
   </div>
   );

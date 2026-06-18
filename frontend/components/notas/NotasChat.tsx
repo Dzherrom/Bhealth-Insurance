@@ -22,6 +22,10 @@ import {
 import { notasApi, resolveApiMediaUrl, usersApi } from '@/lib/api';
 import { mapNotaUsuario } from '@/components/polizas/notaUtils';
 import { useToast } from '@/hooks/use-toast';
+import { AnimatePresence, motion } from 'motion/react';
+
+const OVERLAY_TRANSITION = { duration: 0.28, ease: [0.4, 0, 0.2, 1] as const };
+const PANEL_TRANSITION = { duration: 0.38, ease: [0.32, 0.72, 0, 1] as const };
 
 interface NotaChat {
   id: number;
@@ -46,6 +50,7 @@ interface NotaChat {
 interface NotasChatProps {
   isOpen: boolean;
   onClose: () => void;
+  onClosed?: () => void;
   polizaInfo: {
     cliente: string;
     plan: string;
@@ -66,10 +71,9 @@ const estadoColors = {
   'COMPLETO': 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300'
 };
 
-export function NotasChat({ isOpen, onClose, polizaInfo }: NotasChatProps) {
+export function NotasChat({ isOpen, onClose, onClosed, polizaInfo }: NotasChatProps) {
   const [notas, setNotas] = useState<NotaChat[]>([]);
   const [nuevaNota, setNuevaNota] = useState('');
-  const [isAnimating, setIsAnimating] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [archivosAdjuntos, setArchivosAdjuntos] = useState<File[]>([]);
   const [usuarios, setUsuarios] = useState<any[]>([]);
@@ -91,13 +95,9 @@ export function NotasChat({ isOpen, onClose, polizaInfo }: NotasChatProps) {
   }, [notas]);
 
   useEffect(() => {
-    if (isOpen) {
-      setIsAnimating(true);
-      if (polizaInfo?.id) {
-        loadNotas();
-      }
-      loadUsuarios();
-    }
+    if (!isOpen || !polizaInfo?.id) return;
+    loadNotas();
+    loadUsuarios();
   }, [isOpen, polizaInfo?.id]);
 
   const loadUsuarios = async () => {
@@ -114,12 +114,7 @@ export function NotasChat({ isOpen, onClose, polizaInfo }: NotasChatProps) {
   const loadNotas = async () => {
     setIsLoading(true);
     try {
-      const todas = await notasApi.list();
-      let ns = (todas as any[]);
-      if ((todas as any).results) {
-         ns = (todas as any).results;
-      }
-      const dePoliza = ns.filter(n => String(n.poliza) === String(polizaInfo.id));
+      const dePoliza = await notasApi.listByPoliza(polizaInfo.id);
       setNotas(dePoliza.map((n: any) => ({
         id: n.id,
         mensaje: n.contenido,
@@ -140,10 +135,7 @@ export function NotasChat({ isOpen, onClose, polizaInfo }: NotasChatProps) {
   };
 
   const handleClose = () => {
-    setIsAnimating(false);
-    setTimeout(() => {
-      onClose();
-    }, 300);
+    onClose();
   };
 
   const formatTime = (dateString: string) => {
@@ -291,19 +283,33 @@ export function NotasChat({ isOpen, onClose, polizaInfo }: NotasChatProps) {
       handleEnviarNota();
     }
   };
-
-  if (!isOpen) return null;
-
   return (
-    <>
-      <div 
-        className="fixed inset-0 bg-transparent z-40"
-        onClick={handleClose}
-      />
-      
-      <div className={`fixed left-0 top-0 h-full w-[500px] bg-white dark:bg-slate-900 shadow-xl z-50 flex flex-col transform transition-transform duration-300 ease-in-out border-r border-slate-200 dark:border-slate-800 ${
-        isAnimating ? 'translate-x-0' : '-translate-x-full'
-      }`}>
+    <AnimatePresence onExitComplete={onClosed}>
+      {isOpen && (
+        <>
+          <motion.div
+            key="notas-chat-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={OVERLAY_TRANSITION}
+            className="fixed inset-0 z-40 bg-black/25"
+            onClick={handleClose}
+            aria-hidden="true"
+          />
+
+          <motion.div
+            key="notas-chat-panel"
+            initial={{ x: '-100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '-100%' }}
+            transition={PANEL_TRANSITION}
+            className="fixed left-0 top-0 z-50 flex h-full w-full max-w-[500px] flex-col border-r border-slate-200 bg-white shadow-2xl will-change-transform dark:border-slate-800 dark:bg-slate-900"
+            style={{ transform: 'translateZ(0)' }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Notas de póliza"
+          >
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/50">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Notas de Póliza</h2>
@@ -540,24 +546,26 @@ export function NotasChat({ isOpen, onClose, polizaInfo }: NotasChatProps) {
             </div>
           </div>
         </div>
-      </div>
+          </motion.div>
 
-      {previewImage && (
-        <div 
-          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 cursor-pointer"
-          onClick={() => setPreviewImage(null)}
-        >
-          <img src={previewImage} alt="Vista previa" className="max-w-full max-h-full object-contain" />
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="absolute top-4 right-4 text-white hover:bg-white/20"
-            onClick={(e) => { e.stopPropagation(); setPreviewImage(null); }}
-          >
-            <X className="w-6 h-6" />
-          </Button>
-        </div>
+          {previewImage && (
+            <div 
+              className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 cursor-pointer"
+              onClick={() => setPreviewImage(null)}
+            >
+              <img src={previewImage} alt="Vista previa" className="max-w-full max-h-full object-contain" />
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="absolute top-4 right-4 text-white hover:bg-white/20"
+                onClick={(e) => { e.stopPropagation(); setPreviewImage(null); }}
+              >
+                <X className="w-6 h-6" />
+              </Button>
+            </div>
+          )}
+        </>
       )}
-    </>
+    </AnimatePresence>
   );
 }

@@ -258,10 +258,33 @@ class Poliza(models.Model):
 
     notas_comentarios = models.TextField(blank=True, null=True, verbose_name="Notas o Comentarios")
     info_medico_principal = models.TextField(blank=True, null=True, verbose_name="Información del Médico Principal")
+    medico_especializacion = models.CharField(max_length=255, blank=True, null=True, verbose_name="Especialización del Médico")
+    medico_hospital = models.CharField(max_length=255, blank=True, null=True, verbose_name="Hospital del Médico")
     medicamentos_necesarios = models.TextField(blank=True, null=True, verbose_name="Medicamentos Necesarios")
+    medicamentos_dosis = models.CharField(max_length=255, blank=True, null=True, verbose_name="Dosis de Medicamentos")
 
     def __str__(self):
         return self.id_mercado
+
+class MedicoPoliza(models.Model):
+    poliza = models.ForeignKey(
+        Poliza,
+        on_delete=models.CASCADE,
+        related_name='medicos_principales',
+        verbose_name="Póliza",
+    )
+    nombre = models.TextField(verbose_name="Nombre / Información del médico")
+    especializacion = models.CharField(max_length=255, blank=True, null=True, verbose_name="Especialización")
+    hospital = models.CharField(max_length=255, blank=True, null=True, verbose_name="Hospital")
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de creación")
+
+    class Meta:
+        verbose_name = "Médico de póliza"
+        verbose_name_plural = "Médicos de póliza"
+        ordering = ['fecha_creacion', 'id']
+
+    def __str__(self):
+        return self.nombre[:80] if self.nombre else f"Médico #{self.pk}"
 
 class PolizaCliente(models.Model):
     poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE)

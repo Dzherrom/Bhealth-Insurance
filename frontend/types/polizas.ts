@@ -51,7 +51,26 @@ export interface PolizaUpdateRequest extends Partial<Omit<PolizaCreateRequest, '
   clientes_data?: ClientePolizaData[];
   notas_comentarios?: string | null;
   info_medico_principal?: string | null;
+  medico_especializacion?: string | null;
+  medico_hospital?: string | null;
   medicamentos_necesarios?: string | null;
+  medicamentos_dosis?: string | null;
+  medicos_principales?: Array<{
+    id: number;
+    poliza: number;
+    nombre: string;
+    especializacion?: string | null;
+    hospital?: string | null;
+    fecha_creacion?: string;
+  }>;
+  medicamentos?: Array<{
+    id: number;
+    poliza: number;
+    nombre: string;
+    dosis?: string | null;
+    frecuencia?: string | null;
+    activo?: boolean;
+  }>;
 }
 
 // ===============================
@@ -76,7 +95,26 @@ export interface PolizaResponse extends BaseEntity {
   clientes_info: ClientePolizaDetails[];
   notas_comentarios?: string | null;
   info_medico_principal?: string | null;
+  medico_especializacion?: string | null;
+  medico_hospital?: string | null;
   medicamentos_necesarios?: string | null;
+  medicamentos_dosis?: string | null;
+  medicos_principales?: Array<{
+    id: number;
+    poliza: number;
+    nombre: string;
+    especializacion?: string | null;
+    hospital?: string | null;
+    fecha_creacion?: string;
+  }>;
+  medicamentos?: Array<{
+    id: number;
+    poliza: number;
+    nombre: string;
+    dosis?: string | null;
+    frecuencia?: string | null;
+    activo?: boolean;
+  }>;
   fecha_creacion?: string;
   fecha_modificacion?: string;
 }

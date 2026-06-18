@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { NotasChat } from '@/components/notas/NotasChat';
 import { CambiosDeVidaPanel } from './CambiosDeVidaPanel';
 import { RegistrosActividadModal } from './RegistrosActividadModal';
+import { UltimaNotaCard } from './UltimaNotaCard';
 import { api, etiquetasApi, estadosPolizaApi, agentesApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -12,6 +12,7 @@ import {
   formatFechaDisplay,
   getPrincipalMember,
 } from './polizaUtils';
+import type { NotaApi } from './notaUtils';
 import { 
   FileText, 
   Folder,
@@ -25,7 +26,6 @@ import {
   List,
   Settings,
   Menu,
-  Info
 } from 'lucide-react';
 
 interface PolizaResumenProps {
@@ -49,14 +49,15 @@ interface PolizaResumenProps {
     direccion_postal_details?: any;
     direccion_facturacion_details?: any;
     documentos?: any[];
+    notas?: NotaApi[];
   };
   activeSection?: string;
   onSectionChange?: (section: string) => void;
   onPolizaUpdate?: (updatedData: any) => void;
+  onOpenNotasChat?: () => void;
 }
 
-export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza', onSectionChange, onPolizaUpdate }: PolizaResumenProps) {
-  const [isNotasChatOpen, setIsNotasChatOpen] = useState(false);
+export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza', onSectionChange, onPolizaUpdate, onOpenNotasChat }: PolizaResumenProps) {
   const [isCambiosVidaOpen, setIsCambiosVidaOpen] = useState(false);
   const [isRegistrosModalOpen, setIsRegistrosModalOpen] = useState(false);
   const [allEtiquetas, setAllEtiquetas] = useState<{id: number, nombre: string}[]>([]);
@@ -167,7 +168,7 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
   const navItems = [
     { id: 'poliza', icon: <i className="fa-duotone fa-shield-halved"></i>, label: 'Póliza' },
     { id: 'documentos', icon: <i className="fa-duotone fa-folder"></i>, label: 'Documentos', count: polizaContext?.documentos?.length ?? 0 },
-    { id: 'notas', icon: <i className="fa-duotone fa-sticky-note"></i>, label: 'Notas', count: 0, isChat: true },
+    { id: 'notas', icon: <i className="fa-duotone fa-sticky-note"></i>, label: 'Notas', count: polizaContext?.notas?.length ?? 0, isChat: true },
     { id: 'recordatorios', icon: <i className="fa-duotone fa-bell-on"></i>, label: 'Recordatorios', count: 0 },
     { id: 'formularios', icon: <i className="fa-duotone fa-file-signature"></i>, label: 'Formularios de Firma', count: 0 },
     { id: 'direcciones', icon: <i className="fa-duotone fa-location-dot"></i>, label: 'Direcciones' },
@@ -383,7 +384,7 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
                   }`}
                   onClick={() => {
                     if (item.isChat) {
-                      setIsNotasChatOpen(true);
+                      onOpenNotasChat?.();
                     } else if (item.isPanel) {
                       setIsCambiosVidaOpen(true);
                     } else if (item.isModal) {
@@ -432,26 +433,9 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
           <div className="flex items-center justify-between border-b border-gray-100 dark:border-slate-700 pb-1 mb-2">
             <p className="text-sm font-semibold text-gray-900 dark:text-white">Última nota</p>
           </div>
-          <div className="p-3 shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-700 !py-2 !px-3 w-full flex gap-3 bg-blue-50 dark:bg-slate-700">
-            <Info className="w-4 h-4 mt-0.5 text-blue-500 dark:text-blue-400 shrink-0" />
-            <p className="text-gray-700 dark:text-gray-300 text-xs font-normal">
-              Todavía no se han creado notas para esta póliza.
-            </p>
-          </div>
+          <UltimaNotaCard notas={polizaContext?.notas} variant="sidebar" />
         </div>
       </div>
-
-      <NotasChat 
-        isOpen={isNotasChatOpen}
-        onClose={() => setIsNotasChatOpen(false)}
-        polizaInfo={{
-          cliente: poliza.cliente_principal,
-          plan: poliza.plan_nombre,
-          id: String(poliza.id || poliza.id_mercado),
-          estado: poliza.estado_nombre,
-          etiquetas: poliza.etiquetas
-        }}
-      />
 
       {poliza.id && (
         <CambiosDeVidaPanel

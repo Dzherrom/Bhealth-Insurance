@@ -11,7 +11,7 @@ from .views import (
     ClienteViewSet, AseguradoraViewSet, PlanViewSet,
     EstadoPolizaViewSet, PolizaViewSet, NotaViewSet, HistorialPolizaViewSet,
     EtiquetaViewSet, DocumentoViewSet, TareaViewSet, CambioDeVidaViewSet, UserManagementViewSet,
-    ZipCodeLookupView, CitaViewSet, MedicoViewSet, RecordatorioViewSet,
+    ZipCodeLookupView, CitaViewSet, MedicoViewSet, MedicoPolizaViewSet, MedicamentoViewSet, RecordatorioViewSet,
     ReporteAgentesView, DashboardStatsView, ReporteIntentosFallidosView,
     ContratoViewSet, ReporteComisionViewSet, NotificacionViewSet,
     LocationLookupView, TarjetaCreditoViewSet, CustomTokenObtainPairView,
@@ -47,6 +47,8 @@ router.register(r'cambios-de-vida', CambioDeVidaViewSet)
 router.register(r'recordatorios', RecordatorioViewSet)
 router.register(r'citas', CitaViewSet)
 router.register(r'medicos', MedicoViewSet)
+router.register(r'medicos-poliza', MedicoPolizaViewSet)
+router.register(r'medicamentos', MedicamentoViewSet)
 router.register(r'contratos', ContratoViewSet)
 router.register(r'reportes_comision', ReporteComisionViewSet)
 router.register(r'configuracion-comisiones', ConfiguracionComisionViewSet)
