@@ -581,7 +581,11 @@ class PolizaViewSet(viewsets.ModelViewSet):
                 Prefetch(
                     'polizacliente_set',
                     queryset=PolizaCliente.objects.select_related('cliente').filter(es_solicitante_principal=True),
-                )
+                ),
+                Prefetch(
+                    'colaboradores',
+                    queryset=User.objects.select_related('profile__agente'),
+                ),
             ).exclude(estado__nombre__in=['DRAFT', 'QUOTE', 'Draft', 'Quote', 'draft', 'quote', 'Borrador', 'Cotización'])
 
         user = self.request.user
@@ -899,7 +903,12 @@ class PolizaViewSet(viewsets.ModelViewSet):
         """
         from django.db.models import Q
 
-        qs = Poliza.objects.select_related('agente', 'plan', 'estado', 'plan__aseguradora').filter(
+        qs = Poliza.objects.select_related('agente', 'plan', 'estado', 'plan__aseguradora').prefetch_related(
+            Prefetch(
+                'colaboradores',
+                queryset=User.objects.select_related('profile__agente'),
+            ),
+        ).filter(
             Q(estado__nombre__icontains='cotiz') |
             Q(estado__nombre__icontains='quote') |
             Q(estado__nombre__icontains='draft') |

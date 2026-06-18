@@ -6,6 +6,9 @@ export interface Poliza {
   id_mercado: string;
   id_miembro: string;
   agente_nombre: string;
+  agente_npn?: string | null;
+  asistente_nombre?: string | null;
+  asistente_npn?: string | null;
   plan_nombre: string;
   estado_nombre: string;
   prima_mensual: number;

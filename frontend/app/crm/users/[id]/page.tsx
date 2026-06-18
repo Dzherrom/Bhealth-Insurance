@@ -28,6 +28,8 @@ interface ApiUserProfile {
   status?: string;
   avatar?: string | null;
   telefono?: string | null;
+  npn?: string | null;
+  ssn?: string | null;
   agente?: number | null;
   agente_npn?: string | null;
   agente_ffm?: string | null;
@@ -50,9 +52,13 @@ interface EditProfileForm {
   lastName: string;
   email: string;
   phone: string;
+  npn: string;
+  ssn: string;
   role: string;
   status: string;
 }
+
+const AGENT_ROLES = new Set(['ADMIN', 'MANAGER', 'ASISTENTE', 'SHERPA', 'PAGOS', 'CITAS']);
 
 const ROLE_OPTIONS = [
   { value: 'ADMIN', label: 'Admin' },
@@ -145,6 +151,8 @@ export default function UserDetailsPage() {
     lastName: '',
     email: '',
     phone: '',
+    npn: '',
+    ssn: '',
     role: 'USER',
     status: 'ACTIVE',
   });
@@ -161,10 +169,12 @@ export default function UserDetailsPage() {
         lastName: typedData.last_name || '',
         email: typedData.email || '',
         phone: typedData.profile?.telefono || '',
+        npn: typedData.profile?.npn || typedData.profile?.agente_npn || '',
+        ssn: typedData.profile?.ssn || '',
         role: typedData.profile?.role || 'USER',
         status: typedData.profile?.status || 'ACTIVE',
       });
-      setAgentNpn(typedData.profile?.agente_npn || '');
+      setAgentNpn(typedData.profile?.npn || typedData.profile?.agente_npn || '');
       setAgentFfm(typedData.profile?.agente_ffm || '');
     } catch (error) {
       console.error('Error al cargar detalle de usuario:', error);
@@ -208,16 +218,22 @@ export default function UserDetailsPage() {
   };
 
   const handleSaveAgentCredentials = async () => {
-    if (!user?.profile?.agente) return;
+    if (!user?.id) return;
 
     setIsSavingAgent(true);
     try {
-      await agentesApi.patch(user.profile.agente, {
-        npn: agentNpn.trim(),
-        ffm: agentFfm.trim() || null,
+      await usersApi.patch(user.id, {
+        profile: {
+          npn: agentNpn.trim() || null,
+        },
       } as any);
+      if (user.profile?.agente && agentFfm.trim()) {
+        await agentesApi.patch(user.profile.agente, {
+          ffm: agentFfm.trim(),
+        } as any);
+      }
       await fetchUser();
-      toast({ title: 'Credenciales actualizadas', description: 'NPN y FFM del agente guardados correctamente.' });
+      toast({ title: 'Credenciales actualizadas', description: 'NPN y FFM del empleado guardados correctamente.' });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'No se pudieron guardar las credenciales';
       toast({ title: 'Error', description: message, variant: 'destructive' });
@@ -246,6 +262,8 @@ export default function UserDetailsPage() {
           role: form.role,
           status: form.status,
           telefono: form.phone,
+          npn: form.npn.trim() || null,
+          ssn: form.ssn.trim() || null,
         },
       } as any);
 
@@ -388,15 +406,25 @@ export default function UserDetailsPage() {
               <p className="text-sm text-muted-foreground dark:text-gray-400">Teléfono</p>
               <p className="font-medium flex items-center gap-2"><Phone className="h-4 w-4" />{user.profile?.telefono || 'Sin teléfono'}</p>
             </div>
+            <Separator />
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground dark:text-gray-400">NPN</p>
+              <p className="font-medium">{user.profile?.npn || user.profile?.agente_npn || 'Sin NPN'}</p>
+            </div>
+            <Separator />
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground dark:text-gray-400">SSN</p>
+              <p className="font-medium">{user.profile?.ssn || 'Sin SSN'}</p>
+            </div>
           </CardContent>
         </Card>
 
-        {user.profile?.agente && (
+        {AGENT_ROLES.has(user.profile?.role || '') && (
           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Shield className="h-4 w-4" />
-                Credenciales de Agente (Mercado)
+                Credenciales de Mercado
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -407,7 +435,7 @@ export default function UserDetailsPage() {
                     id="agentNpn"
                     value={agentNpn}
                     onChange={(e) => setAgentNpn(e.target.value)}
-                    placeholder="Número NPN del agente"
+                    placeholder="Número NPN del empleado"
                   />
                 </div>
                 <div className="space-y-2">
@@ -417,9 +445,15 @@ export default function UserDetailsPage() {
                     value={agentFfm}
                     onChange={(e) => setAgentFfm(e.target.value)}
                     placeholder="FFM usado en el mercado"
+                    disabled={!user.profile?.agente}
                   />
                 </div>
               </div>
+              {!user.profile?.agente && (
+                <p className="text-sm text-muted-foreground dark:text-gray-400">
+                  Al guardar el NPN se vinculará automáticamente un registro de agente para este empleado.
+                </p>
+              )}
               <Button type="button" onClick={handleSaveAgentCredentials} disabled={isSavingAgent || !agentNpn.trim()}>
                 {isSavingAgent ? 'Guardando...' : 'Guardar credenciales'}
               </Button>
@@ -503,6 +537,24 @@ export default function UserDetailsPage() {
                   id="phone"
                   value={form.phone}
                   onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="npn">NPN</Label>
+                <Input
+                  id="npn"
+                  value={form.npn}
+                  onChange={(e) => setForm((prev) => ({ ...prev, npn: e.target.value }))}
+                  placeholder="Número NPN del empleado"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ssn">SSN</Label>
+                <Input
+                  id="ssn"
+                  value={form.ssn}
+                  onChange={(e) => setForm((prev) => ({ ...prev, ssn: e.target.value }))}
+                  placeholder="XXX-XX-XXXX"
                 />
               </div>
               <div className="space-y-2">

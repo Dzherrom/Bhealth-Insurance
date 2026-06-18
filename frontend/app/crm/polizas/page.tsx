@@ -38,7 +38,7 @@ export default function PolizasPage() {
     setPage,
   } = usePolizaStore();
   
-  const selectedYears = user?.profile?.settings?.selectedYears || [];
+  const selectedYears = user?.profile?.settings?.selectedYears ?? [];
   const yearsString = selectedYears.join(',');
 
   const [filters, setFilters] = useState<PolizaFilters>({
@@ -73,6 +73,9 @@ export default function PolizasPage() {
     id_mercado: p.id_mercado,
     id_miembro: p.id_miembro,
     agente_nombre: p.agente_nombre,
+    agente_npn: p.agente_npn,
+    asistente_nombre: p.asistente_nombre,
+    asistente_npn: p.asistente_npn,
     plan_nombre: p.plan_nombre,
     estado_nombre: p.estado_nombre,
     prima_mensual: parseFloat(p.prima_mensual ?? '0'),
@@ -258,8 +261,8 @@ export default function PolizasPage() {
                       <td className="p-[18px_24px] border-b border-[#f1f5f9] dark:border-[#334155] align-top">
                         <div>
                           <h5 className="text-[13px] font-bold text-[#334155] dark:text-gray-200 uppercase leading-[1.4] m-0">{poliza.agente_nombre || 'No Asignado'}</h5>
-                          <p className="text-[12px] font-medium text-[#94a3b8] dark:text-gray-500 leading-[1.4] mt-[4px] m-0">NPN: <span className="text-[#64748b] dark:text-gray-400 font-semibold">{Math.floor(10000000 + Math.random() * 90000000)}</span></p>
-                          <p className="text-[12px] font-medium text-[#94a3b8] dark:text-gray-500 leading-[1.4] mt-[4px] m-0">Asistente: <span className="text-[#64748b] dark:text-gray-400 font-semibold">Sin Registrar</span></p>
+                          <p className="text-[12px] font-medium text-[#94a3b8] dark:text-gray-500 leading-[1.4] mt-[4px] m-0">NPN: <span className="text-[#64748b] dark:text-gray-400 font-semibold">{poliza.agente_npn || '---'}</span></p>
+                          <p className="text-[12px] font-medium text-[#94a3b8] dark:text-gray-500 leading-[1.4] mt-[4px] m-0">Asistente: <span className="text-[#64748b] dark:text-gray-400 font-semibold">{poliza.asistente_nombre ? `${poliza.asistente_nombre}${poliza.asistente_npn ? ` (NPN: ${poliza.asistente_npn})` : ''}` : 'Sin Registrar'}</span></p>
                         </div>
                       </td>
                       <td className="p-[18px_24px] border-b border-[#f1f5f9] dark:border-[#334155] align-top">

@@ -24,6 +24,42 @@ class FlatFileUploadSerializer(serializers.Serializer):
 def normalize_role(role):
     return (role or '').strip().upper()
 
+AGENT_ROLES = {'ADMIN', 'MANAGER', 'ASISTENTE', 'SHERPA', 'PAGOS', 'CITAS'}
+
+
+def sync_profile_agente_credentials(profile):
+    """Keep linked Agente NPN in sync with profile.npn for agent-capable roles."""
+    if normalize_role(profile.role) not in AGENT_ROLES:
+        return
+    npn = (profile.npn or '').strip()
+    if not npn:
+        return
+
+    from .models import Agencia, Agente
+
+    if profile.agente_id:
+        agente = profile.agente
+        if agente.npn != npn:
+            agente.npn = npn
+            agente.save(update_fields=['npn'])
+        return
+
+    agencia = Agencia.objects.first()
+    if not agencia:
+        return
+
+    user = profile.user
+    nombre = f'{user.first_name} {user.last_name}'.strip() or user.username
+    agente = Agente.objects.create(
+        npn=npn,
+        ffm=f'FFM-{npn}',
+        nombre_completo=nombre,
+        agencia=agencia,
+    )
+    profile.agente = agente
+    profile.save(update_fields=['agente'])
+
+
 def can_view_sensitive_data(request_user):
     if not request_user or not request_user.is_authenticated:
         return False
@@ -77,13 +113,47 @@ class ProfileDataSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserProfile
-        fields = ('role', 'status', 'avatar', 'telefono', 'agente', 'agente_npn', 'agente_ffm', 'settings')
+        fields = ('role', 'status', 'avatar', 'telefono', 'npn', 'ssn', 'agente', 'agente_npn', 'agente_ffm', 'settings')
 
     def get_agente_npn(self, obj):
+        if obj.npn:
+            return obj.npn
         return obj.agente.npn if obj.agente_id else None
 
     def get_agente_ffm(self, obj):
         return obj.agente.ffm if obj.agente_id else None
+
+    def validate_npn(self, value):
+        if not value:
+            return value
+        npn = value.strip()
+        qs = UserProfile.objects.filter(npn=npn)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError('Este NPN ya está asignado a otro empleado.')
+        agente_qs = Agente.objects.filter(npn=npn)
+        if self.instance and self.instance.agente_id:
+            agente_qs = agente_qs.exclude(pk=self.instance.agente_id)
+        if agente_qs.exists():
+            raise serializers.ValidationError('Este NPN ya está registrado en otro agente.')
+        return npn
+
+    def validate_ssn(self, value):
+        if not value:
+            return value
+        ssn = value.strip()
+        qs = UserProfile.objects.filter(ssn=ssn)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError('Este SSN ya está asignado a otro empleado.')
+        return ssn
+
+    def update(self, instance, validated_data):
+        profile = super().update(instance, validated_data)
+        sync_profile_agente_credentials(profile)
+        return profile
 
 class UserManagementSerializer(serializers.ModelSerializer):
     profile = ProfileDataSerializer()
@@ -95,7 +165,7 @@ class UserManagementSerializer(serializers.ModelSerializer):
         read_only_fields = ('date_joined', 'last_login')
 
     def update(self, instance, validated_data):
-        profile_data = validated_data.pop('profile', {})
+        profile_data = validated_data.pop('profile', None)
         groups_data = validated_data.pop('groups', None)
 
         instance = super().update(instance, validated_data)
@@ -103,10 +173,14 @@ class UserManagementSerializer(serializers.ModelSerializer):
         if groups_data is not None:
             instance.groups.set(groups_data)
 
-        profile = instance.profile
-        for attr, value in profile_data.items():
-            setattr(profile, attr, value)
-        profile.save()
+        if profile_data is not None:
+            profile_serializer = ProfileDataSerializer(
+                instance.profile,
+                data=profile_data,
+                partial=True,
+            )
+            profile_serializer.is_valid(raise_exception=True)
+            profile_serializer.save()
 
         return instance
 
@@ -529,6 +603,9 @@ class RecordatorioSerializer(serializers.ModelSerializer):
 
 class PolizaListSerializer(serializers.ModelSerializer):
     agente_nombre = serializers.ReadOnlyField(source='agente.nombre_completo')
+    agente_npn = serializers.SerializerMethodField()
+    asistente_nombre = serializers.SerializerMethodField()
+    asistente_npn = serializers.SerializerMethodField()
     plan_nombre = serializers.ReadOnlyField(source='plan.nombre')
     estado_nombre = serializers.ReadOnlyField(source='estado.nombre')
     cliente_principal = serializers.SerializerMethodField()
@@ -542,6 +619,9 @@ class PolizaListSerializer(serializers.ModelSerializer):
             'id_interno',
             'agente',
             'agente_nombre',
+            'agente_npn',
+            'asistente_nombre',
+            'asistente_npn',
             'plan',
             'plan_nombre',
             'tipo_producto',
@@ -558,6 +638,45 @@ class PolizaListSerializer(serializers.ModelSerializer):
             'cliente_principal',
             'ultima_actualizacion',
         ]
+
+    def _resolve_npn(self, profile):
+        if not profile:
+            return None
+        if profile.npn:
+            return profile.npn
+        if profile.agente_id:
+            return profile.agente.npn
+        return None
+
+    def get_agente_npn(self, obj):
+        if obj.agente_id:
+            return obj.agente.npn
+        return None
+
+    def _get_asistente_colaborador(self, obj):
+        colaboradores = getattr(obj, '_prefetched_objects_cache', {}).get('colaboradores')
+        if colaboradores is None:
+            colaboradores = obj.colaboradores.select_related('profile__agente').all()
+        for user in colaboradores:
+            profile = getattr(user, 'profile', None)
+            if profile and normalize_role(profile.role) == 'ASISTENTE':
+                return user
+        colaboradores_list = list(colaboradores)
+        return colaboradores_list[0] if colaboradores_list else None
+
+    def get_asistente_nombre(self, obj):
+        user = self._get_asistente_colaborador(obj)
+        if not user:
+            return None
+        nombre = f'{user.first_name} {user.last_name}'.strip()
+        return nombre or user.username
+
+    def get_asistente_npn(self, obj):
+        user = self._get_asistente_colaborador(obj)
+        if not user:
+            return None
+        profile = getattr(user, 'profile', None)
+        return self._resolve_npn(profile)
 
     def get_cliente_principal(self, obj):
         principal_link = next(

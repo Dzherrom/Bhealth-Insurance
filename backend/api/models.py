@@ -332,6 +332,8 @@ class UserProfile(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ACTIVE', verbose_name="Estatus")
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True, verbose_name="Avatar")
     telefono = models.CharField(max_length=20, null=True, blank=True, verbose_name="Teléfono")
+    npn = models.CharField(max_length=50, null=True, blank=True, verbose_name="NPN")
+    ssn = models.CharField(max_length=20, null=True, blank=True, verbose_name="SSN")
     agente = models.OneToOneField(Agente, on_delete=models.SET_NULL, null=True, blank=True, related_name='user_profile')
     settings = models.JSONField(default=dict, blank=True, null=True, verbose_name="Configuraciones de UI")
 
