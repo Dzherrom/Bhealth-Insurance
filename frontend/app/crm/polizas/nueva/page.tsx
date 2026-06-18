@@ -10,28 +10,17 @@ import {
   getClienteDisplayName,
   mapClienteToWizardAddress,
   mapClienteToWizardPersonal,
+  mapClienteWizardContext,
+  mergeCountyOptions,
   validateContactsAgainstDatabase,
+  type WizardFamilyMember,
 } from '@/lib/clienteUtils';
+import { clientesApi } from '@/lib/api';
 import type { Cliente } from '@/types';
 import { ArrowLeft, Plus, ChevronRight, Trash2 } from 'lucide-react';
 import { ProductSelection } from '@/components/polizas/ProductSelection';
 
-interface FamilyMember {
-  primerNombre: string;
-  segundoNombre: string;
-  apellidoPaterno: string;
-  apellidoMaterno: string;
-  fechaNacimiento: string;
-  sexo: string;
-  telefono: string;
-  email: string;
-  ssn: string;
-  usaTabaco: boolean;
-  peso: string;
-  estatura: string;
-  condicionMedica: string;
-  relacion: string;
-}
+interface FamilyMember extends WizardFamilyMember {}
 
 type ApplicantMode = 'new' | 'existing';
 
@@ -51,6 +40,7 @@ export default function NuevaPolizaWizard() {
   const [applicantMode, setApplicantMode] = useState<ApplicantMode>('new');
   const [selectedExistingCliente, setSelectedExistingCliente] = useState<Cliente | null>(null);
   const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false);
+  const [isLoadingClienteContext, setIsLoadingClienteContext] = useState(false);
 
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
   const [agentes, setAgentes] = useState<any[]>([]);
@@ -65,22 +55,56 @@ export default function NuevaPolizaWizard() {
     return nextMonth.toISOString().split('T')[0];
   };
 
+  const syncCountiesForZip = async (zipCode: string, preferredCondado?: string) => {
+    if (!zipCode || zipCode.length < 5) {
+      if (preferredCondado?.trim()) {
+        setCounties([preferredCondado.trim()]);
+      }
+      return;
+    }
+
+    try {
+      const token = accessToken || getCurrentToken();
+      const res = await fetch(`${API_BASE_URL}/utils/zipcode/${zipCode}/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        if (preferredCondado?.trim()) {
+          setCounties([preferredCondado.trim()]);
+        }
+        return;
+      }
+
+      const data = await res.json();
+      const merged = mergeCountyOptions(Array.isArray(data.counties) ? data.counties : [], preferredCondado);
+      setCounties(merged);
+      setFormData((prev) => ({
+        ...prev,
+        ...(data.city ? { ciudad: data.city } : {}),
+        ...(data.state ? { estadoProvincia: data.state } : {}),
+        condado: preferredCondado?.trim() || prev.condado,
+      }));
+    } catch (err) {
+      console.error('ZIP lookup error', err);
+      if (preferredCondado?.trim()) {
+        setCounties([preferredCondado.trim()]);
+      }
+    }
+  };
+
   const handleZipChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    setFormData(prev => ({ ...prev, zipCode: value }));
-    setCounties([]);
-    if (value && value.length >= 5) {
-      try {
-        const token = accessToken || getCurrentToken();
-        const res = await fetch(`${API_BASE_URL}/utils/zipcode/${value}/`, { headers: { Authorization: `Bearer ${token}` } });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.city) setFormData(prev => ({ ...prev, ciudad: data.city }));
-        if (data.state) setFormData(prev => ({ ...prev, estadoProvincia: data.state }));
-        if (Array.isArray(data.counties)) setCounties(data.counties);
-      } catch (err) {
-        console.error('ZIP lookup error', err);
-      }
+    setFormData((prev) => ({
+      ...prev,
+      zipCode: value,
+      condado: value.length < 5 ? '' : prev.condado,
+    }));
+
+    if (value.length >= 5) {
+      await syncCountiesForZip(value);
+    } else {
+      setCounties([]);
     }
   };
 
@@ -136,6 +160,7 @@ export default function NuevaPolizaWizard() {
     estatura: '',
     condicionMedica: '',
     relacion,
+    clienteId: null,
   });
 
   const resetPersonalForm = () => {
@@ -154,6 +179,8 @@ export default function NuevaPolizaWizard() {
       peso: '',
       estatura: '',
       condicionMedica: '',
+      ingresoAnual: '',
+      tamanoFamilia: '',
       direccion1: '',
       direccion2: '',
       ciudad: '',
@@ -161,20 +188,58 @@ export default function NuevaPolizaWizard() {
       zipCode: '',
       condado: '',
     }));
+    setConyuge(null);
+    setDependientes([]);
     setCounties([]);
   };
 
-  const applyExistingCliente = (cliente: Cliente) => {
+  const applyExistingClienteFallback = (cliente: Cliente) => {
     setSelectedExistingCliente(cliente);
     const personal = mapClienteToWizardPersonal(cliente);
     const address = mapClienteToWizardAddress(cliente);
     setFormData((prev) => ({
       ...prev,
       ...personal,
+      ingresoAnual: cliente.ingreso_anual ? String(cliente.ingreso_anual) : prev.ingresoAnual,
       ...address,
     }));
     if (address.zipCode.length >= 5) {
-      handleZipChange({ target: { value: address.zipCode, name: 'zipCode' } } as React.ChangeEvent<HTMLInputElement>);
+      void syncCountiesForZip(address.zipCode, address.condado);
+    } else if (address.condado) {
+      setCounties([address.condado]);
+    }
+  };
+
+  const loadExistingClienteContext = async (cliente: Cliente) => {
+    setIsLoadingClienteContext(true);
+    setError(null);
+    try {
+      const context = await clientesApi.getContextoPoliza(cliente.id);
+      const snapshot = mapClienteWizardContext(context);
+
+      setSelectedExistingCliente(context.cliente);
+      setFormData((prev) => ({
+        ...prev,
+        ...snapshot.personal,
+        ingresoAnual: snapshot.ingresoAnual,
+        tamanoFamilia: snapshot.tamanoFamilia,
+        ...snapshot.address,
+      }));
+      setConyuge(snapshot.conyuge);
+      setDependientes(snapshot.dependientes);
+
+      if (snapshot.address.zipCode.length >= 5) {
+        await syncCountiesForZip(snapshot.address.zipCode, snapshot.address.condado);
+      } else if (snapshot.address.condado) {
+        setCounties([snapshot.address.condado]);
+      } else {
+        setCounties([]);
+      }
+    } catch (err) {
+      console.error(err);
+      applyExistingClienteFallback(cliente);
+    } finally {
+      setIsLoadingClienteContext(false);
     }
   };
 
@@ -190,8 +255,18 @@ export default function NuevaPolizaWizard() {
       applicantMode,
       selectedExistingClienteId: selectedExistingCliente?.id,
       principal: { email: formData.email, ssn: formData.ssn },
-      conyuge,
-      dependientes,
+      conyuge: conyuge
+        ? {
+            email: conyuge.email,
+            ssn: conyuge.ssn,
+            excludeClienteId: conyuge.clienteId ?? undefined,
+          }
+        : null,
+      dependientes: dependientes.map((dep) => ({
+        email: dep.email,
+        ssn: dep.ssn,
+        excludeClienteId: dep.clienteId ?? undefined,
+      })),
     });
 
   const validateDuplicateContacts = async () => {
@@ -224,6 +299,26 @@ export default function NuevaPolizaWizard() {
     };
     fetchInitialData();
   }, []);
+
+  useEffect(() => {
+    if (step !== 4) return;
+
+    if (formData.zipCode.length < 5) {
+      if (formData.condado && counties.length === 0) {
+        setCounties([formData.condado]);
+      }
+      return;
+    }
+
+    if (counties.length === 0) {
+      void syncCountiesForZip(formData.zipCode, formData.condado);
+    }
+  }, [step, formData.zipCode, formData.condado, counties.length]);
+
+  const countyOptions = React.useMemo(
+    () => mergeCountyOptions(counties, formData.condado),
+    [counties, formData.condado]
+  );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -510,6 +605,28 @@ export default function NuevaPolizaWizard() {
             })(),
       });
 
+      const resolveMemberClienteId = async (
+        member: FamilyMember,
+        fallbackPrefix: string,
+        requireContact = false,
+      ): Promise<number> => {
+        if (member.clienteId) return member.clienteId;
+
+        const resMember = await fetch(`${API_BASE_URL}/clientes/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(createClientPayload(member, fallbackPrefix, requireContact)),
+        });
+
+        if (!resMember.ok) {
+          const txt = await resMember.text();
+          throw new Error(`Error al crear cliente (${fallbackPrefix}): ${txt}`);
+        }
+
+        const created = await resMember.json();
+        return created.id;
+      };
+
       let clientePrincipalId: number;
 
       if (applicantMode === 'existing' && selectedExistingCliente) {
@@ -577,39 +694,25 @@ export default function NuevaPolizaWizard() {
       ];
 
       if (conyuge && conyuge.primerNombre && conyuge.apellidoPaterno) {
-        const conyugeRes = await fetch(`${API_BASE_URL}/clientes/`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify(createClientPayload(conyuge, 'conyuge'))
-        });
-
-        if (!conyugeRes.ok) throw new Error('Error al crear el cliente cónyuge');
-        const conyugeCreado = await conyugeRes.json();
+        const conyugeId = await resolveMemberClienteId(conyuge, 'conyuge');
 
         clientes_data.push({
-          cliente: conyugeCreado.id,
+          cliente: conyugeId,
           es_solicitante_principal: false,
-          relacion: 'CONYUGE',
-          direccion_residencia: direccionCreada.id
+          relacion: conyuge.relacion || 'CONYUGE',
+          direccion_residencia: direccionCreada.id,
         });
       }
 
       for (const [index, dep] of dependientes.entries()) {
         if (!dep.primerNombre || !dep.apellidoPaterno) continue;
-        const depRes = await fetch(`${API_BASE_URL}/clientes/`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify(createClientPayload(dep, `dependiente-${index}`))
-        });
-
-        if (!depRes.ok) throw new Error(`Error al crear el dependiente ${index + 1}`);
-        const depCreado = await depRes.json();
+        const depId = await resolveMemberClienteId(dep, `dependiente-${index}`);
 
         clientes_data.push({
-          cliente: depCreado.id,
+          cliente: depId,
           es_solicitante_principal: false,
-          relacion: 'DEPENDIENTE',
-          direccion_residencia: direccionCreada.id
+          relacion: dep.relacion || 'DEPENDIENTE',
+          direccion_residencia: direccionCreada.id,
         });
       }
 
@@ -624,6 +727,9 @@ export default function NuevaPolizaWizard() {
         prima_mensual: 0,
         fecha_envio: formatToISO(new Date()),
         direccion_fisica: direccionCreada.id,
+        total_miembros: Number(formData.tamanoFamilia) || clientes_data.length,
+        total_aplicantes: clientes_data.filter((item) => item.es_solicitante_principal).length || 1,
+        total_dependientes: clientes_data.filter((item) => !item.es_solicitante_principal).length,
         clientes_data,
       };
 
@@ -780,9 +886,10 @@ export default function NuevaPolizaWizard() {
                     <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Buscar cliente</label>
                     <ClienteCombobox
                       value={selectedExistingCliente}
+                      disabled={isLoadingClienteContext}
                       onChange={(cliente) => {
                         if (cliente) {
-                          applyExistingCliente(cliente);
+                          void loadExistingClienteContext(cliente);
                         } else {
                           setSelectedExistingCliente(null);
                           resetPersonalForm();
@@ -790,6 +897,9 @@ export default function NuevaPolizaWizard() {
                       }}
                       placeholder="Nombre, email, teléfono o SSN..."
                     />
+                    {isLoadingClienteContext ? (
+                      <p className="text-xs text-[#64748b] dark:text-gray-400">Cargando información del cliente...</p>
+                    ) : null}
                   </div>
 
                   {selectedExistingCliente ? (
@@ -1066,9 +1176,9 @@ export default function NuevaPolizaWizard() {
                   </div>
                   <div className="flex flex-col gap-[8px]">
                     <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Condado</label>
-                    <select name="condado" value={formData.condado} onChange={handleChange} disabled={!counties.length} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5] bg-white dark:bg-[#1e293b] text-[#0f172a] dark:text-white disabled:opacity-50">
+                    <select name="condado" value={formData.condado} onChange={handleChange} disabled={!countyOptions.length} className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5] bg-white dark:bg-[#1e293b] text-[#0f172a] dark:text-white disabled:opacity-50">
                       <option value="">Seleccione Condado...</option>
-                      {counties.map(c => <option key={c} value={c}>{c}</option>)}
+                      {countyOptions.map((c) => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
                 </div>

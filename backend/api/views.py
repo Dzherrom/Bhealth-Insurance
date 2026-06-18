@@ -26,7 +26,7 @@ from .models import (
     EstadoPoliza, Poliza, Nota, HistorialPoliza, Etiqueta, Documento, Tarea, CambioDeVida,
     PolizaViewer, Cita, Medico, Medicamento, MedicoPoliza, Recordatorio, IntentoLoginFallido,
     Contrato, ReporteComision, Notificacion, TarjetaCredito, CuentaBancaria, InfoPago,
-    PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal, registrar_auditoria_global
+    PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal, registrar_auditoria_global, PolizaCliente
 )
 from .serializers import *
 from .utils import send_activity_webhook, fetch_location_from_zip
@@ -489,6 +489,50 @@ class ClienteViewSet(viewsets.ModelViewSet):
         return Response({
             'duplicado': len(conflictos) > 0,
             'conflictos': conflictos,
+        })
+
+    @action(detail=True, methods=['get'], url_path='contexto-poliza')
+    def contexto_poliza(self, request, pk=None):
+        cliente = self.get_object()
+        poliza = (
+            Poliza.objects.filter(
+                polizacliente__cliente=cliente,
+                polizacliente__es_solicitante_principal=True,
+            )
+            .select_related('direccion_fisica')
+            .prefetch_related(
+                Prefetch(
+                    'polizacliente_set',
+                    queryset=PolizaCliente.objects.select_related(
+                        'cliente', 'direccion_residencia'
+                    ),
+                )
+            )
+            .order_by('-ultima_actualizacion', '-id')
+            .first()
+        )
+
+        poliza_data = None
+        if poliza:
+            poliza_data = {
+                'id': poliza.id,
+                'total_miembros': poliza.total_miembros,
+                'total_aplicantes': poliza.total_aplicantes,
+                'total_dependientes': poliza.total_dependientes,
+                'direccion_fisica_details': (
+                    DireccionSerializer(poliza.direccion_fisica).data
+                    if poliza.direccion_fisica else None
+                ),
+                'clientes_info': PolizaClienteSerializer(
+                    poliza.polizacliente_set.all(),
+                    many=True,
+                    context={'request': request},
+                ).data,
+            }
+
+        return Response({
+            'cliente': ClienteSerializer(cliente, context={'request': request}).data,
+            'poliza_referencia': poliza_data,
         })
 
 class AseguradoraViewSet(viewsets.ModelViewSet):

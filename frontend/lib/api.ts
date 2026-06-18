@@ -582,6 +582,39 @@ export interface ClienteDuplicateCheckResult {
   }>;
 }
 
+export interface ClienteWizardContext {
+  cliente: Cliente;
+  poliza_referencia: {
+    id: number;
+    total_miembros: number;
+    total_aplicantes?: number;
+    total_dependientes?: number;
+    direccion_fisica_details?: {
+      linea1?: string;
+      linea2?: string;
+      ciudad?: string;
+      estado?: string;
+      zip_code?: string;
+      condado?: string;
+    } | null;
+    clientes_info: Array<{
+      id: number;
+      cliente: number;
+      es_solicitante_principal: boolean;
+      relacion: string;
+      cliente_details?: Cliente;
+      direccion_residencia_details?: {
+        linea1?: string;
+        linea2?: string;
+        ciudad?: string;
+        estado?: string;
+        zip_code?: string;
+        condado?: string;
+      } | null;
+    }>;
+  } | null;
+}
+
 export const clientesApi = {
   ...createCrudApi<Cliente, ClienteCreate, ClienteUpdate>('clientes'),
 
@@ -614,6 +647,13 @@ export const clientesApi = {
       { method: 'GET' }
     );
     return handleApiResponse<ClienteDuplicateCheckResult>(response);
+  },
+
+  getContextoPoliza: async (clienteId: number): Promise<ClienteWizardContext> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/clientes/${clienteId}/contexto-poliza/`, {
+      method: 'GET',
+    });
+    return handleApiResponse<ClienteWizardContext>(response);
   },
 };
 

@@ -1,5 +1,32 @@
 import type { Cliente } from '@/types';
-import { clientesApi } from '@/lib/api';
+import { clientesApi, type ClienteWizardContext } from '@/lib/api';
+
+export type WizardFamilyMember = {
+  primerNombre: string;
+  segundoNombre: string;
+  apellidoPaterno: string;
+  apellidoMaterno: string;
+  fechaNacimiento: string;
+  sexo: string;
+  telefono: string;
+  email: string;
+  ssn: string;
+  usaTabaco: boolean;
+  peso: string;
+  estatura: string;
+  condicionMedica: string;
+  relacion: string;
+  clienteId?: number | null;
+};
+
+export type WizardFormSnapshot = {
+  personal: ReturnType<typeof mapClienteToWizardPersonal> & { esAplicante: boolean };
+  ingresoAnual: string;
+  tamanoFamilia: string;
+  address: ReturnType<typeof mapDireccionToWizardAddress>;
+  conyuge: WizardFamilyMember | null;
+  dependientes: WizardFamilyMember[];
+};
 
 export function normalizeEmail(value?: string | null): string {
   return (value ?? '').trim().toLowerCase();
@@ -95,11 +122,7 @@ type DireccionLike = {
   condado?: string;
 };
 
-export function mapClienteToWizardAddress(cliente: Cliente) {
-  const direccion =
-    cliente.direccion_fisica_details ??
-    (cliente as Cliente & { direccion_info?: DireccionLike }).direccion_info;
-
+export function mapDireccionToWizardAddress(direccion?: DireccionLike | null) {
   if (!direccion) {
     return {
       direccion1: '',
@@ -121,6 +144,98 @@ export function mapClienteToWizardAddress(cliente: Cliente) {
   };
 }
 
+export function mapClienteToWizardAddress(cliente: Cliente) {
+  const direccion =
+    cliente.direccion_fisica_details ??
+    (cliente as Cliente & { direccion_info?: DireccionLike }).direccion_info;
+
+  return mapDireccionToWizardAddress(direccion);
+}
+
+export function mergeCountyOptions(apiCounties: string[], savedCondado?: string | null): string[] {
+  const list = [...apiCounties];
+  const condado = savedCondado?.trim();
+  if (condado && !list.includes(condado)) {
+    return [condado, ...list];
+  }
+  return list;
+}
+
+const CONYUGE_RELACIONES = new Set(['CONYUGE', 'CÓNYUGE', 'CONYUGUE', 'SPOUSE', 'ESPOSO', 'ESPOSA']);
+
+function isConyugeRelacion(relacion?: string | null): boolean {
+  if (!relacion) return false;
+  return CONYUGE_RELACIONES.has(relacion.trim().toUpperCase());
+}
+
+function mapClienteDetailsToFamilyMember(
+  cliente: Cliente,
+  relacion: string,
+  clienteId: number
+): WizardFamilyMember {
+  const personal = mapClienteToWizardPersonal(cliente);
+  return {
+    ...personal,
+    relacion,
+    clienteId,
+  };
+}
+
+export function mapClienteWizardContext(context: ClienteWizardContext): WizardFormSnapshot {
+  const cliente = context.cliente;
+  const poliza = context.poliza_referencia;
+
+  const principalLink = poliza?.clientes_info?.find((link) => link.es_solicitante_principal);
+  const principalDetails = principalLink?.cliente_details ?? cliente;
+
+  const addressSource =
+    poliza?.direccion_fisica_details ??
+    principalLink?.direccion_residencia_details ??
+    cliente.direccion_fisica_details ??
+    null;
+
+  let conyuge: WizardFamilyMember | null = null;
+  const dependientes: WizardFamilyMember[] = [];
+
+  poliza?.clientes_info?.forEach((link) => {
+    if (link.es_solicitante_principal || !link.cliente_details) return;
+
+    const member = mapClienteDetailsToFamilyMember(
+      link.cliente_details,
+      link.relacion || 'DEPENDIENTE',
+      link.cliente
+    );
+
+    if (isConyugeRelacion(link.relacion) && !conyuge) {
+      conyuge = member;
+      return;
+    }
+
+    dependientes.push(member);
+  });
+
+  const ingresoRaw =
+    principalDetails.ingreso_anual ??
+    cliente.ingreso_anual ??
+    '0';
+
+  const tamanoFamilia = poliza?.total_miembros
+    ? String(poliza.total_miembros)
+    : String(1 + dependientes.length + (conyuge ? 1 : 0));
+
+  return {
+    personal: {
+      ...mapClienteToWizardPersonal(principalDetails),
+      esAplicante: true,
+    },
+    ingresoAnual: String(ingresoRaw),
+    tamanoFamilia,
+    address: mapDireccionToWizardAddress(addressSource),
+    conyuge,
+    dependientes,
+  };
+}
+
 export function buildContactEntriesFromWizard(input: {
   applicantMode: 'new' | 'existing';
   selectedExistingClienteId?: number | null;
@@ -128,8 +243,8 @@ export function buildContactEntriesFromWizard(input: {
     email?: string;
     ssn?: string;
   };
-  conyuge?: { email?: string; ssn?: string } | null;
-  dependientes?: Array<{ email?: string; ssn?: string }>;
+  conyuge?: { email?: string | null; ssn?: string | null; excludeClienteId?: number } | null;
+  dependientes?: Array<{ email?: string | null; ssn?: string | null; excludeClienteId?: number }>;
 }): ContactEntry[] {
   const entries: ContactEntry[] = [];
 
@@ -148,6 +263,7 @@ export function buildContactEntriesFromWizard(input: {
       label: 'cónyuge',
       email: input.conyuge.email,
       ssn: input.conyuge.ssn,
+      excludeClienteId: input.conyuge.excludeClienteId,
     });
   }
 
@@ -158,6 +274,7 @@ export function buildContactEntriesFromWizard(input: {
       label: `dependiente ${index + 1}`,
       email: dep.email,
       ssn: dep.ssn,
+      excludeClienteId: dep.excludeClienteId,
     });
   });
 
