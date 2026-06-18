@@ -826,7 +826,7 @@ class PolizaViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 class NotaViewSet(viewsets.ModelViewSet):
-    queryset = Nota.objects.all()
+    queryset = Nota.objects.select_related('autor', 'autor__profile').prefetch_related('adjuntos').all()
     serializer_class = NotaSerializer
     permission_classes = [permissions.IsAuthenticated]
     filterset_fields = ['poliza']

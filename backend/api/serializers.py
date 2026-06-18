@@ -349,6 +349,9 @@ class DocumentoSerializer(serializers.ModelSerializer):
 
 class NotaSerializer(serializers.ModelSerializer):
     autor_username = serializers.ReadOnlyField(source='autor.username')
+    autor_nombre_completo = serializers.SerializerMethodField()
+    autor_avatar = serializers.SerializerMethodField()
+    autor_rol = serializers.SerializerMethodField()
     usuarios_etiquetados_names = serializers.SlugRelatedField(
         many=True, 
         read_only=True, 
@@ -361,6 +364,26 @@ class NotaSerializer(serializers.ModelSerializer):
         model = Nota
         fields = '__all__'
         read_only_fields = ('autor', 'fecha_creacion', 'usuarios_etiquetados')
+
+    def get_autor_nombre_completo(self, obj):
+        if not obj.autor_id:
+            return 'Usuario'
+        autor = obj.autor
+        nombre = f"{autor.first_name or ''} {autor.last_name or ''}".strip()
+        return nombre or autor.username
+
+    def get_autor_avatar(self, obj):
+        try:
+            avatar = obj.autor.profile.avatar
+            return avatar.url if avatar else None
+        except Exception:
+            return None
+
+    def get_autor_rol(self, obj):
+        try:
+            return obj.autor.profile.get_role_display()
+        except Exception:
+            return None
 
     def get_adjuntos(self, obj):
         return [

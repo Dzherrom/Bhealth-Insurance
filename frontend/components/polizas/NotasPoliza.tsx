@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { MessageSquare, Plus, User, Clock, Edit2, Trash2, Paperclip, Image as ImageIcon, AtSign } from 'lucide-react';
 import { notasApi, resolveApiMediaUrl } from '@/lib/api';
-import { useAuthStore } from '@/store/authStore';
+import { mapNotaUsuario } from '@/components/polizas/notaUtils';
 import { toast } from '@/hooks/use-toast';
 
 interface Nota {
@@ -42,7 +42,6 @@ export function NotasPoliza({ polizaId }: NotasPolizaProps) {
   const [agregandoNota, setAgregandoNota] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContenido, setEditContenido] = useState('');
-  const { user } = useAuthStore();
 
   useEffect(() => {
     if (!polizaId) return;
@@ -68,12 +67,7 @@ export function NotasPoliza({ polizaId }: NotasPolizaProps) {
           ...adjunto,
           archivo: resolveApiMediaUrl(adjunto.archivo),
         })),
-        usuario: {
-          nombre: 'Usuario',
-          apellido: `#${n.usuario}`,
-          iniciales: 'U',
-          avatar: undefined,
-        },
+        usuario: mapNotaUsuario(n),
         fechaCreacion: n.fecha_creacion ?? new Date().toISOString(),
         fechaModificacion: n.fecha_modificacion,
       })));
@@ -114,7 +108,6 @@ export function NotasPoliza({ polizaId }: NotasPolizaProps) {
       formData.append('titulo', nuevaNota.trim().slice(0, 50));
       formData.append('contenido', nuevaNota.trim());
       if (polizaId) formData.append('poliza', String(polizaId));
-      formData.append('usuario', String(user?.id ?? 1));
       for (const archivo of archivosAdjuntos) {
         formData.append('archivos', archivo);
       }

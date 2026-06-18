@@ -20,7 +20,7 @@ import {
   Edit2
 } from 'lucide-react';
 import { notasApi, resolveApiMediaUrl, usersApi } from '@/lib/api';
-import { useAuthStore } from '@/store/authStore';
+import { mapNotaUsuario } from '@/components/polizas/notaUtils';
 import { useToast } from '@/hooks/use-toast';
 
 interface NotaChat {
@@ -77,7 +77,6 @@ export function NotasChat({ isOpen, onClose, polizaInfo }: NotasChatProps) {
   const [mentionFilter, setMentionFilter] = useState('');
   const [mentionIndex, setMentionIndex] = useState(0);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const { user } = useAuthStore();
   const { toast } = useToast();
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
@@ -129,13 +128,7 @@ export function NotasChat({ isOpen, onClose, polizaInfo }: NotasChatProps) {
           ...adjunto,
           archivo: resolveApiMediaUrl(adjunto.archivo),
         })),
-        usuario: {
-          nombre: 'Usuario',
-          apellido: `#${n.usuario}`,
-          iniciales: 'U',
-          rol: 'Agente',
-          avatar: undefined,
-        },
+        usuario: mapNotaUsuario(n),
         fechaCreacion: n.fecha_creacion ?? new Date().toISOString(),
         estado: n.estado // if any
       })));
@@ -249,7 +242,6 @@ export function NotasChat({ isOpen, onClose, polizaInfo }: NotasChatProps) {
       formData.append('titulo', nuevaNota.trim().slice(0, 50) || 'Nota adjunta');
       formData.append('contenido', nuevaNota.trim() || 'Archivo adjunto');
       formData.append('poliza', String(polizaInfo.id));
-      formData.append('usuario', String(user?.id ?? 1));
       for (const archivo of archivosAdjuntos) {
         formData.append('archivos', archivo);
       }
