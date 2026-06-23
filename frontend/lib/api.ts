@@ -298,7 +298,7 @@ export const authApi = {
 let isRefreshing = false;
 let failedQueue: any[] = [];
 
-const processQueue = (error: any, token = null) => {
+const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue.forEach(prom => {
     if (error) {
       prom.reject(error);
@@ -500,15 +500,18 @@ interface Historial extends OptionalBaseEntity {
   fecha: string;
 }
 
-interface Etiqueta extends OptionalBaseEntity {
+export interface Etiqueta extends OptionalBaseEntity {
   nombre: string;
   color?: string;
   descripcion?: string;
+  tipo?: 'DOCUMENTO' | 'POLIZA';
 }
 
-interface Documento extends OptionalBaseEntity {
-  titulo: string;
+export interface Documento extends OptionalBaseEntity {
+  nombre?: string;
+  titulo?: string;
   archivo?: string | null;
+  tipo?: string;
   categoria?: string;
   cliente?: number | null;
   poliza?: number;

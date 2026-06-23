@@ -139,6 +139,7 @@ export default function UsersPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { user: currentUser } = useAuthStore();
+  const currentUserRole = currentUser?.profile?.role ?? null;
 
   const [apiUsers, setApiUsers] = useState<ApiUser[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -175,7 +176,8 @@ export default function UsersPage() {
   });
 
   useEffect(() => {
-    if (currentUser && currentUser.profile && !ROLES_ALLOWED.includes(currentUser.profile.role)) {
+    const role = currentUser?.profile?.role;
+    if (role && !ROLES_ALLOWED.includes(role)) {
       router.push('/crm/dashboard');
     }
   }, [currentUser, router]);

@@ -1,10 +1,17 @@
 // Tipos e interfaces para pólizas y gestión de seguros
 
 import { BaseEntity, OptionalBaseEntity, RelacionFamiliar } from "./common";
+import type { Direccion } from "./clientes";
 
 // ===============================
 // INTERFACES AUXILIARES
 // ===============================
+
+export interface PolizaEtiqueta {
+  id: number;
+  nombre: string;
+  color?: string;
+}
 
 export interface ClientePolizaData {
   cliente: number;
@@ -47,8 +54,9 @@ export interface PolizaCreateRequest {
   clientes_data: ClientePolizaData[];
 }
 
-export interface PolizaUpdateRequest extends Partial<Omit<PolizaCreateRequest, 'clientes_data'>> {
+export interface PolizaUpdateRequest extends Partial<Omit<PolizaCreateRequest, 'clientes_data' | 'agente'>> {
   clientes_data?: ClientePolizaData[];
+  agente?: number | null;
   notas_comentarios?: string | null;
   info_medico_principal?: string | null;
   medico_especializacion?: string | null;
@@ -71,6 +79,8 @@ export interface PolizaUpdateRequest extends Partial<Omit<PolizaCreateRequest, '
     frecuencia?: string | null;
     activo?: boolean;
   }>;
+  etiquetas_ids?: number[];
+  estado_documento?: string | null;
 }
 
 // ===============================
@@ -115,6 +125,23 @@ export interface PolizaResponse extends BaseEntity {
     frecuencia?: string | null;
     activo?: boolean;
   }>;
+  agente_registro?: number | null;
+  agente_registro_nombre?: string | null;
+  estado_documento?: string | null;
+  metal?: string | null;
+  id_plan_cms?: string | null;
+  etiquetas?: PolizaEtiqueta[];
+  direccion_fisica_details?: Direccion | null;
+  direccion_postal_details?: Direccion | null;
+  direccion_facturacion_details?: Direccion | null;
+  info_pago?: {
+    id?: number;
+    estado_pago?: string | null;
+  } | null;
+  tarjetas_credito?: Array<Record<string, unknown>>;
+  cuentas_bancarias?: Array<Record<string, unknown>>;
+  notas?: Array<Record<string, unknown>>;
+  documentos?: Array<Record<string, unknown>>;
   fecha_creacion?: string;
   fecha_modificacion?: string;
 }
@@ -126,8 +153,13 @@ export interface PolizaListResponse {
   id_interno?: string;
   estado: number;
   agente?: number;
-  plan?: number;
   agente_nombre: string;
+  agente_npn?: string | null;
+  agente_registro?: number | null;
+  agente_registro_nombre?: string | null;
+  asistente_nombre?: string | null;
+  asistente_npn?: string | null;
+  plan?: number;
   plan_nombre: string;
   estado_nombre: string;
   estado_documento?: string;

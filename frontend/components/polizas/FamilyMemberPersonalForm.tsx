@@ -4,6 +4,8 @@ import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import type { ClienteUpdateRequest } from '@/types/clientes';
+import type { Genero } from '@/types/common';
 
 export interface FamilyMemberFormData {
   primerNombre: string;
@@ -52,16 +54,16 @@ export function memberDetailsToFormData(details: Record<string, unknown>): Famil
   };
 }
 
-export function formDataToClientUpdate(form: FamilyMemberFormData) {
+export function formDataToClientUpdate(form: FamilyMemberFormData): ClienteUpdateRequest {
   return {
     primer_nombre: form.primerNombre,
     segundo_nombre: form.segundoNombre || '',
     apellido_paterno: form.apellidoPaterno,
     apellido_materno: form.apellidoMaterno || '',
     fecha_nacimiento: form.fechaNacimiento,
-    genero: form.sexo,
-    telefono: form.telefono?.trim() || null,
-    email: form.email?.trim() || null,
+    genero: form.sexo as Genero,
+    telefono: form.telefono?.trim() || undefined,
+    email: form.email?.trim() || undefined,
     usa_tabaco: form.usaTabaco,
     peso: form.peso || '',
     estatura: form.estatura || '',

@@ -112,7 +112,8 @@ const SidebarCRM = ({ onItemClick, onLogout, isLoggingOut = false }: SidebarCRMP
     ...group,
     items: group.items.filter(item => {
       if (item.href === '/crm/users') {
-        return role === 'ADMIN' || role === 'MANAGER';
+        const normalizedRole = role?.toUpperCase();
+        return normalizedRole === 'ADMIN' || normalizedRole === 'MANAGER';
       }
       return true;
     })

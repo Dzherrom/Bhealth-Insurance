@@ -67,7 +67,7 @@ interface PolizaResumenProps {
   };
   activeSection?: string;
   onSectionChange?: (section: string) => void;
-  onPolizaUpdate?: (updatedData: any) => void;
+  onPolizaUpdate?: (updatedData?: any) => void;
   onOpenNotasChat?: () => void;
 }
 

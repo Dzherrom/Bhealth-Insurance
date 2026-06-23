@@ -41,6 +41,24 @@ export interface RefreshTokenRequest {
 // INTERFACES DE RESPONSE
 // ===============================
 
+export interface UserProfileSettings {
+  selectedYears?: string[];
+  [key: string]: unknown;
+}
+
+export interface UserProfile {
+  role?: string;
+  status?: string;
+  avatar?: string | null;
+  telefono?: string | null;
+  npn?: string | null;
+  ssn?: string | null;
+  agente?: number | null;
+  agente_npn?: string | null;
+  agente_ffm?: string | null;
+  settings?: UserProfileSettings;
+}
+
 export interface User extends BaseEntity {
   username: string;
   email: string;
@@ -49,6 +67,7 @@ export interface User extends BaseEntity {
   role?: UserRole;
   is_active?: boolean;
   date_joined?: string;
+  profile?: UserProfile;
 }
 
 export interface AuthTokens {

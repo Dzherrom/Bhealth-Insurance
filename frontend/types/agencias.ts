@@ -23,11 +23,16 @@ export interface AgenciaUpdateRequest extends Partial<AgenciaCreateRequest> {}
 
 export interface Agencia extends BaseEntity {
   nombre: string;
-  codigo: string;
+  codigo?: string;
+  codigo_postal?: string;
   direccion?: number;
   telefono?: string;
   email?: string;
-  activa: boolean;
+  activa?: boolean;
+  nombre_legal?: string;
+  dba?: string;
+  titulo_portal?: string;
+  pie_email?: string;
   fecha_creacion?: string;
   fecha_modificacion?: string;
 }
@@ -49,9 +54,11 @@ export interface AgenteUpdateRequest extends Partial<AgenteCreateRequest> {}
 export interface Agente extends BaseEntity {
   usuario: number;
   agencia: number;
-  codigo_agente: string;
+  codigo_agente?: string;
+  nombre_completo?: string;
+  npn?: string;
   telefono?: string;
-  activo: boolean;
+  activo?: boolean;
   usuario_info?: {
     username: string;
     first_name: string;

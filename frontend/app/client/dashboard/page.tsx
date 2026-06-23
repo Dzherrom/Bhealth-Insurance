@@ -241,10 +241,10 @@ export default function ClientDashboardPage() {
 
   if (!data) return null;
 
-  const camposEditables = data.campos_editables;
-  const documentos = data.documentos_solicitados;
-  const cambiosPendientes = data.cambios_pendientes;
-  const cuentasBancarias = data.cuentas_bancarias;
+  const camposEditables = data.campos_editables ?? Object.keys(CAMPO_LABELS);
+  const documentos = data.documentos_solicitados ?? [];
+  const cambiosPendientes = data.cambios_pendientes ?? [];
+  const cuentasBancarias = data.cuentas_bancarias ?? [];
   const tarjetasDigitales = data.tarjetas_digitales;
   const grupoFamiliar = data.grupo_familiar;
 

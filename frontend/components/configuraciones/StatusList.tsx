@@ -177,7 +177,13 @@ export function StatusList() {
           setIsModalOpen(false);
           setEditingStatus(null);
         }}
-        onSave={editingStatus ? handleUpdateStatus : handleSaveStatus}
+        onSave={(status) => {
+          if ('id' in status && status.id) {
+            handleUpdateStatus(status as StatusPoliza);
+          } else {
+            handleSaveStatus(status as Omit<StatusPoliza, 'id'>);
+          }
+        }}
         statusToEdit={editingStatus}
       />
     </div>

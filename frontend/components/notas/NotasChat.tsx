@@ -50,7 +50,7 @@ interface NotaChat {
     apellido: string;
     iniciales: string;
     avatar?: string;
-    rol: string;
+    rol?: string;
   };
   fechaCreacion: string;
   estado?: string;

@@ -67,7 +67,9 @@ export function ProductSelection({ onSelect, selectedProductId }: ProductSelecti
         return (
           <div
             key={tipo.id}
-            onClick={() => onSelect(tipo.id)}
+            onClick={() => {
+              if (tipo.id != null) onSelect(tipo.id);
+            }}
             className={`cursor-pointer transition-all duration-200 rounded-[12px] p-[20px] flex flex-col gap-[12px] border ${
               isSelected
                 ? 'bg-[#e0e7ff] border-[#4f46e5] shadow-sm ring-1 ring-[#4f46e5]'

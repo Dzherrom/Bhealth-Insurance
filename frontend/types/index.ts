@@ -16,17 +16,20 @@ export * from './polizas';
 // Agencias, agentes y tareas
 export * from './agencias';
 
+import type { BaseEntity, OptionalBaseEntity } from './common';
+import type { Tarea, TareaCreate } from './agencias';
+
 export interface TareaUpdate extends Partial<TareaCreate> {}
 
-export interface TipoProducto extends BaseEntity {
+export interface TipoProducto extends OptionalBaseEntity {
   nombre: string;
-  descripcion: string;
+  descripcion?: string;
 }
 
-export interface Etiqueta extends BaseEntity {
+export interface Etiqueta extends OptionalBaseEntity {
   nombre: string;
-  color: string;
-  tipo: 'DOCUMENTO' | 'POLIZA';
+  color?: string;
+  tipo?: 'DOCUMENTO' | 'POLIZA';
 }
 
 export interface MisTareasResponse {

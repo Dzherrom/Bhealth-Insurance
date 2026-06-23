@@ -1,22 +1,13 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import { documentosApi } from '@/lib/api';
+import { Documento, documentosApi } from '@/lib/api';
 
-// Exportar tipo Documento para uso externo
-export interface Documento {
-  id?: number;
-  nombre: string;
-  archivo: string;
-  tipo?: string;
-  cliente?: number;
-  poliza?: number;
-  usuario?: number;
-  fecha_subida?: string;
-}
+export type { Documento };
 
 export interface DocumentoCreateRequest {
   nombre: string;
-  tipo: string;
+  tipo?: string;
+  categoria?: string;
   archivo: File | string;
   poliza?: number;
   cliente?: number;
@@ -132,14 +123,20 @@ export const useDocumentoStore = create<DocumentoState>()(
           const newDocumento = data.archivo instanceof File
             ? await documentosApi.createFormData(uploadData)
             : await documentosApi.create(uploadData);
+
+          const normalizedDocumento: Documento = {
+            ...newDocumento,
+            nombre: newDocumento.nombre ?? newDocumento.titulo ?? data.nombre,
+            archivo: newDocumento.archivo ?? '',
+          };
           
           // Agregar a la lista
           set(state => ({
-            documentos: [...state.documentos, newDocumento],
+            documentos: [...state.documentos, normalizedDocumento],
             isUploading: false
           }));
           
-          return newDocumento;
+          return normalizedDocumento;
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Error al subir documento';
           set({ error: errorMessage, isUploading: false });
@@ -179,7 +176,7 @@ export const useDocumentoStore = create<DocumentoState>()(
         get().documentos.filter(d => d.cliente === clienteId),
 
       getDocumentosByTipo: (tipo: string) => 
-        get().documentos.filter(d => d.tipo === tipo),
+        get().documentos.filter(d => d.categoria === tipo || d.tipo === tipo),
 
       // Utilidades
       downloadDocumento: async (id: number) => {
@@ -192,8 +189,8 @@ export const useDocumentoStore = create<DocumentoState>()(
 
           // Descargar el archivo
           const link = document.createElement('a');
-          link.href = documento.archivo;
-          link.download = documento.nombre;
+          link.href = documento.archivo ?? '';
+          link.download = documento.nombre ?? documento.titulo ?? 'documento';
           link.target = '_blank';
           document.body.appendChild(link);
           link.click();

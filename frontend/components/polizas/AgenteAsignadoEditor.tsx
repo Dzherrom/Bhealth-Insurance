@@ -30,7 +30,14 @@ export function AgenteAsignadoEditor({
   useEffect(() => {
     agentesApi
       .list()
-      .then((items) => setAllAgentes(items as { id: number; nombre_completo: string }[]))
+      .then((items) =>
+        setAllAgentes(
+          items.map((item) => ({
+            id: item.id!,
+            nombre_completo: item.nombre_completo ?? item.usuario_info?.username ?? 'Sin nombre',
+          }))
+        )
+      )
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
@@ -51,7 +58,7 @@ export function AgenteAsignadoEditor({
 
     setSaving(true);
     try {
-      await api.polizas.patch(polizaId, { agente: nextAgenteId });
+      await api.polizas.patch(polizaId, { agente: nextAgenteId ?? undefined });
       toast({ title: 'Cambios guardados', description: 'El agente asignado se actualizó correctamente.' });
       onUpdated?.();
       onSaved?.();

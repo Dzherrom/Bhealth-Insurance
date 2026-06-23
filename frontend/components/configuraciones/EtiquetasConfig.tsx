@@ -3,9 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
-import { etiquetasApi } from "@/lib/api";
+import { etiquetasApi, type Etiqueta } from "@/lib/api";
 import { Loader2, Plus, Trash2, Edit2 } from "lucide-react";
-import { Etiqueta } from '@/types';
 import { AgregarEtiquetaModal } from './AgregarEtiquetaModal';
 import { Badge } from '@/components/ui/badge';
 
@@ -40,7 +39,7 @@ export function EtiquetasConfig({ tipo, title, description }: EtiquetasConfigPro
 
   const handleSave = async (etiqueta: Etiqueta | Omit<Etiqueta, 'id'>) => {
     try {
-      if ('id' in etiqueta) {
+      if ('id' in etiqueta && etiqueta.id != null) {
         const updated = await etiquetasApi.update(etiqueta.id, { ...etiqueta, tipo });
         setEtiquetas(prev => prev.map(e => e.id === etiqueta.id ? updated : e));
         toast({ title: 'Exito', description: 'Etiqueta actualizada' });
@@ -110,7 +109,7 @@ export function EtiquetasConfig({ tipo, title, description }: EtiquetasConfigPro
                   </td>
                   <td className="px-5 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <Button variant="ghost" size="sm" onClick={() => { setEditingEtiqueta(etiqueta); setIsModalOpen(true); }}>Editar</Button>
-                    <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleDelete(etiqueta.id)}>Eliminar</Button>
+                    <Button variant="ghost" size="sm" className="text-red-600" onClick={() => etiqueta.id != null && handleDelete(etiqueta.id)}>Eliminar</Button>
                   </td>
                 </tr>
               ))}

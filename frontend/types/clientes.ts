@@ -26,7 +26,12 @@ export interface ClienteCreateRequest {
   direccion_facturacion: number;
 }
 
-export interface ClienteUpdateRequest extends Partial<ClienteCreateRequest> {}
+export interface ClienteUpdateRequest extends Partial<ClienteCreateRequest> {
+  usa_tabaco?: boolean;
+  peso?: string;
+  estatura?: string;
+  condicion_medica?: string;
+}
 
 export interface DireccionCreateRequest {
   calle: string;
