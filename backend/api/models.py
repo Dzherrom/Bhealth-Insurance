@@ -320,6 +320,7 @@ class UserProfile(models.Model):
         ('SHERPA', 'Sherpa'),
         ('PAGOS', 'Pagos'),
         ('CITAS', 'Citas'),
+        ('CLIENTE', 'Cliente'),
         ('USER', 'Usuario Básico'),
     ]
     STATUS_CHOICES = [
@@ -334,6 +335,14 @@ class UserProfile(models.Model):
     telefono = models.CharField(max_length=20, null=True, blank=True, verbose_name="Teléfono")
     npn = models.CharField(max_length=50, null=True, blank=True, verbose_name="NPN")
     ssn = models.CharField(max_length=20, null=True, blank=True, verbose_name="SSN")
+    cliente = models.ForeignKey(
+        Cliente,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='usuarios_portal',
+        verbose_name="Cliente vinculado",
+    )
     agente = models.OneToOneField(Agente, on_delete=models.SET_NULL, null=True, blank=True, related_name='user_profile')
     settings = models.JSONField(default=dict, blank=True, null=True, verbose_name="Configuraciones de UI")
 

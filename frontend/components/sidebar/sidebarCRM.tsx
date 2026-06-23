@@ -1,4 +1,5 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSidebar } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
@@ -72,14 +73,36 @@ const SidebarCRM = ({ onItemClick, onLogout, isLoggingOut = false }: SidebarCRMP
   const { state, toggleSidebar, setOpen } = useSidebar();
   const { role } = useAuthStore();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
+  const profileTriggerRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
 
   const isCollapsed = state === 'collapsed';
 
+  useEffect(() => {
+    if (!dropdownOpen || !profileTriggerRef.current) return;
+
+    const updatePosition = () => {
+      const rect = profileTriggerRef.current!.getBoundingClientRect();
+      setDropdownPos({
+        top: rect.top + 8,
+        left: rect.right + 14,
+      });
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [dropdownOpen, isCollapsed]);
+
   React.useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      if (!target.closest('#profile-container')) {
+      if (!target.closest('#profile-container') && !target.closest('#profile-dropdown')) {
         setDropdownOpen(false);
       }
     };
@@ -100,12 +123,12 @@ const SidebarCRM = ({ onItemClick, onLogout, isLoggingOut = false }: SidebarCRMP
   return (
     <aside
       className={cn(
-        "bg-white dark:bg-[#1e293b] border-r border-[#e5e7eb] dark:border-[#334155] flex flex-col justify-between h-full transition-all duration-300 ease-in-out whitespace-nowrap relative z-10 font-['Inter',sans-serif]",
+        "bg-white dark:bg-[#1e293b] border-r border-[#e5e7eb] dark:border-[#334155] flex flex-col justify-between h-full transition-all duration-300 ease-in-out whitespace-nowrap relative z-30 font-['Inter',sans-serif] shrink-0",
         isCollapsed ? "w-[56px]" : "w-[200px]"
       )}
     >
       {/* Header */}
-      <div className={cn("p-[12px] flex items-center border-b border-[#f3f4f6] dark:border-[#334155] relative", isCollapsed ? "justify-center" : "")}>
+      <div className={cn("p-[12px] flex items-center border-b border-[#f3f4f6] dark:border-[#334155] relative overflow-visible", isCollapsed ? "justify-center" : "")}>
         <button
           onClick={toggleSidebar}
           title={isCollapsed ? "Mostrar menú" : "Ocultar menú"}
@@ -114,7 +137,12 @@ const SidebarCRM = ({ onItemClick, onLogout, isLoggingOut = false }: SidebarCRMP
           {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
         </button>
 
-        <div id="profile-container" className="relative flex cursor-pointer" onClick={() => setDropdownOpen(!dropdownOpen)}>
+        <div
+          id="profile-container"
+          ref={profileTriggerRef}
+          className="relative flex cursor-pointer"
+          onClick={() => setDropdownOpen(!dropdownOpen)}
+        >
           <button className={cn("flex items-center gap-[8px] bg-transparent border-none rounded-[6px] transition-colors hover:bg-[#f3f4f6] dark:hover:bg-[#334155]", isCollapsed ? "w-full justify-center p-[4px]" : "p-[4px]")}>
             <div className="w-[28px] h-[28px] bg-[#e2e8f0] text-[#475569] dark:text-gray-300 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0">
               NF
@@ -122,13 +150,14 @@ const SidebarCRM = ({ onItemClick, onLogout, isLoggingOut = false }: SidebarCRMP
           </button>
           
           {!isCollapsed && <span className="text-[12px] font-bold text-[#111827] dark:text-white ml-[8px] self-center">BHealth Insurance</span>}
+        </div>
 
-          {/* Dropdown */}
+        {dropdownOpen && typeof document !== 'undefined' && createPortal(
           <div
-            className={cn(
-              "absolute top-[8px] left-[calc(100%+14px)] w-[200px] bg-white dark:bg-[#1e293b] rounded-[8px] border border-[#e5e7eb] dark:border-[#334155] z-[9999] flex-col shadow-lg animate-in slide-in-from-left-4 duration-300",
-              dropdownOpen ? "flex" : "hidden"
-            )}
+            id="profile-dropdown"
+            className="fixed w-[200px] bg-white dark:bg-[#1e293b] rounded-[8px] border border-[#e5e7eb] dark:border-[#334155] z-[9999] flex flex-col shadow-lg animate-in slide-in-from-left-4 duration-300"
+            style={{ top: dropdownPos.top, left: dropdownPos.left }}
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="absolute top-[15px] left-[-5px] w-[8px] h-[8px] bg-white dark:bg-[#1e293b] border-l border-b border-[#e5e7eb] dark:border-[#334155] rotate-45"></div>
             
@@ -159,8 +188,9 @@ const SidebarCRM = ({ onItemClick, onLogout, isLoggingOut = false }: SidebarCRMP
             <button onClick={onLogout} disabled={isLoggingOut} className="flex items-center gap-[6px] px-[10px] py-[6px] text-decoration-none text-red-500 hover:text-red-700 text-[11px] font-medium transition-colors hover:bg-red-50 whitespace-nowrap w-full text-left">
               <LogOut className="w-3.5 h-3.5" /> {isLoggingOut ? 'Cerrando...' : 'Cerrar sesión'}
             </button>
-          </div>
-        </div>
+          </div>,
+          document.body
+        )}
       </div>
 
       {/* Content */}

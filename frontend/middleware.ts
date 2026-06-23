@@ -47,6 +47,11 @@ const ROUTE_RULES: RouteRule[] = [
     fallbackAuthenticated: '/auth',
   },
   {
+    prefix: '/client/dashboard',
+    allowedRoles: ['cliente'],
+    fallbackAuthenticated: '/client',
+  },
+  {
     prefix: '/client',
     allowedRoles: ['cliente'],
     fallbackAuthenticated: '/crm/dashboard',

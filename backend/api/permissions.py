@@ -99,6 +99,17 @@ class IsCRMNonBasicRole(permissions.BasePermission):
         role = normalize_role(request.user.profile.role)
         return role in ['ADMIN', 'MANAGER', 'ASISTENTE', 'SHERPA', 'PAGOS', 'CITAS']
 
+class IsClienteRole(permissions.BasePermission):
+    """Allows access only to authenticated users with CLIENTE role."""
+
+    def has_permission(self, request, view):
+        auth, status = check_status(request)
+        if not auth or status != 'ACTIVE':
+            return False
+        if not hasattr(request.user, 'profile'):
+            return False
+        return normalize_role(request.user.profile.role) == 'CLIENTE'
+
 class IsPolicyOwnerOrHigher(permissions.BasePermission):
     """
     Object-level permission to only allow owners (Asistentes) of a policy to edit it.

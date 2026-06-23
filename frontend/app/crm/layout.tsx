@@ -63,7 +63,7 @@ export default function CRMLayout({ children }: CRMLayoutProps) {
             onLogout={handleLogout}
             isLoggingOut={isLoggingOut}
           />
-          <SidebarInset className="flex-1 overflow-hidden bg-[#f8fafc] dark:bg-[#0f172a]">
+          <SidebarInset className="relative z-0 flex-1 overflow-hidden bg-[#f8fafc] dark:bg-[#0f172a]">
             <div className="flex h-16 shrink-0 items-center gap-2 px-6 justify-between border-b border-[#e2e8f0] dark:border-[#334155] bg-white dark:bg-[#1e293b] dark:border-[#334155]">
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 {/* <SidebarTrigger className="ml-1" /> */}

@@ -113,7 +113,7 @@ class ProfileDataSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserProfile
-        fields = ('role', 'status', 'avatar', 'telefono', 'npn', 'ssn', 'agente', 'agente_npn', 'agente_ffm', 'settings')
+        fields = ('role', 'status', 'avatar', 'telefono', 'npn', 'ssn', 'cliente', 'agente', 'agente_npn', 'agente_ffm', 'settings')
 
     def get_agente_npn(self, obj):
         if obj.npn:
@@ -999,15 +999,26 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         return token
 
     def validate(self, attrs):
-        data = super().validate(attrs) 
-        
+        data = super().validate(attrs)
+
+        from .client_portal import resolve_cliente_for_user
+        resolve_cliente_for_user(self.user)
+        if hasattr(self.user, 'profile'):
+            self.user.profile.refresh_from_db()
+
+        refresh = self.get_token(self.user)
+        data['refresh'] = str(refresh)
+        data['access'] = str(refresh.access_token)
         data['role'] = self._resolve_user_role(self.user)
         data['username'] = self.user.username
         data['id'] = self.user.id
         data['email'] = self.user.email
         data['first_name'] = self.user.first_name
         data['last_name'] = self.user.last_name
-        
+
+        cliente = resolve_cliente_for_user(self.user)
+        data['cliente_id'] = cliente.id if cliente else None
+
         return data
 
 

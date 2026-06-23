@@ -23,6 +23,11 @@ from .views import (
     ImportarPolizasExcelView, UndoImportExcelView, UserPolicyStatsDetailView,
     ConfiguracionNotificacionViewSet, CalendarioPrimasPolizaView,
 )
+from .views_portal_cliente import (
+    PortalClienteDashboardView,
+    ClienteSolicitudCambioView,
+    ClienteRegisterView,
+)
 from .views_consent import ConsentRequestViewSet
 from .views_flat_files import FlatPolicyImportView, FlatPolicyExportView
 from .views_tipos_producto import TipoProductoViewSet
@@ -66,6 +71,9 @@ urlpatterns = [
     path('polizas/flat/export/', FlatPolicyExportView.as_view(), name='flat-policy-export'),
     path('polizas/export/', ExportPolizasView.as_view(), name='export_polizas'),
     path('register/', RegisterView.as_view(), name='register'),
+    path('register/cliente/', ClienteRegisterView.as_view(), name='register-cliente'),
+    path('portal-cliente/dashboard/', PortalClienteDashboardView.as_view(), name='portal-cliente-dashboard'),
+    path('portal-cliente/solicitar-cambio/', ClienteSolicitudCambioView.as_view(), name='portal-cliente-solicitar-cambio'),
     path('login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('login/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('profile/', ProfileView.as_view(), name='profile'),

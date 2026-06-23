@@ -133,7 +133,7 @@ export default function CotizacionesPage() {
     <div className="app-page w-full h-full flex flex-col overflow-hidden">
       
       {/* Top Navbar */}
-      <header className="px-[30px] md:px-[40px] py-[15px] flex items-center justify-between bg-white dark:bg-[#1e293b] border-b border-[#f1f5f9] dark:border-[#334155] shrink-0 sticky top-0 z-20 shadow-sm">
+      <header className="px-[30px] md:px-[40px] py-[15px] flex items-center justify-between bg-white dark:bg-[#1e293b] border-b border-[#f1f5f9] dark:border-[#334155] shrink-0 sticky top-0 z-[1] shadow-sm">
         <h2 className="text-[20px] font-bold text-[#0f172a] dark:text-white m-0">Cotizaciones</h2>
         <div className="flex flex-wrap items-center justify-end gap-[10px]">
           <button onClick={() => router.push('/crm/polizas/nueva')} className="bg-[#4f46e5] hover:bg-[#4338ca] text-white border-none py-[8px] px-[16px] text-[13px] font-semibold rounded-[8px] cursor-pointer flex items-center gap-[6px] shadow-sm transition-all focus:ring-2 focus:ring-[#4f46e5] focus:outline-none">

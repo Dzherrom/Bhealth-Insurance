@@ -602,6 +602,12 @@ class PolizaViewSet(viewsets.ModelViewSet):
                     queryset = base_queryset.filter(agente=user.profile.agente)
                 else:
                     return Poliza.objects.none()
+            elif role == 'CLIENTE':
+                from .client_portal import resolve_cliente_for_user
+                cliente = resolve_cliente_for_user(user)
+                if not cliente:
+                    return Poliza.objects.none()
+                queryset = base_queryset.filter(clientes=cliente).distinct()
             else:
                 return Poliza.objects.none()
 
@@ -1106,6 +1112,47 @@ class CambioDeVidaViewSet(viewsets.ModelViewSet):
     serializer_class = CambioDeVidaSerializer
     permission_classes = [permissions.IsAuthenticated]
     filterset_fields = ['poliza', 'tipo', 'estado', 'asignado_a', 'agente', 'agente_creador']
+
+    def get_queryset(self):
+        from .client_portal import get_cliente_poliza_ids, is_cliente_user, resolve_cliente_for_user
+
+        qs = super().get_queryset()
+        user = self.request.user
+        if user.is_superuser:
+            return qs
+
+        if is_cliente_user(user):
+            cliente = resolve_cliente_for_user(user)
+            if not cliente:
+                return CambioDeVida.objects.none()
+            poliza_ids = get_cliente_poliza_ids(cliente)
+            return qs.filter(poliza_id__in=poliza_ids)
+
+        return qs
+
+    def create(self, request, *args, **kwargs):
+        from .client_portal import is_cliente_user
+
+        if is_cliente_user(request.user):
+            return Response(
+                {'detail': 'Use el endpoint /api/portal-cliente/solicitar-cambio/ para enviar solicitudes.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        from .client_portal import is_cliente_user
+
+        if is_cliente_user(request.user):
+            return Response({'detail': 'No tiene permiso para modificar cambios de vida.'}, status=status.HTTP_403_FORBIDDEN)
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        from .client_portal import is_cliente_user
+
+        if is_cliente_user(request.user):
+            return Response({'detail': 'No tiene permiso para modificar cambios de vida.'}, status=status.HTTP_403_FORBIDDEN)
+        return super().partial_update(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         poliza = serializer.validated_data['poliza']

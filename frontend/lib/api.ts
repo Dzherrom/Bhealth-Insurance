@@ -176,6 +176,15 @@ export const authApi = {
     return handleApiResponse<User>(response);
   },
 
+  registerCliente: async (data: RegisterData): Promise<{ id: number; username: string; email: string; cliente_id?: number | null }> => {
+    const response = await fetch(`${API_BASE_URL}/register/cliente/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return handleApiResponse(response);
+  },
+
   // Iniciar sesión
   login: async (data: LoginData): Promise<AuthTokens> => {
     const response = await fetch(`${API_BASE_URL}/login/`, {
@@ -815,6 +824,51 @@ export const cambiosDeVidaApi = {
   },
 };
 
+export interface PortalClienteDashboard {
+  cliente_id: number;
+  nombre_completo: string;
+  fecha_nacimiento?: string | null;
+  direccion_completa?: string | null;
+  telefono?: string | null;
+  email?: string | null;
+  ingresos?: string | null;
+  grupo_familiar: Array<{ nombre: string; relacion: string; es_solicitante_principal: boolean }>;
+  tarjetas_digitales: Array<{ id: number; tipo_tarjeta: string; numero_enmascarado: string; nombre_titular: string; fecha_vencimiento: string }>;
+  elegibilidad: Record<string, unknown>;
+  agente: { nombre?: string | null; npn?: string | null };
+  poliza?: {
+    id: number;
+    estatus?: string | null;
+    plan?: string | null;
+    prima_mensual?: string;
+    costo_poliza?: string;
+    subsidio?: string;
+    fecha_efectiva?: string | null;
+    id_mercado?: string;
+  } | null;
+  campos_editables?: string[];
+  mensaje?: string;
+}
+
+export const portalClienteApi = {
+  getDashboard: async (): Promise<PortalClienteDashboard> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/portal-cliente/dashboard/`, { method: 'GET' });
+    return handleApiResponse<PortalClienteDashboard>(response);
+  },
+  solicitarCambio: async (payload: {
+    poliza_id: number;
+    campos: Record<string, unknown>;
+    descripcion?: string;
+  }) => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/portal-cliente/solicitar-cambio/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return handleApiResponse(response);
+  },
+};
+
 // 📝 Notas
 export const notasApi = {
   ...createCrudApi<Nota>('notas'),
@@ -1021,6 +1075,7 @@ export const api = {
   polizas: polizasApi,
   tareas: tareasApi,
   cambiosDeVida: cambiosDeVidaApi,
+  portalCliente: portalClienteApi,
   citas: citasApi,
   tarjetasCredito: tarjetasCreditoApi,
   cuentasBancarias: cuentasBancariasApi,
