@@ -6,7 +6,9 @@ from rest_framework.views import APIView
 from django.contrib.auth.models import User
 
 from .client_portal import (
+    CLIENT_CAMPO_LABELS,
     CLIENT_EDITABLE_FIELDS,
+    DOCUMENTO_CATEGORIA_LABELS,
     format_direccion,
     get_primary_poliza_for_cliente,
     is_cliente_user,
@@ -153,6 +155,33 @@ class PortalClienteDashboardView(APIView):
         return f'**** **** **** {digits[-4:]}'
 
     @staticmethod
+    def _mask_account(numero: str | None) -> str | None:
+        if not numero:
+            return None
+        digits = ''.join(ch for ch in str(numero) if ch.isdigit())
+        if len(digits) < 4:
+            return '****'
+        return f'****{digits[-4:]}'
+
+    @staticmethod
+    def _format_cambio_resumen(cambio) -> str:
+        datos = cambio.datos or {}
+        if datos.get('tipo_solicitud') == 'DOCUMENTO':
+            categoria = datos.get('categoria') or ''
+            categoria_label = DOCUMENTO_CATEGORIA_LABELS.get(categoria, categoria)
+            titulo = datos.get('titulo') or 'Documento enviado'
+            return f'{titulo}' + (f' ({categoria_label})' if categoria_label else '')
+
+        campos = datos.get('campos_solicitados') or {}
+        if campos:
+            campo_key = next(iter(campos))
+            label = CLIENT_CAMPO_LABELS.get(campo_key, campo_key.replace('_', ' ').title())
+            valor = campos[campo_key]
+            return f'{label}: {valor}'
+
+        return cambio.descripcion or cambio.get_tipo_display()
+
+    @staticmethod
     def _build_elegibilidad(cliente, poliza) -> dict:
         return {
             'estado_inmigracion': cliente.estado_inmigracion,
@@ -164,6 +193,17 @@ class PortalClienteDashboardView(APIView):
         }
 
     def get(self, request):
+        try:
+            return self._build_dashboard_response(request)
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).exception('Error en portal cliente dashboard')
+            return Response(
+                {'detail': 'No se pudo cargar la información del portal.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    def _build_dashboard_response(self, request):
         cliente = resolve_cliente_for_user(request.user)
         if not cliente:
             return Response(
@@ -179,6 +219,12 @@ class PortalClienteDashboardView(APIView):
                     'nombre_completo': f'{cliente.primer_nombre} {cliente.apellido_paterno}'.strip(),
                     'poliza': None,
                     'mensaje': 'No tiene pólizas registradas.',
+                    'grupo_familiar': [],
+                    'tarjetas_digitales': [],
+                    'cuentas_bancarias': [],
+                    'cambios_pendientes': [],
+                    'documentos_solicitados': [],
+                    'campos_editables': sorted(CLIENT_EDITABLE_FIELDS),
                 }
             )
 
@@ -203,6 +249,36 @@ class PortalClienteDashboardView(APIView):
             for tarjeta in poliza.tarjetas_credito.all()
         ]
 
+        cuentas_bancarias = [
+            {
+                'id': cuenta.id,
+                'nombre_banco': cuenta.nombre_banco,
+                'numero_enmascarado': self._mask_account(cuenta.numero_cuenta),
+                'titular_cuenta': cuenta.titular_cuenta,
+                'aba_enmascarado': self._mask_account(cuenta.aba_routing),
+            }
+            for cuenta in poliza.cuentas_bancarias.all()
+        ]
+
+        cambios_pendientes = [
+            {
+                'id': cambio.id,
+                'tipo': cambio.tipo,
+                'tipo_display': cambio.get_tipo_display(),
+                'estado': cambio.estado,
+                'estado_display': cambio.get_estado_display(),
+                'descripcion': cambio.descripcion,
+                'resumen': self._format_cambio_resumen(cambio),
+                'tipo_solicitud': (cambio.datos or {}).get('tipo_solicitud'),
+                'fecha_creacion': cambio.fecha_creacion.isoformat() if cambio.fecha_creacion else None,
+            }
+            for cambio in CambioDeVida.objects.filter(
+                poliza=poliza,
+                creado_por=request.user,
+                estado__in=['PENDIENTE', 'EN_PROCESO'],
+            ).order_by('-fecha_creacion')[:20]
+        ]
+
         agente = poliza.agente
         documentos_solicitados = [
             {
@@ -225,6 +301,8 @@ class PortalClienteDashboardView(APIView):
             'ingresos': str(cliente.ingreso_anual),
             'grupo_familiar': grupo_familiar,
             'tarjetas_digitales': tarjetas,
+            'cuentas_bancarias': cuentas_bancarias,
+            'cambios_pendientes': cambios_pendientes,
             'elegibilidad': self._build_elegibilidad(cliente, poliza),
             'agente': {
                 'nombre': agente.nombre_completo if agente else None,
@@ -272,12 +350,23 @@ class ClienteSolicitudDocumentoView(APIView):
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request):
-        serializer = ClienteSolicitudDocumentoSerializer(
-            data=request.data,
-            context={'request': request},
-        )
-        serializer.is_valid(raise_exception=True)
-        documento = serializer.save()
+        try:
+            serializer = ClienteSolicitudDocumentoSerializer(
+                data=request.data,
+                context={'request': request},
+            )
+            serializer.is_valid(raise_exception=True)
+            documento = serializer.save()
+        except serializers.ValidationError:
+            raise
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).exception('Error al solicitar documento portal cliente')
+            return Response(
+                {'detail': 'No se pudo procesar el documento. Intente nuevamente.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
         return Response(
             {
                 'id': documento.id,

@@ -1063,12 +1063,15 @@ def track_nota_delete(sender, instance, **kwargs):
 def track_documento_save(sender, instance, created, **kwargs):
     if created and not getattr(instance, '_history_tracked', False):
         from api.middleware import get_current_user
+        usuario = instance.subido_por or get_current_user()
         HistorialPoliza.objects.create(
-            poliza=instance.poliza,usuario=get_current_user(),accion='DOCUMENTO_SUBIDO',
+            poliza=instance.poliza,
+            usuario=usuario,
+            accion='DOCUMENTO_SUBIDO',
             detalles=f"Documento subido: {instance.titulo}"
         )
         registrar_auditoria_global(
-            usuario=get_current_user(),
+            usuario=usuario,
             accion='DOCUMENTO_SUBIDO',
             modelo='Documento',
             objeto_id=instance.id,

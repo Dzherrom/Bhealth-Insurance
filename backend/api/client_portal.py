@@ -19,6 +19,26 @@ CLIENT_EDITABLE_FIELDS = frozenset({
     'tarjetas_digitales',
 })
 
+CLIENT_CAMPO_LABELS = {
+    'fecha_nacimiento': 'Fecha de nacimiento',
+    'direccion': 'Dirección completa',
+    'telefono': 'Teléfono',
+    'email': 'Correo electrónico',
+    'estatus_poliza': 'Estatus de póliza',
+    'ingresos': 'Ingresos',
+    'grupo_familiar': 'Grupo familiar',
+    'tarjetas_digitales': 'Tarjetas digitales',
+}
+
+DOCUMENTO_CATEGORIA_LABELS = {
+    'IDENTIFICACION': 'Identificación',
+    'ESTATUS_MIGRATORIO': 'Estatus migratorio',
+    'CARTA_MERCADO': 'Carta de mercado',
+    'ASEGURANZA': 'Aseguranza',
+    'CONSENTIMIENTO': 'Consentimiento',
+    'OTRO': 'Otro documento',
+}
+
 
 def normalize_role(role):
     return (role or '').strip().upper()
@@ -170,6 +190,7 @@ def get_primary_poliza_for_cliente(cliente: Cliente) -> Poliza | None:
         .prefetch_related(
             'polizacliente_set__cliente',
             'tarjetas_credito',
+            'cuentas_bancarias',
         )
         .order_by('-ultima_actualizacion')
         .first()
@@ -180,7 +201,7 @@ def get_primary_poliza_for_cliente(cliente: Cliente) -> Poliza | None:
     return (
         Poliza.objects.filter(polizacliente__cliente=cliente)
         .select_related('agente', 'plan', 'estado', 'plan__aseguradora', 'direccion_fisica')
-        .prefetch_related('polizacliente_set__cliente', 'tarjetas_credito')
+        .prefetch_related('polizacliente_set__cliente', 'tarjetas_credito', 'cuentas_bancarias')
         .order_by('-ultima_actualizacion')
         .first()
     )

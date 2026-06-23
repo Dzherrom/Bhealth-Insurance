@@ -10,7 +10,6 @@ import {
   Calendar,
   ShieldCheck,
   FileText,
-  PenTool,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -58,7 +57,6 @@ const navGroups: SidebarGroup[] = [
     label: 'Documentos',
     items: [
       { icon: FileText, label: 'Formularios', href: '/crm/formularios-de-firmas', colorClass: 'text-[#ea580c]', shadowClass: 'hover:drop-shadow-[0_0_10px_rgba(234,88,12,0.5)]' },
-      { icon: PenTool, label: 'Contratos', href: '/crm/contracts', colorClass: 'text-[#d97706]', shadowClass: 'hover:drop-shadow-[0_0_10px_rgba(217,119,6,0.5)]' },
     ],
   },
   {

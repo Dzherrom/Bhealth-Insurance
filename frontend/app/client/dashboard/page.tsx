@@ -16,6 +16,8 @@ import {
   Upload,
   FileText,
   Clock3,
+  Landmark,
+  ClipboardList,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -64,6 +66,20 @@ const DOCUMENTO_CATEGORIAS = [
 const cardClass =
   'border-[#e2e8f0] bg-white shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 animate-in fade-in slide-in-from-bottom-2';
 
+function normalizeDashboard(dashboard: PortalClienteDashboard): PortalClienteDashboard {
+  return {
+    ...dashboard,
+    grupo_familiar: dashboard.grupo_familiar ?? [],
+    tarjetas_digitales: dashboard.tarjetas_digitales ?? [],
+    cuentas_bancarias: dashboard.cuentas_bancarias ?? [],
+    cambios_pendientes: dashboard.cambios_pendientes ?? [],
+    documentos_solicitados: dashboard.documentos_solicitados ?? [],
+    campos_editables: dashboard.campos_editables ?? Object.keys(CAMPO_LABELS),
+    elegibilidad: dashboard.elegibilidad ?? {},
+    agente: dashboard.agente ?? {},
+  };
+}
+
 function InfoRow({ icon: Icon, label, value }: { icon: typeof User; label: string; value?: string | null }) {
   return (
     <div className="flex items-start gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-[#f8fafc]">
@@ -76,13 +92,35 @@ function InfoRow({ icon: Icon, label, value }: { icon: typeof User; label: strin
   );
 }
 
-function StatusPill({ label }: { label: string }) {
+function StatusPill({ label }: { label?: string | null }) {
+  const safeLabel = label || 'Pendiente';
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${getStatusBadgeClass(label)}`}
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${getStatusBadgeClass(safeLabel)}`}
     >
-      {label}
+      {safeLabel}
     </span>
+  );
+}
+
+function PaymentItemCard({
+  title,
+  maskedNumber,
+  subtitle,
+  footer,
+}: {
+  title: string;
+  maskedNumber: string;
+  subtitle?: string | null;
+  footer?: string | null;
+}) {
+  return (
+    <div className="rounded-lg border border-[#e2e8f0] bg-[#f8fafc] p-3 mb-2 last:mb-0 transition-all hover:bg-white hover:shadow-sm">
+      <p className="text-sm font-semibold text-[#0f172a]">{title}</p>
+      <p className="text-xs font-mono text-[#64748b] mt-0.5">{maskedNumber}</p>
+      {subtitle ? <p className="text-xs text-[#64748b] mt-1">{subtitle}</p> : null}
+      {footer ? <p className="text-xs text-[#64748b] mt-0.5">{footer}</p> : null}
+    </div>
   );
 }
 
@@ -103,16 +141,20 @@ export default function ClientDashboardPage() {
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const loadDashboard = async () => {
-    setIsLoading(true);
+  const loadDashboard = async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setIsLoading(true);
+    }
     setError(null);
     try {
       const dashboard = await portalClienteApi.getDashboard();
-      setData(dashboard);
+      setData(normalizeDashboard(dashboard));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo cargar su información');
     } finally {
-      setIsLoading(false);
+      if (!options?.silent) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -138,6 +180,7 @@ export default function ClientDashboardPage() {
       });
       setSuccessMsg('Su solicitud fue enviada. Un agente revisará los cambios pronto.');
       setSelectedCampo(null);
+      await loadDashboard({ silent: true });
       setTimeout(() => setSuccessMsg(null), 5000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo enviar la solicitud');
@@ -166,7 +209,7 @@ export default function ClientDashboardPage() {
       setDocComentario('');
       setDocFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
-      await loadDashboard();
+      await loadDashboard({ silent: true });
       setTimeout(() => setSuccessMsg(null), 6000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo enviar el documento');
@@ -185,16 +228,25 @@ export default function ClientDashboardPage() {
 
   if (error && !data) {
     return (
-      <Alert variant="destructive" className="bg-white border-red-200">
-        <AlertDescription>{error}</AlertDescription>
-      </Alert>
+      <div className="space-y-4">
+        <Alert variant="destructive" className="bg-white border-red-200">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+        <Button onClick={() => loadDashboard()} className="bg-emerald-600 hover:bg-emerald-700">
+          Reintentar
+        </Button>
+      </div>
     );
   }
 
   if (!data) return null;
 
-  const camposEditables = data.campos_editables || Object.keys(CAMPO_LABELS);
-  const documentos = data.documentos_solicitados || [];
+  const camposEditables = data.campos_editables;
+  const documentos = data.documentos_solicitados;
+  const cambiosPendientes = data.cambios_pendientes;
+  const cuentasBancarias = data.cuentas_bancarias;
+  const tarjetasDigitales = data.tarjetas_digitales;
+  const grupoFamiliar = data.grupo_familiar;
 
   return (
     <div className="space-y-6">
@@ -369,21 +421,104 @@ export default function ClientDashboardPage() {
                   ))}
                 </div>
               ) : null}
+
+              <div className="pt-4 border-t border-[#e2e8f0] space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#64748b] flex items-center gap-1.5">
+                  <ClipboardList className="h-3.5 w-3.5" />
+                  Cambios de vida pendientes
+                </p>
+                {cambiosPendientes.length === 0 ? (
+                  <p className="text-sm text-[#64748b] rounded-lg border border-dashed border-[#e2e8f0] bg-[#f8fafc] px-3 py-4 text-center">
+                    No tiene solicitudes pendientes. Al enviar un documento o solicitar un cambio de datos, aparecerá aquí.
+                  </p>
+                ) : (
+                  cambiosPendientes.map((cambio) => (
+                    <div
+                      key={cambio.id}
+                      className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-[#e2e8f0] bg-[#f8fafc] px-3 py-2.5 transition-colors hover:bg-white hover:border-emerald-200"
+                    >
+                      <div className="flex items-start gap-2 min-w-0 flex-1">
+                        <ClipboardList className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-[#0f172a] break-words">{cambio.resumen}</p>
+                          <p className="text-xs text-[#64748b] mt-0.5">{cambio.tipo_display}</p>
+                          {cambio.descripcion ? (
+                            <p className="text-xs text-[#94a3b8] mt-1 line-clamp-2">{cambio.descripcion}</p>
+                          ) : null}
+                          <p className="text-xs text-[#64748b] flex items-center gap-1 mt-1">
+                            <Clock3 className="h-3 w-3" />
+                            {cambio.fecha_creacion
+                              ? new Date(cambio.fecha_creacion).toLocaleDateString('es-MX')
+                              : 'Reciente'}
+                          </p>
+                        </div>
+                      </div>
+                      <StatusPill label={cambio.estado_display || cambio.estado} />
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className={cardClass} style={{ animationDelay: '175ms' }}>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2 text-[#0f172a]">
+                <CreditCard className="h-5 w-5 text-emerald-600" /> Tarjetas digitales
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {tarjetasDigitales.length === 0 ? (
+                <p className="text-sm text-[#64748b]">Sin tarjetas registradas.</p>
+              ) : (
+                tarjetasDigitales.map((tarjeta) => (
+                  <PaymentItemCard
+                    key={tarjeta.id}
+                    title={tarjeta.tipo_tarjeta}
+                    maskedNumber={tarjeta.numero_enmascarado}
+                    subtitle={tarjeta.nombre_titular}
+                    footer={tarjeta.fecha_vencimiento ? `Vence ${tarjeta.fecha_vencimiento}` : null}
+                  />
+                ))
+              )}
             </CardContent>
           </Card>
 
           <Card className={cardClass} style={{ animationDelay: '200ms' }}>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2 text-[#0f172a]">
+                <Landmark className="h-5 w-5 text-emerald-600" /> Cuentas bancarias
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {cuentasBancarias.length === 0 ? (
+                <p className="text-sm text-[#64748b]">Sin cuentas bancarias registradas.</p>
+              ) : (
+                cuentasBancarias.map((cuenta) => (
+                  <PaymentItemCard
+                    key={cuenta.id}
+                    title={cuenta.nombre_banco}
+                    maskedNumber={cuenta.numero_enmascarado}
+                    subtitle={cuenta.titular_cuenta}
+                    footer={cuenta.aba_enmascarado ? `ABA ${cuenta.aba_enmascarado}` : null}
+                  />
+                ))
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className={cardClass} style={{ animationDelay: '225ms' }}>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2 text-[#0f172a]">
                 <Users className="h-5 w-5 text-emerald-600" /> Grupo familiar
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {data.grupo_familiar.length === 0 ? (
+              {grupoFamiliar.length === 0 ? (
                 <p className="text-sm text-[#64748b]">Sin miembros registrados.</p>
               ) : (
                 <div className="space-y-2">
-                  {data.grupo_familiar.map((member, idx) => (
+                  {grupoFamiliar.map((member, idx) => (
                     <div
                       key={idx}
                       className="flex items-center justify-between rounded-lg border border-[#e2e8f0] bg-[#f8fafc] px-3 py-2 transition-all hover:bg-white hover:border-emerald-200"
@@ -396,30 +531,6 @@ export default function ClientDashboardPage() {
                     </div>
                   ))}
                 </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className={cardClass} style={{ animationDelay: '250ms' }}>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2 text-[#0f172a]">
-                <CreditCard className="h-5 w-5 text-emerald-600" /> Tarjetas digitales
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {data.tarjetas_digitales.length === 0 ? (
-                <p className="text-sm text-[#64748b]">Sin tarjetas registradas.</p>
-              ) : (
-                data.tarjetas_digitales.map((tarjeta) => (
-                  <div
-                    key={tarjeta.id}
-                    className="rounded-lg border border-[#e2e8f0] bg-[#f8fafc] p-3 mb-2 last:mb-0 transition-all hover:bg-white hover:shadow-sm"
-                  >
-                    <p className="text-sm font-semibold text-[#0f172a]">{tarjeta.tipo_tarjeta}</p>
-                    <p className="text-xs font-mono text-[#64748b]">{tarjeta.numero_enmascarado}</p>
-                    <p className="text-xs text-[#64748b] mt-1">Vence {tarjeta.fecha_vencimiento}</p>
-                  </div>
-                ))
               )}
             </CardContent>
           </Card>

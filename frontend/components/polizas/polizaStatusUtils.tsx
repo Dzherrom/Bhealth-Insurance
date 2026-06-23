@@ -14,8 +14,8 @@ export const ESTADO_PAGO_OPTIONS = [
   { value: 'VENCIDO', label: 'Vencido' },
 ] as const;
 
-export function getStatusTone(label: string): StatusTone {
-  const value = label.toLowerCase();
+export function getStatusTone(label?: string | null): StatusTone {
+  const value = (label || '').toLowerCase();
 
   if (
     value.includes('activ') ||
@@ -53,7 +53,7 @@ export function getStatusTone(label: string): StatusTone {
   return 'neutral';
 }
 
-export function getStatusBadgeClass(label: string): string {
+export function getStatusBadgeClass(label?: string | null): string {
   switch (getStatusTone(label)) {
     case 'success':
       return 'bg-[#d1fae5] text-[#10b981]';

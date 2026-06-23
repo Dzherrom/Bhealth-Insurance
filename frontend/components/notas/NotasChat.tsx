@@ -23,9 +23,18 @@ import { notasApi, resolveApiMediaUrl, usersApi } from '@/lib/api';
 import { mapNotaUsuario } from '@/components/polizas/notaUtils';
 import { useToast } from '@/hooks/use-toast';
 import { AnimatePresence, motion } from 'motion/react';
+import { useSidebar } from '@/components/sidebar';
 
 const OVERLAY_TRANSITION = { duration: 0.28, ease: [0.4, 0, 0.2, 1] as const };
 const PANEL_TRANSITION = { duration: 0.38, ease: [0.32, 0.72, 0, 1] as const };
+
+const CRM_SIDEBAR_EXPANDED_PX = 200;
+const CRM_SIDEBAR_COLLAPSED_PX = 56;
+
+function useNotesPanelLeftOffset() {
+  const { state } = useSidebar();
+  return state === 'collapsed' ? CRM_SIDEBAR_COLLAPSED_PX : CRM_SIDEBAR_EXPANDED_PX;
+}
 
 interface NotaChat {
   id: number;
@@ -72,6 +81,7 @@ const estadoColors = {
 };
 
 export function NotasChat({ isOpen, onClose, onClosed, polizaInfo }: NotasChatProps) {
+  const panelLeftOffset = useNotesPanelLeftOffset();
   const [notas, setNotas] = useState<NotaChat[]>([]);
   const [nuevaNota, setNuevaNota] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -293,7 +303,8 @@ export function NotasChat({ isOpen, onClose, onClosed, polizaInfo }: NotasChatPr
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={OVERLAY_TRANSITION}
-            className="fixed inset-0 z-40 bg-black/25"
+            className="fixed top-0 right-0 bottom-0 z-40 bg-black/25"
+            style={{ left: panelLeftOffset }}
             onClick={handleClose}
             aria-hidden="true"
           />
@@ -304,8 +315,12 @@ export function NotasChat({ isOpen, onClose, onClosed, polizaInfo }: NotasChatPr
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
             transition={PANEL_TRANSITION}
-            className="fixed left-0 top-0 z-50 flex h-full w-full max-w-[500px] flex-col border-r border-slate-200 bg-white shadow-2xl will-change-transform dark:border-slate-800 dark:bg-slate-900"
-            style={{ transform: 'translateZ(0)' }}
+            className="fixed top-0 z-50 flex h-full flex-col border-r border-slate-200 bg-white will-change-transform dark:border-slate-800 dark:bg-slate-900"
+            style={{
+              left: panelLeftOffset,
+              width: `min(500px, calc(100vw - ${panelLeftOffset}px))`,
+              transform: 'translateZ(0)',
+            }}
             role="dialog"
             aria-modal="true"
             aria-label="Notas de póliza"

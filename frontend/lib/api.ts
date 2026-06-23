@@ -834,6 +834,24 @@ export interface PortalClienteDashboard {
   ingresos?: string | null;
   grupo_familiar: Array<{ nombre: string; relacion: string; es_solicitante_principal: boolean }>;
   tarjetas_digitales: Array<{ id: number; tipo_tarjeta: string; numero_enmascarado: string; nombre_titular: string; fecha_vencimiento: string }>;
+  cuentas_bancarias?: Array<{
+    id: number;
+    nombre_banco: string;
+    numero_enmascarado: string;
+    titular_cuenta: string;
+    aba_enmascarado?: string | null;
+  }>;
+  cambios_pendientes?: Array<{
+    id: number;
+    tipo: string;
+    tipo_display: string;
+    estado: string;
+    estado_display: string;
+    descripcion?: string | null;
+    resumen: string;
+    tipo_solicitud?: string | null;
+    fecha_creacion?: string | null;
+  }>;
   elegibilidad: Record<string, unknown>;
   agente: { nombre?: string | null; npn?: string | null };
   poliza?: {
