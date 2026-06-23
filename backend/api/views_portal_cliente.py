@@ -1,4 +1,5 @@
 from rest_framework import permissions, serializers, status
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -13,7 +14,7 @@ from .client_portal import (
     resolve_cliente_for_user,
     user_owns_poliza,
 )
-from .models import CambioDeVida, Cliente, Poliza
+from .models import CambioDeVida, Cliente, Documento, Poliza
 from .permissions import IsClienteRole
 
 
@@ -80,6 +81,65 @@ class ClienteSolicitudCambioSerializer(serializers.Serializer):
         return cambio
 
 
+class ClienteSolicitudDocumentoSerializer(serializers.Serializer):
+    poliza_id = serializers.IntegerField()
+    titulo = serializers.CharField(max_length=255)
+    categoria = serializers.ChoiceField(
+        choices=[choice[0] for choice in Documento.CATEGORIA_CHOICES],
+        default='OTRO',
+    )
+    archivo = serializers.FileField()
+    comentario = serializers.CharField(required=False, allow_blank=True, max_length=2000)
+
+    def validate_poliza_id(self, value):
+        request = self.context['request']
+        try:
+            poliza = Poliza.objects.select_related('agente').get(pk=value)
+        except Poliza.DoesNotExist as exc:
+            raise serializers.ValidationError('Póliza no encontrada.') from exc
+
+        if not user_owns_poliza(request.user, poliza):
+            raise serializers.ValidationError('No tiene permiso para enviar documentos a esta póliza.')
+
+        self.context['poliza'] = poliza
+        return value
+
+    def create(self, validated_data):
+        request = self.context['request']
+        poliza = self.context['poliza']
+        cliente = resolve_cliente_for_user(request.user)
+        comentario = validated_data.get('comentario', '').strip()
+
+        documento = Documento.objects.create(
+            poliza=poliza,
+            cliente=cliente,
+            titulo=validated_data['titulo'].strip(),
+            categoria=validated_data['categoria'],
+            archivo=validated_data['archivo'],
+            estado_documento='PENDIENTE_REVISION',
+            subido_por=request.user,
+        )
+
+        CambioDeVida.objects.create(
+            poliza=poliza,
+            agente=poliza.agente,
+            agente_creador=None,
+            tipo='OTROS',
+            descripcion=comentario or 'Documento enviado desde portal del cliente para revisión.',
+            datos={
+                'origen': 'PORTAL_CLIENTE',
+                'tipo_solicitud': 'DOCUMENTO',
+                'documento_id': documento.id,
+                'titulo': documento.titulo,
+                'categoria': documento.categoria,
+            },
+            estado='PENDIENTE',
+            creado_por=request.user,
+        )
+
+        return documento
+
+
 class PortalClienteDashboardView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsClienteRole]
 
@@ -144,6 +204,17 @@ class PortalClienteDashboardView(APIView):
         ]
 
         agente = poliza.agente
+        documentos_solicitados = [
+            {
+                'id': documento.id,
+                'titulo': documento.titulo,
+                'categoria': documento.categoria,
+                'estado_documento': documento.estado_documento,
+                'estado_display': documento.get_estado_documento_display(),
+                'fecha_subida': documento.fecha_subida.isoformat() if documento.fecha_subida else None,
+            }
+            for documento in poliza.documentos.filter(subido_por=request.user).order_by('-fecha_subida')[:20]
+        ]
         return Response({
             'cliente_id': cliente.id,
             'nombre_completo': f'{cliente.primer_nombre} {cliente.apellido_paterno}'.strip(),
@@ -170,6 +241,7 @@ class PortalClienteDashboardView(APIView):
                 'id_mercado': poliza.id_mercado,
             },
             'campos_editables': sorted(CLIENT_EDITABLE_FIELDS),
+            'documentos_solicitados': documentos_solicitados,
         })
 
 
@@ -190,6 +262,29 @@ class ClienteSolicitudCambioView(APIView):
                 'estado': cambio.estado,
                 'poliza_id': cambio.poliza_id,
                 'mensaje': 'Su solicitud de cambio fue enviada correctamente.',
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ClienteSolicitudDocumentoView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsClienteRole]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        serializer = ClienteSolicitudDocumentoSerializer(
+            data=request.data,
+            context={'request': request},
+        )
+        serializer.is_valid(raise_exception=True)
+        documento = serializer.save()
+        return Response(
+            {
+                'id': documento.id,
+                'titulo': documento.titulo,
+                'estado_documento': documento.estado_documento,
+                'estado_display': documento.get_estado_documento_display(),
+                'mensaje': 'Documento enviado correctamente. Un agente lo revisará pronto.',
             },
             status=status.HTTP_201_CREATED,
         )

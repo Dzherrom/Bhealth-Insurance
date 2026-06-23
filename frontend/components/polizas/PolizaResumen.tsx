@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { CambiosDeVidaPanel } from './CambiosDeVidaPanel';
 import { RegistrosActividadModal } from './RegistrosActividadModal';
 import { UltimaNotaCard } from './UltimaNotaCard';
-import { api, etiquetasApi, estadosPolizaApi, agentesApi } from '@/lib/api';
+import { EditEstatusPolizaModal } from './EditEstatusPolizaModal';
+import { api, etiquetasApi, agentesApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import {
   formatCurrencyValue,
@@ -12,6 +13,11 @@ import {
   formatFechaDisplay,
   getPrincipalMember,
 } from './polizaUtils';
+import {
+  getEstadoDocumentoLabel,
+  getEstadoPagoLabel,
+  StatusBadge,
+} from './polizaStatusUtils';
 import type { NotaApi } from './notaUtils';
 import { 
   FileText, 
@@ -38,6 +44,9 @@ interface PolizaResumenProps {
     plan_nombre: string;
     estado_nombre: string;
     estado?: number;
+    estado_documento?: string | null;
+    estado_pago?: string | null;
+    info_pago_id?: number | null;
     prima_mensual: string;
     fecha_efectiva: string;
     cliente_principal: string;
@@ -60,8 +69,8 @@ interface PolizaResumenProps {
 export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza', onSectionChange, onPolizaUpdate, onOpenNotasChat }: PolizaResumenProps) {
   const [isCambiosVidaOpen, setIsCambiosVidaOpen] = useState(false);
   const [isRegistrosModalOpen, setIsRegistrosModalOpen] = useState(false);
+  const [isEstatusModalOpen, setIsEstatusModalOpen] = useState(false);
   const [allEtiquetas, setAllEtiquetas] = useState<{id: number, nombre: string}[]>([]);
-  const [allEstados, setAllEstados] = useState<{id: number, nombre: string}[]>([]);
   const [allAgentes, setAllAgentes] = useState<{id: number, nombre_completo: string}[]>([]);
   const { toast } = useToast();
 
@@ -72,13 +81,11 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [etiquetasRes, estadosRes, agentesRes] = await Promise.all([
+        const [etiquetasRes, agentesRes] = await Promise.all([
           etiquetasApi.list(),
-          estadosPolizaApi.list(),
           agentesApi.list(),
         ]);
         setAllEtiquetas(etiquetasRes.filter((e: any) => e.tipo === 'POLIZA'));
-        setAllEstados(estadosRes);
         setAllAgentes(agentesRes as any[]);
       } catch (error) {
         console.error("Error fetching data for resumen", error);
@@ -106,19 +113,8 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
     }
   };
 
-  const handleEstadoChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    if (!poliza.id) return;
-    const newEstadoId = parseInt(e.target.value);
-    try {
-      await api.polizas.patch(poliza.id, { estado: newEstadoId });
-      toast({ title: "Éxito", description: "Estado de póliza actualizado." });
-      if (onPolizaUpdate) {
-        const estadoObj = allEstados.find(est => est.id === newEstadoId);
-        onPolizaUpdate({ estado: newEstadoId, estado_nombre: estadoObj?.nombre || poliza.estado_nombre });
-      }
-    } catch (error) {
-      toast({ title: "Error", description: "No se pudo actualizar el estado.", variant: "destructive" });
-    }
+  const handleEstatusUpdated = () => {
+    onPolizaUpdate?.();
   };
 
   const handleEtiquetaChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -240,18 +236,32 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
               <div className="relative flex items-center justify-between gap-4 w-full">
                 <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
               </div>
-              <div className="flex justify-between items-center w-full">
-                <p className="text-gray-700 dark:text-white text-sm flex items-center gap-1 font-medium">Estatus:</p>
-                <select 
-                  value={poliza.estado || ''} 
-                  onChange={handleEstadoChange}
-                  className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md text-xs py-1 px-2 text-gray-700 dark:text-white w-[140px] outline-none focus:ring-1 focus:ring-primary h-[28px]"
-                >
-                  {poliza.estado ? null : <option value="" disabled>{poliza.estado_nombre || 'Seleccionar'}</option>}
-                  {allEstados.map(est => (
-                    <option key={est.id} value={est.id}>{est.nombre}</option>
-                  ))}
-                </select>
+              <div className="flex flex-col w-full gap-2">
+                <div className="flex justify-between items-center w-full gap-2">
+                  <p className="text-gray-700 dark:text-white text-sm font-medium shrink-0">Estatus:</p>
+                  <button
+                    type="button"
+                    onClick={() => setIsEstatusModalOpen(true)}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+                  >
+                    <i className="fa-solid fa-edit text-[10px]" />
+                    Editar
+                  </button>
+                </div>
+                <div className="flex flex-col gap-1.5 pl-0.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-[#64748b] dark:text-slate-400">Póliza</span>
+                    <StatusBadge label={poliza.estado_nombre || 'Sin estatus'} />
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-[#64748b] dark:text-slate-400">Documento</span>
+                    <StatusBadge label={getEstadoDocumentoLabel(poliza.estado_documento)} />
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-[#64748b] dark:text-slate-400">Pago</span>
+                    <StatusBadge label={getEstadoPagoLabel(poliza.estado_pago)} />
+                  </div>
+                </div>
               </div>
               <div className="relative flex items-center justify-between gap-4 w-full">
                 <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
@@ -455,6 +465,20 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
         onClose={() => setIsRegistrosModalOpen(false)}
         polizaId={poliza.id_mercado}
       />
+
+      {poliza.id ? (
+        <EditEstatusPolizaModal
+          open={isEstatusModalOpen}
+          onOpenChange={setIsEstatusModalOpen}
+          polizaId={poliza.id}
+          estado={poliza.estado}
+          estadoNombre={poliza.estado_nombre}
+          estadoDocumento={poliza.estado_documento}
+          infoPagoId={poliza.info_pago_id}
+          estadoPago={poliza.estado_pago}
+          onUpdated={handleEstatusUpdated}
+        />
+      ) : null}
     </>
   );
 }

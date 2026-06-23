@@ -26,6 +26,7 @@ from .views import (
 from .views_portal_cliente import (
     PortalClienteDashboardView,
     ClienteSolicitudCambioView,
+    ClienteSolicitudDocumentoView,
     ClienteRegisterView,
 )
 from .views_consent import ConsentRequestViewSet
@@ -74,6 +75,7 @@ urlpatterns = [
     path('register/cliente/', ClienteRegisterView.as_view(), name='register-cliente'),
     path('portal-cliente/dashboard/', PortalClienteDashboardView.as_view(), name='portal-cliente-dashboard'),
     path('portal-cliente/solicitar-cambio/', ClienteSolicitudCambioView.as_view(), name='portal-cliente-solicitar-cambio'),
+    path('portal-cliente/solicitar-documento/', ClienteSolicitudDocumentoView.as_view(), name='portal-cliente-solicitar-documento'),
     path('login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('login/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('profile/', ProfileView.as_view(), name='profile'),

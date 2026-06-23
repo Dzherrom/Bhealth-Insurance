@@ -24,7 +24,6 @@ import { EditMedicamentoModal } from '@/components/polizas/EditMedicamentoModal'
 import type { MedicoPoliza, MedicamentoPoliza } from '@/lib/api';
 import { UltimaNotaCard } from '@/components/polizas/UltimaNotaCard';
 import { CitasPoliza } from '@/components/polizas/CitasPoliza';
-import { EstatusPolizaCards } from '@/components/polizas/EstatusPolizaCards';
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -199,6 +198,9 @@ export default function PolizaDetailsPage() {
           plan_nombre: poliza.plan_nombre,
           estado_nombre: poliza.estado_nombre,
           estado: poliza.estado,
+          estado_documento: (poliza as any).estado_documento,
+          estado_pago: infoPago?.estado_pago ?? null,
+          info_pago_id: infoPago?.id ?? null,
           etiquetas: poliza.etiquetas,
           prima_mensual: poliza.prima_mensual?.toString() || '0',
           fecha_efectiva: poliza.fecha_efectiva,
@@ -361,16 +363,6 @@ export default function PolizaDetailsPage() {
                 </div>
               </div>
             </div>
-
-            <EstatusPolizaCards
-              polizaId={poliza.id}
-              estado={poliza.estado}
-              estadoNombre={poliza.estado_nombre}
-              estadoDocumento={(poliza as any).estado_documento}
-              infoPagoId={infoPago?.id ?? null}
-              estadoPago={infoPago?.estado_pago ?? null}
-              onUpdated={refreshPoliza}
-            />
 
             {/* Family Members */}
             <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 dark:shadow-none flex w-auto flex-col p-4 lg:p-4">

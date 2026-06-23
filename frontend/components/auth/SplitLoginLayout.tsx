@@ -26,7 +26,7 @@ const VARIANTS = {
     panelClass: 'bg-gradient-to-br from-[#047857] via-[#059669] to-[#10b981]',
     accentClass: 'text-emerald-100',
     badgeClass: 'bg-emerald-500/30 text-emerald-50',
-    formBg: 'bg-[#ecfdf5]',
+    formBg: 'bg-[#f8fafc]',
     imageSrc: 'https://images.unsplash.com/photo-1631217868264-e5bccd8575d8?auto=format&fit=crop&w=1200&q=80',
     imageAlt: 'Familia protegida con seguro de salud',
   },

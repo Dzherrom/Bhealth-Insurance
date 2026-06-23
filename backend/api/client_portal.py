@@ -118,17 +118,6 @@ def get_portal_user_for_cliente(cliente: Cliente) -> User | None:
     profile = UserProfile.objects.filter(cliente=cliente, role=CLIENTE_ROLE).select_related('user').first()
     return profile.user if profile else None
 
-CLIENT_EDITABLE_FIELDS = frozenset({
-    'fecha_nacimiento',
-    'direccion',
-    'telefono',
-    'email',
-    'estatus_poliza',
-    'ingresos',
-    'grupo_familiar',
-    'tarjetas_digitales',
-})
-
 
 def is_cliente_user(user: User) -> bool:
     if not user or not user.is_authenticated:

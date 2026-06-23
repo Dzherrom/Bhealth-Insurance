@@ -847,6 +847,14 @@ export interface PortalClienteDashboard {
     id_mercado?: string;
   } | null;
   campos_editables?: string[];
+  documentos_solicitados?: Array<{
+    id: number;
+    titulo: string;
+    categoria: string;
+    estado_documento: string;
+    estado_display: string;
+    fecha_subida?: string | null;
+  }>;
   mensaje?: string;
 }
 
@@ -866,6 +874,20 @@ export const portalClienteApi = {
       body: JSON.stringify(payload),
     });
     return handleApiResponse(response);
+  },
+  solicitarDocumento: async (payload: FormData) => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/portal-cliente/solicitar-documento/`, {
+      method: 'POST',
+      body: payload,
+      headers: getAuthHeadersWithoutContentType(),
+    });
+    return handleApiResponse<{
+      id: number;
+      titulo: string;
+      estado_documento: string;
+      estado_display: string;
+      mensaje: string;
+    }>(response);
   },
 };
 
