@@ -573,7 +573,7 @@ class PolizaViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         base_queryset = Poliza.objects.select_related(
-            'agente', 'plan', 'estado', 'plan__aseguradora'
+            'agente', 'plan', 'estado', 'plan__aseguradora', 'info_pago'
         )
 
         if self.action == 'list':

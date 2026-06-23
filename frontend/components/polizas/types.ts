@@ -11,6 +11,10 @@ export interface Poliza {
   asistente_npn?: string | null;
   plan_nombre: string;
   estado_nombre: string;
+  estado_documento?: string;
+  estado_documento_display?: string;
+  estado_pago?: string;
+  estado_pago_display?: string;
   prima_mensual: number;
   fecha_efectiva: string;
   costo_poliza: number;

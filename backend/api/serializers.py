@@ -656,6 +656,9 @@ class PolizaListSerializer(serializers.ModelSerializer):
     asistente_npn = serializers.SerializerMethodField()
     plan_nombre = serializers.ReadOnlyField(source='plan.nombre')
     estado_nombre = serializers.ReadOnlyField(source='estado.nombre')
+    estado_documento_display = serializers.SerializerMethodField()
+    estado_pago = serializers.SerializerMethodField()
+    estado_pago_display = serializers.SerializerMethodField()
     cliente_principal = serializers.SerializerMethodField()
 
     class Meta:
@@ -675,6 +678,10 @@ class PolizaListSerializer(serializers.ModelSerializer):
             'tipo_producto',
             'estado',
             'estado_nombre',
+            'estado_documento',
+            'estado_documento_display',
+            'estado_pago',
+            'estado_pago_display',
             'prima_mensual',
             'costo_poliza',
             'subsidio',
@@ -686,6 +693,21 @@ class PolizaListSerializer(serializers.ModelSerializer):
             'cliente_principal',
             'ultima_actualizacion',
         ]
+
+    def get_estado_documento_display(self, obj):
+        return dict(Poliza.ESTADO_DOCUMENTO_POLIZA_CHOICES).get(
+            obj.estado_documento,
+            obj.estado_documento or 'Pendiente',
+        )
+
+    def get_estado_pago(self, obj):
+        info_pago = getattr(obj, 'info_pago', None)
+        if info_pago:
+            return info_pago.estado_pago
+        return InfoPago.ESTADO_PENDIENTE
+
+    def get_estado_pago_display(self, obj):
+        return dict(InfoPago.ESTADO_CHOICES).get(self.get_estado_pago(obj), 'Pendiente')
 
     def _resolve_npn(self, profile):
         if not profile:
@@ -788,7 +810,7 @@ class PolizaSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'id_mercado', 'id_miembro', 'costo_poliza', 'subsidio', 'prima_mensual',
             'total_ahorros', 'plan_era',
-            'fecha_efectiva', 'estado', 'estado_nombre', 'flujo_etapa', 'fecha_envio', 'fecha_cancelacion',
+            'fecha_efectiva', 'estado', 'estado_nombre', 'estado_documento', 'flujo_etapa', 'fecha_envio', 'fecha_cancelacion',
             'id_interno', 'agente', 'agente_nombre', 'plan', 'plan_nombre', 'tipo_producto', 'tipo_producto_nombre',
             'aseguradora', 'aseguradora_nombre', 'nombre_plan', 'metal', 'id_plan_cms',
             'clientes_info', 'clientes_data', 'colaboradores', 'colaboradores_details',

@@ -6,6 +6,7 @@ import { usePolizaStore } from '@/store/polizaStore';
 import { Poliza, PolizaFilters } from '@/components/polizas/types';
 import { CrearPolizaModal } from '@/components/polizas/formularios/CrearPolizaModal';
 import { useAuthStore } from '@/store/authStore';
+import { StatusBadge, getEstadoDocumentoLabel, getEstadoPagoLabel } from '@/components/polizas/polizaStatusUtils';
 
 import {
   Search,
@@ -78,6 +79,10 @@ export default function PolizasPage() {
     asistente_npn: p.asistente_npn,
     plan_nombre: p.plan_nombre,
     estado_nombre: p.estado_nombre,
+    estado_documento: (p as any).estado_documento,
+    estado_documento_display: (p as any).estado_documento_display,
+    estado_pago: (p as any).estado_pago,
+    estado_pago_display: (p as any).estado_pago_display,
     prima_mensual: parseFloat(p.prima_mensual ?? '0'),
     fecha_efectiva: p.fecha_efectiva,
     costo_poliza: parseFloat(p.costo_poliza ?? '0'),
@@ -236,9 +241,8 @@ export default function PolizasPage() {
                 ) : (
                   filteredPolizas.map((poliza) => {
                     const statusName = poliza.estado_nombre || 'Desconocido';
-                    const sLower = statusName.toLowerCase();
-                    const activeState = sLower.includes('activ') || sLower.includes('completado');
-                    const pendingState = sLower.includes('pendien') || sLower.includes('verificaci');
+                    const documentoName = poliza.estado_documento_display || getEstadoDocumentoLabel(poliza.estado_documento);
+                    const pagoName = poliza.estado_pago_display || getEstadoPagoLabel(poliza.estado_pago);
                     
                     return (
                     <tr 
@@ -266,14 +270,10 @@ export default function PolizasPage() {
                         </div>
                       </td>
                       <td className="p-[18px_24px] border-b border-[#f1f5f9] dark:border-[#334155] align-top">
-                        <div className="flex flex-col items-start">
-                          <div className="h-[1.4em] flex items-center mb-[6px]">
-                            <span className={`px-[8px] py-[2px] text-[11px] font-extrabold rounded-[5px] uppercase tracking-[0.5px] flex items-center justify-center ${activeState ? 'bg-[#d1fae5] text-[#10b981]' : pendingState ? 'bg-[#fef3c7] text-[#f59e0b]' : 'bg-[#fee2e2] text-[#ef4444]'}`}>
-                              {statusName}
-                            </span>
-                          </div>
-                          <div className={`text-[11px] font-medium lowercase px-[2px] ${pendingState ? 'text-[#f59e0b]' : 'text-[#64748b] dark:text-gray-400'}`}>doc: pendiente</div>
-                          <div className={`text-[11px] font-medium lowercase mt-[2px] px-[2px] ${activeState ? 'text-[#10b981]' : 'text-[#64748b] dark:text-gray-400'}`}>pago: {activeState ? 'recibido' : 'pendiente'}</div>
+                        <div className="flex flex-col items-start gap-[6px]">
+                          <StatusBadge label={statusName} />
+                          <StatusBadge label={documentoName} />
+                          <StatusBadge label={pagoName} />
                         </div>
                       </td>
                       <td className="p-[18px_24px] border-b border-[#f1f5f9] dark:border-[#334155] align-top text-right">

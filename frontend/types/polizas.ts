@@ -130,6 +130,10 @@ export interface PolizaListResponse {
   agente_nombre: string;
   plan_nombre: string;
   estado_nombre: string;
+  estado_documento?: string;
+  estado_documento_display?: string;
+  estado_pago?: string;
+  estado_pago_display?: string;
   prima_mensual: string;
   subsidio?: string;
   fecha_efectiva: string;

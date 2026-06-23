@@ -184,6 +184,13 @@ class Poliza(models.Model):
         ('ENVIADO', 'Enviado / Pendiente de Firma'),
         ('FIRMADO', 'Recibido / Firmado'),
     ]
+    ESTADO_DOCUMENTO_POLIZA_CHOICES = [
+        ('PENDIENTE', 'Pendiente'),
+        ('EN_REVISION', 'En revisión'),
+        ('RECIBIDO', 'Recibido'),
+        ('APROBADO', 'Aprobado'),
+        ('RECHAZADO', 'Rechazado'),
+    ]
     METAL_CHOICES = [
         ('BRONCE', 'Bronce'),
         ('PLATA', 'Plata'),
@@ -237,6 +244,12 @@ class Poliza(models.Model):
         choices=ESTADO_CONSENTIMIENTO_CHOICES,
         default='NO_ENVIADO',
         verbose_name="Estado de Consentimiento"
+    )
+    estado_documento = models.CharField(
+        max_length=50,
+        choices=ESTADO_DOCUMENTO_POLIZA_CHOICES,
+        default='PENDIENTE',
+        verbose_name="Estado de Documentación",
     )
     
     # Information Totals
