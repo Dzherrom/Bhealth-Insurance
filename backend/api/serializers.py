@@ -651,6 +651,7 @@ class RecordatorioSerializer(serializers.ModelSerializer):
 
 class PolizaListSerializer(serializers.ModelSerializer):
     agente_nombre = serializers.ReadOnlyField(source='agente.nombre_completo')
+    agente_registro_nombre = serializers.ReadOnlyField(source='agente_registro.nombre_completo')
     agente_npn = serializers.SerializerMethodField()
     asistente_nombre = serializers.SerializerMethodField()
     asistente_npn = serializers.SerializerMethodField()
@@ -670,6 +671,8 @@ class PolizaListSerializer(serializers.ModelSerializer):
             'id_interno',
             'agente',
             'agente_nombre',
+            'agente_registro',
+            'agente_registro_nombre',
             'agente_npn',
             'asistente_nombre',
             'asistente_npn',
@@ -768,6 +771,7 @@ class PolizaSerializer(serializers.ModelSerializer):
     clientes_data = PolizaClienteSerializer(many=True, write_only=True, required=False)
     
     agente_nombre = serializers.ReadOnlyField(source='agente.nombre_completo')
+    agente_registro_nombre = serializers.ReadOnlyField(source='agente_registro.nombre_completo')
     plan = serializers.PrimaryKeyRelatedField(queryset=Plan.objects.all(), required=False, allow_null=True)
     plan_nombre = serializers.SerializerMethodField()
     aseguradora_nombre = serializers.SerializerMethodField()
@@ -811,7 +815,7 @@ class PolizaSerializer(serializers.ModelSerializer):
             'id', 'id_mercado', 'id_miembro', 'costo_poliza', 'subsidio', 'prima_mensual',
             'total_ahorros', 'plan_era',
             'fecha_efectiva', 'estado', 'estado_nombre', 'estado_documento', 'flujo_etapa', 'fecha_envio', 'fecha_cancelacion',
-            'id_interno', 'agente', 'agente_nombre', 'plan', 'plan_nombre', 'tipo_producto', 'tipo_producto_nombre',
+            'id_interno', 'agente', 'agente_nombre', 'agente_registro', 'agente_registro_nombre', 'plan', 'plan_nombre', 'tipo_producto', 'tipo_producto_nombre',
             'aseguradora', 'aseguradora_nombre', 'nombre_plan', 'metal', 'id_plan_cms',
             'clientes_info', 'clientes_data', 'colaboradores', 'colaboradores_details',
             'ffm_mercado', 'npn_mercado', 'tipo_inscripcion', 'razon_inscripcion_especial', 'fecha_inscripcion_especial',
@@ -828,6 +832,7 @@ class PolizaSerializer(serializers.ModelSerializer):
             'active_viewers',
             'ultima_actualizacion', 'es_duplicado', 'ultimo_duplicado'
         ]
+        read_only_fields = ('agente_registro', 'agente_registro_nombre')
 
     def get_request_user_role(self, obj):
         return get_request_user_role(self)

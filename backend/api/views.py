@@ -573,7 +573,7 @@ class PolizaViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         base_queryset = Poliza.objects.select_related(
-            'agente', 'plan', 'estado', 'plan__aseguradora', 'info_pago'
+            'agente', 'agente_registro', 'plan', 'estado', 'plan__aseguradora', 'info_pago'
         )
 
         if self.action == 'list':
@@ -618,21 +618,31 @@ class PolizaViewSet(viewsets.ModelViewSet):
         return queryset
 
     def perform_create(self, serializer):
-        # Auto-assign agent if the creator is an ASISTENTE
         user = self.request.user
-        assigned_agent = None
-        if hasattr(user, 'profile') and self._normalize_role(user.profile.role) in ['ASISTENTE'] and user.profile.agente:
+        creator_agente = None
+        if hasattr(user, 'profile') and user.profile.agente_id:
+            creator_agente = user.profile.agente
+
+        assigned_agent = serializer.validated_data.get('agente')
+        if (
+            not assigned_agent
+            and hasattr(user, 'profile')
+            and self._normalize_role(user.profile.role) in ['ASISTENTE']
+            and user.profile.agente
+        ):
             assigned_agent = user.profile.agente
 
-        # If client did not provide an estado, prefer QUOTE (case-insensitive variants)
-        estado_proporcionado = serializer.validated_data.get('estado') if hasattr(serializer, 'validated_data') else None
-
+        estado_proporcionado = serializer.validated_data.get('estado')
         if not estado_proporcionado:
-            quote_estado = EstadoPoliza.objects.filter(nombre__iregex=r'(^quote$|cotiz|cotización|borrador|draft)',).first()
+            quote_estado = EstadoPoliza.objects.filter(
+                nombre__iregex=r'(^quote$|cotiz|cotización|borrador|draft)',
+            ).first()
         else:
             quote_estado = None
 
         save_kwargs = {}
+        if creator_agente:
+            save_kwargs['agente_registro'] = creator_agente
         if assigned_agent:
             save_kwargs['agente'] = assigned_agent
         if quote_estado:

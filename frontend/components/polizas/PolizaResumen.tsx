@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { CambiosDeVidaPanel } from './CambiosDeVidaPanel';
 import { RegistrosActividadModal } from './RegistrosActividadModal';
 import { UltimaNotaCard } from './UltimaNotaCard';
 import { EditEstatusPolizaModal } from './EditEstatusPolizaModal';
 import { EditEtiquetasPolizaModal } from './EditEtiquetasPolizaModal';
-import { api, agentesApi } from '@/lib/api';
+import { EditAgenteAsignadoModal } from './EditAgenteAsignadoModal';
+import { api } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import {
   formatCurrencyValue,
@@ -43,6 +44,8 @@ interface PolizaResumenProps {
     id_miembro?: string;
     agente?: number | null;
     agente_nombre: string;
+    agente_registro?: number | null;
+    agente_registro_nombre?: string | null;
     plan_nombre: string;
     estado_nombre: string;
     estado?: number;
@@ -73,52 +76,23 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
   const [isRegistrosModalOpen, setIsRegistrosModalOpen] = useState(false);
   const [isEstatusModalOpen, setIsEstatusModalOpen] = useState(false);
   const [isEtiquetasModalOpen, setIsEtiquetasModalOpen] = useState(false);
+  const [isAgenteModalOpen, setIsAgenteModalOpen] = useState(false);
   const [removingEtiquetaId, setRemovingEtiquetaId] = useState<number | null>(null);
-  const [allAgentes, setAllAgentes] = useState<{id: number, nombre_completo: string}[]>([]);
   const { toast } = useToast();
 
   const principalMember = getPrincipalMember(polizaContext?.clientes_info);
   const principalDetails = principalMember?.cliente_details;
   const aplicanteCount = (polizaContext?.clientes_info || []).filter((m) => m.es_solicitante_principal).length;
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [agentesRes] = await Promise.all([
-          agentesApi.list(),
-        ]);
-        setAllAgentes(agentesRes as any[]);
-      } catch (error) {
-        console.error("Error fetching data for resumen", error);
-      }
-    };
-    fetchData();
-  }, []);
-
-  const handleAgenteChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    if (!poliza.id) return;
-    const value = e.target.value;
-    const newAgenteId = value ? parseInt(value, 10) : null;
-    try {
-      await api.polizas.patch(poliza.id, { agente: newAgenteId });
-      toast({ title: "Éxito", description: "Agente actualizado." });
-      if (onPolizaUpdate) {
-        const agenteObj = allAgentes.find((ag) => ag.id === newAgenteId);
-        onPolizaUpdate({
-          agente: newAgenteId,
-          agente_nombre: agenteObj?.nombre_completo || '-',
-        });
-      }
-    } catch (error) {
-      toast({ title: "Error", description: "No se pudo actualizar el agente.", variant: "destructive" });
-    }
-  };
-
   const handleEstatusUpdated = () => {
     onPolizaUpdate?.();
   };
 
   const handleEtiquetasUpdated = () => {
+    onPolizaUpdate?.();
+  };
+
+  const handleAgenteUpdated = () => {
     onPolizaUpdate?.();
   };
 
@@ -166,26 +140,41 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
                 <p className="text-sm font-semibold text-gray-900 dark:text-white">Resumen</p>
               </div>
               <div className="flex justify-between items-center w-full gap-2">
-                <p className="text-gray-700 dark:text-white text-sm flex items-center gap-1 font-medium shrink-0">Agente:</p>
-                <p className="text-gray-700 dark:text-white text-sm font-normal truncate max-w-[140px]" title={poliza.agente_nombre || undefined}>
-                  {poliza.agente_nombre || 'Sin agente'}
+                <p className="text-gray-700 dark:text-white text-sm flex items-center gap-1 font-medium shrink-0">Registrado por:</p>
+                <p
+                  className="text-gray-700 dark:text-white text-sm font-normal truncate max-w-[140px]"
+                  title={poliza.agente_registro_nombre || undefined}
+                >
+                  {poliza.agente_registro_nombre || 'Sin registrar'}
                 </p>
               </div>
               <div className="relative flex items-center justify-between gap-4 w-full">
                 <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
               </div>
-              <div className="flex justify-between items-center w-full gap-2">
-                <p className="text-gray-700 dark:text-white text-sm flex items-center gap-1 font-medium shrink-0">Asignado a:</p>
-                <select
-                  value={poliza.agente || ''}
-                  onChange={handleAgenteChange}
-                  className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md text-xs py-1 px-2 text-gray-700 dark:text-white w-[140px] outline-none focus:ring-1 focus:ring-primary h-[28px]"
-                >
-                  <option value="">Sin agente</option>
-                  {allAgentes.map((ag) => (
-                    <option key={ag.id} value={ag.id}>{ag.nombre_completo}</option>
-                  ))}
-                </select>
+              <div className="flex flex-col w-full gap-2">
+                <div className="flex justify-between items-center w-full gap-2">
+                  <p className="text-gray-700 dark:text-white text-sm font-medium shrink-0">Asignado a:</p>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsAgenteModalOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+                  >
+                    <i className="fa-solid fa-edit text-[10px]" />
+                    Editar
+                  </button>
+                </div>
+                <div className="flex items-center justify-end pl-0.5">
+                  <p
+                    className="text-[11px] font-semibold text-[#334155] dark:text-slate-200 uppercase truncate max-w-full"
+                    title={poliza.agente_nombre || undefined}
+                  >
+                    {poliza.agente_nombre || 'Sin agente'}
+                  </p>
+                </div>
               </div>
               <div className="relative flex items-center justify-between gap-4 w-full">
                 <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
@@ -465,6 +454,17 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
           infoPagoId={poliza.info_pago_id}
           estadoPago={poliza.estado_pago}
           onUpdated={handleEstatusUpdated}
+        />
+      ) : null}
+
+      {poliza.id != null ? (
+        <EditAgenteAsignadoModal
+          open={isAgenteModalOpen}
+          onOpenChange={setIsAgenteModalOpen}
+          polizaId={poliza.id}
+          agente={poliza.agente}
+          agenteNombre={poliza.agente_nombre}
+          onUpdated={handleAgenteUpdated}
         />
       ) : null}
 

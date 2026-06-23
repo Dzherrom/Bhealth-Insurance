@@ -195,6 +195,8 @@ export default function PolizaDetailsPage() {
           id_miembro: poliza.id_miembro,
           agente: poliza.agente,
           agente_nombre: poliza.agente_nombre,
+          agente_registro: (poliza as any).agente_registro,
+          agente_registro_nombre: (poliza as any).agente_registro_nombre,
           plan_nombre: poliza.plan_nombre,
           estado_nombre: poliza.estado_nombre,
           estado: poliza.estado,
