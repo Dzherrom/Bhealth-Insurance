@@ -140,7 +140,6 @@ DATABASES = {
         ssl_require=_uses_postgres,
     )
 }
-
 '''
 DATABASES = {
     'default': {
