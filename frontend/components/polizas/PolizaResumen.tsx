@@ -5,7 +5,8 @@ import { CambiosDeVidaPanel } from './CambiosDeVidaPanel';
 import { RegistrosActividadModal } from './RegistrosActividadModal';
 import { UltimaNotaCard } from './UltimaNotaCard';
 import { EditEstatusPolizaModal } from './EditEstatusPolizaModal';
-import { api, etiquetasApi, agentesApi } from '@/lib/api';
+import { EditEtiquetasPolizaModal } from './EditEtiquetasPolizaModal';
+import { api, agentesApi } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import {
   formatCurrencyValue,
@@ -16,6 +17,7 @@ import {
 import {
   getEstadoDocumentoLabel,
   getEstadoPagoLabel,
+  RemovableEtiquetaBadge,
   StatusBadge,
 } from './polizaStatusUtils';
 import type { NotaApi } from './notaUtils';
@@ -70,7 +72,8 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
   const [isCambiosVidaOpen, setIsCambiosVidaOpen] = useState(false);
   const [isRegistrosModalOpen, setIsRegistrosModalOpen] = useState(false);
   const [isEstatusModalOpen, setIsEstatusModalOpen] = useState(false);
-  const [allEtiquetas, setAllEtiquetas] = useState<{id: number, nombre: string}[]>([]);
+  const [isEtiquetasModalOpen, setIsEtiquetasModalOpen] = useState(false);
+  const [removingEtiquetaId, setRemovingEtiquetaId] = useState<number | null>(null);
   const [allAgentes, setAllAgentes] = useState<{id: number, nombre_completo: string}[]>([]);
   const { toast } = useToast();
 
@@ -81,11 +84,9 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [etiquetasRes, agentesRes] = await Promise.all([
-          etiquetasApi.list(),
+        const [agentesRes] = await Promise.all([
           agentesApi.list(),
         ]);
-        setAllEtiquetas(etiquetasRes.filter((e: any) => e.tipo === 'POLIZA'));
         setAllAgentes(agentesRes as any[]);
       } catch (error) {
         console.error("Error fetching data for resumen", error);
@@ -117,39 +118,16 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
     onPolizaUpdate?.();
   };
 
-  const handleEtiquetaChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    if (!poliza.id) return;
-    const newEtiquetaId = parseInt(e.target.value);
-    if (!newEtiquetaId) return; // if they select empty
-    
-    // Check if it already has this label
-    const currentEtiquetas = poliza.etiquetas || [];
-    if (currentEtiquetas.some(etq => etq.id === newEtiquetaId)) {
-      toast({ description: "La póliza ya tiene esta etiqueta." });
-      return;
-    }
-
-    const newEtiquetasIds = [...currentEtiquetas.map(etq => etq.id), newEtiquetaId];
-    
-    try {
-      await api.polizas.patch(poliza.id, { etiquetas_ids: newEtiquetasIds });
-      toast({ title: "Éxito", description: "Etiqueta agregada." });
-      if (onPolizaUpdate) {
-        const newEtiquetaObj = allEtiquetas.find(etq => etq.id === newEtiquetaId);
-        if (newEtiquetaObj) {
-          onPolizaUpdate({ etiquetas: [...currentEtiquetas, newEtiquetaObj] });
-        }
-      }
-    } catch (error) {
-      toast({ title: "Error", description: "No se pudo agregar la etiqueta.", variant: "destructive" });
-    }
+  const handleEtiquetasUpdated = () => {
+    onPolizaUpdate?.();
   };
 
   const handleRemoveEtiqueta = async (etiquetaId: number) => {
     if (!poliza.id) return;
     const currentEtiquetas = poliza.etiquetas || [];
     const newEtiquetasIds = currentEtiquetas.filter(etq => etq.id !== etiquetaId).map(etq => etq.id);
-    
+
+    setRemovingEtiquetaId(etiquetaId);
     try {
       await api.polizas.patch(poliza.id, { etiquetas_ids: newEtiquetasIds });
       toast({ title: "Éxito", description: "Etiqueta removida." });
@@ -158,6 +136,8 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
       }
     } catch (error) {
       toast({ title: "Error", description: "No se pudo remover la etiqueta.", variant: "destructive" });
+    } finally {
+      setRemovingEtiquetaId(null);
     }
   };
 
@@ -187,6 +167,15 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
               </div>
               <div className="flex justify-between items-center w-full gap-2">
                 <p className="text-gray-700 dark:text-white text-sm flex items-center gap-1 font-medium shrink-0">Agente:</p>
+                <p className="text-gray-700 dark:text-white text-sm font-normal truncate max-w-[140px]" title={poliza.agente_nombre || undefined}>
+                  {poliza.agente_nombre || 'Sin agente'}
+                </p>
+              </div>
+              <div className="relative flex items-center justify-between gap-4 w-full">
+                <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
+              </div>
+              <div className="flex justify-between items-center w-full gap-2">
+                <p className="text-gray-700 dark:text-white text-sm flex items-center gap-1 font-medium shrink-0">Asignado a:</p>
                 <select
                   value={poliza.agente || ''}
                   onChange={handleAgenteChange}
@@ -197,13 +186,6 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
                     <option key={ag.id} value={ag.id}>{ag.nombre_completo}</option>
                   ))}
                 </select>
-              </div>
-              <div className="relative flex items-center justify-between gap-4 w-full">
-                <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
-              </div>
-              <div className="flex flex-wrap justify-between items-center w-full">
-                <p className="text-gray-700 dark:text-white text-sm flex items-center gap-1 font-medium">Asignado a:</p>
-                <p className="text-gray-700 dark:text-white text-sm font-normal">-</p>
               </div>
               <div className="relative flex items-center justify-between gap-4 w-full">
                 <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
@@ -267,31 +249,37 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
                 <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
               </div>
               <div className="flex flex-col w-full gap-2">
-                <div className="flex justify-between items-center w-full">
-                  <p className="text-gray-700 dark:text-white text-sm font-medium">Etiquetas:</p>
-                  <select 
-                    onChange={handleEtiquetaChange} 
-                    value=""
-                    className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md text-xs py-1 px-2 text-gray-700 dark:text-white w-[140px] outline-none focus:ring-1 focus:ring-primary h-[28px]"
+                <div className="flex justify-between items-center w-full gap-2">
+                  <p className="text-gray-700 dark:text-white text-sm font-medium shrink-0">Etiquetas:</p>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsEtiquetasModalOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
                   >
-                    <option value="" disabled>Seleccionar</option>
-                    {allEtiquetas.map(etq => (
-                      <option key={etq.id} value={etq.id}>{etq.nombre}</option>
-                    ))}
-                  </select>
+                    <i className="fa-solid fa-edit text-[10px]" />
+                    Editar
+                  </button>
                 </div>
-                {poliza.etiquetas && poliza.etiquetas.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {poliza.etiquetas.map((etq) => (
-                      <span key={etq.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium" style={{ backgroundColor: etq.color || '#e2e8f0', color: '#1e293b' }}>
-                        {etq.nombre}
-                        <button type="button" onClick={() => handleRemoveEtiqueta(etq.id)} className="hover:text-red-500 ml-1">
-                          &times;
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
+                <div className="flex flex-col gap-1.5 pl-0.5">
+                  {poliza.etiquetas && poliza.etiquetas.length > 0 ? (
+                    poliza.etiquetas.map((etq) => (
+                      <div key={etq.id} className="flex items-center justify-end">
+                        <RemovableEtiquetaBadge
+                          label={etq.nombre}
+                          color={etq.color}
+                          onRemove={() => handleRemoveEtiqueta(etq.id)}
+                          removing={removingEtiquetaId === etq.id}
+                        />
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-[11px] text-[#64748b] dark:text-slate-400 text-right">Sin etiquetas</p>
+                  )}
+                </div>
               </div>
               <div className="relative flex items-center justify-between gap-4 w-full">
                 <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
@@ -477,6 +465,16 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
           infoPagoId={poliza.info_pago_id}
           estadoPago={poliza.estado_pago}
           onUpdated={handleEstatusUpdated}
+        />
+      ) : null}
+
+      {poliza.id != null ? (
+        <EditEtiquetasPolizaModal
+          open={isEtiquetasModalOpen}
+          onOpenChange={setIsEtiquetasModalOpen}
+          polizaId={poliza.id}
+          etiquetas={poliza.etiquetas}
+          onUpdated={handleEtiquetasUpdated}
         />
       ) : null}
     </>
