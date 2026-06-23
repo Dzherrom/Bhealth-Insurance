@@ -128,6 +128,8 @@ export default function NuevaPolizaWizard() {
     telefono: '',
     email: '',
     ssn: '',
+    portalPassword: '',
+    portalPasswordConfirm: '',
     esAplicante: true,
     usaTabaco: false,
     peso: '',
@@ -175,6 +177,8 @@ export default function NuevaPolizaWizard() {
       telefono: '',
       email: '',
       ssn: '',
+      portalPassword: '',
+      portalPasswordConfirm: '',
       usaTabaco: false,
       peso: '',
       estatura: '',
@@ -392,6 +396,14 @@ export default function NuevaPolizaWizard() {
           setError('Complete el SSN del solicitante principal.');
           return;
         }
+        if (!formData.portalPassword?.trim() || formData.portalPassword.trim().length < 8) {
+          setError('La contraseña del portal debe tener al menos 8 caracteres.');
+          return;
+        }
+        if (formData.portalPassword !== formData.portalPasswordConfirm) {
+          setError('Las contraseñas del portal no coinciden.');
+          return;
+        }
       }
 
       const duplicateError = await validateDuplicateContacts();
@@ -533,6 +545,19 @@ export default function NuevaPolizaWizard() {
       return;
     }
 
+    if (applicantMode === 'new') {
+      if (!formData.portalPassword?.trim() || formData.portalPassword.trim().length < 8) {
+        setError('La contraseña del portal debe tener al menos 8 caracteres.');
+        setLoading(false);
+        return;
+      }
+      if (formData.portalPassword !== formData.portalPasswordConfirm) {
+        setError('Las contraseñas del portal no coinciden.');
+        setLoading(false);
+        return;
+      }
+    }
+
     if (!formData.direccion1?.trim() || !formData.ciudad?.trim() || !formData.estadoProvincia?.trim() || !formData.zipCode?.trim()) {
       setError('La dirección residencial completa (Línea 1, Ciudad, Estado, Código Postal) es obligatoria.');
       setLoading(false);
@@ -580,7 +605,12 @@ export default function NuevaPolizaWizard() {
         return null;
       };
 
-      const createClientPayload = (member: FamilyMember, fallbackPrefix: string, requireContact = false) => ({
+      const createClientPayload = (
+        member: FamilyMember,
+        fallbackPrefix: string,
+        requireContact = false,
+        portalPassword?: string,
+      ) => ({
         primer_nombre: member.primerNombre,
         segundo_nombre: member.segundoNombre || '',
         apellido_paterno: member.apellidoPaterno,
@@ -603,6 +633,7 @@ export default function NuevaPolizaWizard() {
               const raw = `TMP-${fallbackPrefix}-${Date.now().toString().slice(-6)}-${Math.random().toString(36).slice(2, 6)}`;
               return raw.slice(0, 20);
             })(),
+        ...(portalPassword ? { password_portal: portalPassword } : {}),
       });
 
       const resolveMemberClienteId = async (
@@ -647,7 +678,7 @@ export default function NuevaPolizaWizard() {
           estatura: formData.estatura,
           condicionMedica: formData.condicionMedica,
           relacion: 'PRINCIPAL',
-        }, 'cliente', true);
+        }, 'cliente', true, formData.portalPassword.trim());
 
         const resCliente = await fetch(`${API_BASE_URL}/clientes/`, {
           method: 'POST',
@@ -961,6 +992,46 @@ export default function NuevaPolizaWizard() {
                   </div>
                 ) : null}
               </div>
+
+              {applicantMode === 'new' ? (
+                <div className="border border-[#dbeafe] dark:border-[#1e3a8a]/40 rounded-[12px] p-[20px] bg-[#eff6ff]/50 dark:bg-[#1e3a8a]/10 space-y-[16px]">
+                  <div>
+                    <h4 className="text-[14px] font-bold text-[#0f172a] dark:text-white">Acceso al portal del cliente *</h4>
+                    <p className="text-[12px] text-[#64748b] dark:text-gray-400 mt-1">
+                      Se creará automáticamente una cuenta para que el cliente ingrese en{' '}
+                      <span className="font-medium">/client</span> con su correo y esta contraseña.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-[24px]">
+                    <div className="flex flex-col gap-[8px]">
+                      <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Contraseña del portal *</label>
+                      <input
+                        type="password"
+                        name="portalPassword"
+                        value={formData.portalPassword}
+                        onChange={handleChange}
+                        minLength={8}
+                        placeholder="Mínimo 8 caracteres"
+                        autoComplete="new-password"
+                        className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-[8px]">
+                      <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Confirmar contraseña *</label>
+                      <input
+                        type="password"
+                        name="portalPasswordConfirm"
+                        value={formData.portalPasswordConfirm}
+                        onChange={handleChange}
+                        minLength={8}
+                        placeholder="Repita la contraseña"
+                        autoComplete="new-password"
+                        className="h-[44px] rounded-[10px] border border-[#cbd5e1] dark:border-[#475569] px-[14px] text-[14px] outline-none focus:ring-2 focus:ring-[#4f46e5]"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : null}
 
               <div className="border border-[#e2e8f0] dark:border-[#334155] rounded-[12px] p-[20px] bg-white dark:bg-[#1e293b] space-y-[16px]">
                 <h4 className="text-[14px] font-bold text-[#0f172a] dark:text-white">Detalles Clínicos & Estatus</h4>

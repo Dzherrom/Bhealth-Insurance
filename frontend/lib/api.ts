@@ -518,7 +518,7 @@ interface Documento extends OptionalBaseEntity {
   descarga_bloqueada?: boolean;
 }
 
-interface Cita extends OptionalBaseEntity {
+export interface Cita extends OptionalBaseEntity {
   poliza: number;
   poliza_codigo?: string;
   cliente?: number | null;
@@ -908,7 +908,19 @@ export const documentosApi = {
 };
 
 // 📅 Citas
-export const citasApi = createCrudApi<Cita>('citas');
+export const citasApi = {
+  ...createCrudApi<Cita>('citas'),
+  listByPoliza: async (polizaId: number | string): Promise<Cita[]> => {
+    const response = await fetchWithAuth(
+      `${API_BASE_URL}/citas/?poliza=${encodeURIComponent(String(polizaId))}`,
+      { method: 'GET' }
+    );
+    const payload = await handleApiResponse<any>(response);
+    if (Array.isArray(payload)) return payload;
+    if (payload?.results && Array.isArray(payload.results)) return payload.results;
+    return [];
+  },
+};
 
 export interface MedicoPoliza {
   id: number;

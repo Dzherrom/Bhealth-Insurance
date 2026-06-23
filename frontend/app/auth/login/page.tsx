@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import LoginUser from '@/components/auth/loginUser';
 import SplitLoginLayout from '@/components/auth/SplitLoginLayout';
@@ -67,9 +68,9 @@ export default function LoginPage() {
       />
       <p className="text-center text-sm text-[#64748b] mt-6">
         ¿Es cliente?{' '}
-        <a href="/client" className="text-indigo-600 font-semibold hover:underline">
+        <Link href="/client" className="text-indigo-600 font-semibold hover:underline">
           Ir al portal de clientes
-        </a>
+        </Link>
       </p>
     </SplitLoginLayout>
   );

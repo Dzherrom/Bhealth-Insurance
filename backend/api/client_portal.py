@@ -1,12 +1,122 @@
 """Helpers for the client self-service portal."""
 
 from django.contrib.auth.models import User
+from django.db import transaction
 
-from .models import Cliente, Poliza, PolizaCliente
-from .serializers import normalize_role
+from .models import Cliente, Poliza, PolizaCliente, UserProfile
 
 
 CLIENTE_ROLE = 'CLIENTE'
+
+CLIENT_EDITABLE_FIELDS = frozenset({
+    'fecha_nacimiento',
+    'direccion',
+    'telefono',
+    'email',
+    'estatus_poliza',
+    'ingresos',
+    'grupo_familiar',
+    'tarjetas_digitales',
+})
+
+
+def normalize_role(role):
+    return (role or '').strip().upper()
+
+
+class PortalUserConflictError(Exception):
+    def __init__(self, message: str, field: str = 'password_portal'):
+        self.message = message
+        self.field = field
+        super().__init__(message)
+
+
+def _build_unique_username(email: str) -> str:
+    local = email.split('@')[0].strip() or 'cliente'
+    base = local[:120]
+    username = base
+    suffix = 1
+    while User.objects.filter(username=username).exists():
+        username = f'{base}{suffix}'[:150]
+        suffix += 1
+    return username
+
+
+@transaction.atomic
+def ensure_portal_user_for_cliente(cliente: Cliente, password: str) -> tuple[User, bool]:
+    """
+    Crea o vincula un usuario CLIENTE para el portal.
+    Returns (user, created_new_user).
+    """
+    email = (cliente.email or '').strip().lower()
+    if not email:
+        raise PortalUserConflictError(
+            'El correo electrónico es obligatorio para crear la cuenta del portal.',
+            field='email',
+        )
+    if not password or len(password.strip()) < 8:
+        raise PortalUserConflictError(
+            'La contraseña del portal debe tener al menos 8 caracteres.',
+            field='password_portal',
+        )
+
+    password = password.strip()
+    linked_profile = UserProfile.objects.filter(cliente=cliente, role=CLIENTE_ROLE).select_related('user').first()
+    if linked_profile:
+        user = linked_profile.user
+        user.set_password(password)
+        user.email = email
+        user.first_name = cliente.primer_nombre or user.first_name
+        user.last_name = cliente.apellido_paterno or user.last_name
+        user.save(update_fields=['password', 'email', 'first_name', 'last_name'])
+        return user, False
+
+    existing_user = User.objects.filter(email__iexact=email).select_related('profile').first()
+    if existing_user:
+        profile = getattr(existing_user, 'profile', None)
+        if not profile:
+            raise PortalUserConflictError(
+                'El correo ya está registrado pero no tiene perfil válido.',
+                field='email',
+            )
+        if profile.cliente_id and profile.cliente_id != cliente.id:
+            raise PortalUserConflictError(
+                'Este correo ya está vinculado a otro cliente en el portal.',
+                field='email',
+            )
+        role = normalize_role(profile.role)
+        if role not in ('USER', 'CLIENTE'):
+            raise PortalUserConflictError(
+                'Este correo ya pertenece a un empleado del sistema.',
+                field='email',
+            )
+        profile.role = CLIENTE_ROLE
+        profile.cliente = cliente
+        profile.save(update_fields=['role', 'cliente'])
+        existing_user.set_password(password)
+        existing_user.first_name = cliente.primer_nombre or existing_user.first_name
+        existing_user.last_name = cliente.apellido_paterno or existing_user.last_name
+        existing_user.save(update_fields=['password', 'first_name', 'last_name'])
+        return existing_user, False
+
+    username = _build_unique_username(email)
+    user = User.objects.create_user(
+        username=username,
+        email=email,
+        password=password,
+        first_name=cliente.primer_nombre or '',
+        last_name=cliente.apellido_paterno or '',
+    )
+    profile = user.profile
+    profile.role = CLIENTE_ROLE
+    profile.cliente = cliente
+    profile.save(update_fields=['role', 'cliente'])
+    return user, True
+
+
+def get_portal_user_for_cliente(cliente: Cliente) -> User | None:
+    profile = UserProfile.objects.filter(cliente=cliente, role=CLIENTE_ROLE).select_related('user').first()
+    return profile.user if profile else None
 
 CLIENT_EDITABLE_FIELDS = frozenset({
     'fecha_nacimiento',

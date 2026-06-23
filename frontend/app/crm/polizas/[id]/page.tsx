@@ -23,6 +23,7 @@ import { EditMedicoPolizaModal } from '@/components/polizas/EditMedicoPolizaModa
 import { EditMedicamentoModal } from '@/components/polizas/EditMedicamentoModal';
 import type { MedicoPoliza, MedicamentoPoliza } from '@/lib/api';
 import { UltimaNotaCard } from '@/components/polizas/UltimaNotaCard';
+import { CitasPoliza } from '@/components/polizas/CitasPoliza';
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -788,6 +789,9 @@ export default function PolizaDetailsPage() {
           />
         )}
         {activeSection === 'recordatorios' && <RecordatoriosPoliza polizaId={params.id as string} />}
+        {activeSection === 'citas' && poliza.id && (
+          <CitasPoliza polizaId={poliza.id} clientesInfo={clientesInfo} />
+        )}
         {activeSection === 'pagos' && <InfoPagoPoliza poliza={poliza} />}
         {activeSection === 'direcciones' && (
           <DireccionesPoliza

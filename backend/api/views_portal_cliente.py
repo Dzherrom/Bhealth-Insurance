@@ -2,6 +2,8 @@ from rest_framework import permissions, serializers, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from django.contrib.auth.models import User
+
 from .client_portal import (
     CLIENT_EDITABLE_FIELDS,
     format_direccion,
@@ -11,7 +13,7 @@ from .client_portal import (
     resolve_cliente_for_user,
     user_owns_poliza,
 )
-from .models import CambioDeVida, Poliza
+from .models import CambioDeVida, Cliente, Poliza
 from .permissions import IsClienteRole
 
 
@@ -197,33 +199,41 @@ class ClienteRegisterView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
-        from django.contrib.auth.models import User
-
-        from .models import Cliente, UserProfile
+        from .client_portal import PortalUserConflictError, ensure_portal_user_for_cliente
 
         serializer = ClienteRegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
-        if User.objects.filter(username=data['username']).exists():
-            return Response({'username': ['Este usuario ya existe.']}, status=status.HTTP_400_BAD_REQUEST)
-        if User.objects.filter(email__iexact=data['email']).exists():
+        email = data['email'].strip().lower()
+        if User.objects.filter(email__iexact=email).exists():
             return Response({'email': ['Este correo ya está registrado.']}, status=status.HTTP_400_BAD_REQUEST)
 
-        user = User.objects.create_user(
-            username=data['username'],
-            email=data['email'],
-            password=data['password'],
-            first_name=data.get('first_name', ''),
-            last_name=data.get('last_name', ''),
-        )
+        cliente = Cliente.objects.filter(email__iexact=email).first()
+        try:
+            if cliente:
+                user, _created = ensure_portal_user_for_cliente(cliente, data['password'])
+            else:
+                username = data['username']
+                if User.objects.filter(username=username).exists():
+                    return Response({'username': ['Este usuario ya existe.']}, status=status.HTTP_400_BAD_REQUEST)
+                user = User.objects.create_user(
+                    username=username,
+                    email=email,
+                    password=data['password'],
+                    first_name=data.get('first_name', ''),
+                    last_name=data.get('last_name', ''),
+                )
+                profile = user.profile
+                profile.role = 'CLIENTE'
+                profile.save(update_fields=['role'])
+        except PortalUserConflictError as exc:
+            return Response({exc.field: [exc.message]}, status=status.HTTP_400_BAD_REQUEST)
 
         profile = user.profile
-        profile.role = 'CLIENTE'
-        cliente = Cliente.objects.filter(email__iexact=data['email']).first()
-        if cliente:
+        if cliente and not profile.cliente_id:
             profile.cliente = cliente
-        profile.save()
+            profile.save(update_fields=['cliente'])
 
         return Response(
             {

@@ -52,9 +52,9 @@ const ROUTE_RULES: RouteRule[] = [
     fallbackAuthenticated: '/client',
   },
   {
-    prefix: '/client',
+    prefix: '/client/',
     allowedRoles: ['cliente'],
-    fallbackAuthenticated: '/crm/dashboard',
+    fallbackAuthenticated: '/client',
   },
 ];
 
@@ -62,6 +62,11 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (OPEN_CRM_ACCESS && pathname.startsWith('/crm')) {
+    return NextResponse.next();
+  }
+
+  // Login/registro del portal cliente — ruta pública
+  if (pathname === '/client') {
     return NextResponse.next();
   }
 

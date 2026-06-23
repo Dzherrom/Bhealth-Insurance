@@ -218,6 +218,9 @@ class ClienteSerializer(serializers.ModelSerializer):
     fecha_nacimiento = serializers.DateField(required=False, allow_null=True, format='%m/%d/%Y', input_formats=['%m/%d/%Y', '%Y-%m-%d'])
     marketplace_password = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     portal_password = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    password_portal = serializers.CharField(write_only=True, required=False, allow_blank=True, min_length=8)
+    portal_usuario_id = serializers.SerializerMethodField()
+    portal_cuenta_creada = serializers.SerializerMethodField()
     direccion_fisica = serializers.PrimaryKeyRelatedField(queryset=Direccion.objects.all(), required=False, allow_null=True)
     direccion_postal = serializers.PrimaryKeyRelatedField(queryset=Direccion.objects.all(), required=False, allow_null=True)
     direccion_facturacion = serializers.PrimaryKeyRelatedField(queryset=Direccion.objects.all(), required=False, allow_null=True)
@@ -233,6 +236,16 @@ class ClienteSerializer(serializers.ModelSerializer):
     def get_nombre_completo(self, obj):
         parts = [obj.primer_nombre, obj.segundo_nombre, obj.apellido_paterno, obj.apellido_materno]
         return ' '.join(part for part in parts if part).strip()
+
+    def get_portal_usuario_id(self, obj):
+        if hasattr(obj, '_portal_usuario_id'):
+            return obj._portal_usuario_id
+        from .client_portal import get_portal_user_for_cliente
+        user = get_portal_user_for_cliente(obj)
+        return user.id if user else None
+
+    def get_portal_cuenta_creada(self, obj):
+        return getattr(obj, '_portal_cuenta_creada', False)
 
     def validate(self, attrs):
         email = attrs.get('email')
@@ -263,7 +276,31 @@ class ClienteSerializer(serializers.ModelSerializer):
                     'ssn': 'Ya existe un cliente registrado con este SSN.',
                 })
 
+        password_portal = attrs.get('password_portal')
+        if password_portal == '':
+            attrs.pop('password_portal', None)
+        elif password_portal and not (attrs.get('email') or (self.instance and self.instance.email)):
+            raise serializers.ValidationError({
+                'email': 'El correo es obligatorio para crear la cuenta del portal.',
+            })
+
         return attrs
+
+    def create(self, validated_data):
+        from .client_portal import PortalUserConflictError, ensure_portal_user_for_cliente
+
+        password_portal = validated_data.pop('password_portal', None)
+        instance = super().create(validated_data)
+
+        if password_portal:
+            try:
+                user, created = ensure_portal_user_for_cliente(instance, password_portal)
+            except PortalUserConflictError as exc:
+                raise serializers.ValidationError({exc.field: exc.message}) from exc
+            instance._portal_usuario_id = user.id
+            instance._portal_cuenta_creada = created
+
+        return instance
 
     def to_internal_value(self, data):
         if hasattr(data, 'copy'):
@@ -558,6 +595,17 @@ class CitaSerializer(serializers.ModelSerializer):
 
     def get_cliente_nombre(self, obj):
         return str(obj.cliente) if obj.cliente else None
+
+    def validate(self, attrs):
+        poliza = attrs.get('poliza') or (self.instance.poliza if self.instance else None)
+        cliente = attrs.get('cliente')
+        if cliente is None and self.instance:
+            cliente = self.instance.cliente
+        if poliza and cliente and not poliza.clientes.filter(pk=cliente.pk).exists():
+            raise serializers.ValidationError({
+                'cliente': 'El paciente seleccionado no pertenece a esta póliza.',
+            })
+        return attrs
 
 class HistorialPolizaSerializer(serializers.ModelSerializer):
     usuario_username = serializers.ReadOnlyField(source='usuario.username')
