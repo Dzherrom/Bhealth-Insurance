@@ -129,11 +129,15 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+_database_url = config('DATABASE_URL', default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}")
+_uses_postgres = _database_url.startswith('postgres')
+
 DATABASES = {
     'default': dj_database_url.config(
-        default=config('DATABASE_URL', default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
+        default=_database_url,
         conn_max_age=600,
         conn_health_checks=True,
+        ssl_require=_uses_postgres,
     )
 }
 
