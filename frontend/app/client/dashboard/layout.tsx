@@ -28,9 +28,7 @@ export default function ClientDashboardLayout({ children }: { children: ReactNod
       return;
     }
 
-    if (role !== 'cliente') {
-      router.replace('/client');
-    }
+    router.replace('/client');
   }, [isAuthenticated, role, router]);
 
   const handleLogout = async () => {

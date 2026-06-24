@@ -30,10 +30,8 @@ export function resolveRoleFromProfile(profile?: {
 } | null): UserRole | null {
   if (!profile) return null;
 
-  const fromRole = resolveRoleClaim(profile.role);
-  if (fromRole === 'cliente') return 'cliente';
-  if (fromRole && fromRole !== 'cliente') return fromRole;
   if (profile.cliente) return 'cliente';
 
+  const fromRole = resolveRoleClaim(profile.role);
   return fromRole;
 }
