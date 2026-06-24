@@ -1,32 +1,20 @@
 /**
  * Middleware de Next.js — Protección de rutas por rol.
  *
- * Corre en Edge Runtime. Lee el JWT desde la cookie `access_token`
- * (sincronizada por authStore en cada login/refresh) y valida el rol
- * antes de permitir el acceso a rutas protegidas.
- *
- * Flujo de redirección:
- *  - Sin token o token vencido   → /auth/login?redirect=<ruta>
- *  - Rol insuficiente en /crm/** → /crm/dashboard  (si es usuario CRM)
- *                                → /auth/login      (si es cliente)
- *  - Rol insuficiente en /client → /auth/login
+ * Lee el JWT desde la cookie `access_token` y el rol desde el claim `role`
+ * (o `cliente_id`) del token, con respaldo en la cookie `user_role`.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { extractRoleFromToken, isTokenExpired } from './lib/jwt';
+import { extractRoleFromToken, isTokenExpired, resolveRoleClaim } from './lib/jwt';
 import { hasCRMAccess, CONFIG_ROLES, USERS_ADMIN_ROLES, CRM_ROLES } from './lib/permissions';
 import type { UserRole } from './types/auth';
 
 const OPEN_CRM_ACCESS = process.env.NEXT_PUBLIC_OPEN_CRM_ACCESS !== 'false';
 
-// -----------------------------------------------
-// Reglas de acceso: orden importa (más específico primero)
-// -----------------------------------------------
-
 interface RouteRule {
   prefix: string;
   allowedRoles: UserRole[];
-  /** URL a la que redirigir si el rol no tiene acceso pero sí hay sesión */
   fallbackAuthenticated: string;
 }
 
@@ -44,7 +32,7 @@ const ROUTE_RULES: RouteRule[] = [
   {
     prefix: '/crm',
     allowedRoles: CRM_ROLES,
-    fallbackAuthenticated: '/auth',
+    fallbackAuthenticated: '/auth/login',
   },
   {
     prefix: '/client/dashboard',
@@ -58,14 +46,21 @@ const ROUTE_RULES: RouteRule[] = [
   },
 ];
 
+function resolveRequestRole(request: NextRequest, token?: string): UserRole | null {
+  if (token && !isTokenExpired(token)) {
+    const roleFromToken = extractRoleFromToken(token);
+    if (roleFromToken) return roleFromToken;
+  }
+
+  const roleCookie = request.cookies.get('user_role')?.value;
+  return resolveRoleClaim(roleCookie);
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-
   const token = request.cookies.get('access_token')?.value;
-  const role =
-    token && !isTokenExpired(token) ? extractRoleFromToken(token) : null;
+  const role = resolveRequestRole(request, token);
 
-  // Clientes autenticados nunca deben entrar al CRM de empleados
   if (pathname.startsWith('/crm') && role === 'cliente') {
     return NextResponse.redirect(new URL('/client/dashboard', request.url));
   }
@@ -74,18 +69,13 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Login/registro del portal cliente — ruta pública
   if (pathname === '/client') {
     return NextResponse.next();
   }
 
-  // Buscar la regla aplicable (la primera que coincida gana)
   const rule = ROUTE_RULES.find((r) => pathname.startsWith(r.prefix));
-
-  // Ruta no protegida — continuar sin restricciones
   if (!rule) return NextResponse.next();
 
-  // Sin token o token vencido → login con redirect de vuelta
   if (!token || isTokenExpired(token)) {
     if (pathname.startsWith('/client/')) {
       return NextResponse.redirect(new URL('/client', request.url));
@@ -96,19 +86,19 @@ export function middleware(request: NextRequest) {
   }
 
   if (!role || !rule.allowedRoles.includes(role)) {
-    // Usuario autenticado sin el rol requerido
+    if (pathname.startsWith('/client/')) {
+      return NextResponse.redirect(new URL('/client', request.url));
+    }
+
     const fallback = hasCRMAccess(role)
       ? new URL(rule.fallbackAuthenticated, request.url)
       : new URL('/auth/login', request.url);
     return NextResponse.redirect(fallback);
   }
 
-  // Acceso permitido
   return NextResponse.next();
 }
 
-// Solo interceptar rutas protegidas del CRM y del portal de cliente.
-// Las rutas de /auth, /_next, /api y archivos estáticos quedan fuera.
 export const config = {
   matcher: ['/crm/:path*', '/client/:path*'],
 };

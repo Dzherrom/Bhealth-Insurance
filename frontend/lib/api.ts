@@ -60,8 +60,8 @@ const clearClientAuthStorage = () => {
   localStorage.removeItem('refresh');
   localStorage.removeItem('auth-storage');
 
-  // Keep middleware/session cookie in sync when local auth is invalid.
   document.cookie = 'access_token=; Path=/; Max-Age=0; SameSite=Lax';
+  document.cookie = 'user_role=; Path=/; Max-Age=0; SameSite=Lax';
 };
 
 // Utilidad para obtener el token de autenticación
@@ -371,7 +371,10 @@ export const fetchWithAuth = async (input: RequestInfo, init: RequestInit = {}):
           processQueue(err, null);
           clearClientAuthStorage();
           if (typeof window !== 'undefined') {
-            window.location.href = '/auth/login';
+            const loginPath = window.location.pathname.startsWith('/client')
+              ? '/client'
+              : '/auth/login';
+            window.location.href = loginPath;
           }
           reject(err);
         })
@@ -1104,7 +1107,10 @@ export const setupTokenInterceptor = () => {
         } catch (error) {
           // Si la renovación falla, redirigir al login
           clearClientAuthStorage();
-          window.location.href = '/auth/login';
+          const loginPath = window.location.pathname.startsWith('/client')
+            ? '/client'
+            : '/auth/login';
+          window.location.href = loginPath;
           throw error;
         }
       }

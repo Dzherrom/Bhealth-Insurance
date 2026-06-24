@@ -3,18 +3,20 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Register from '@/components/auth/register';
+import { getHomePathForRole } from '@/lib/routing';
 import { useAuthStore } from '@/store/authStore';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { register, isLoading, isAuthenticated, clearError } = useAuthStore();
+  const { register, isLoading, isAuthenticated, role, clearError } = useAuthStore();
 
-  // Si ya está autenticado, redirigir al dashboard
   useEffect(() => {
-    if (isAuthenticated) {
-      router.push('/crm/dashboard');
+    if (!isAuthenticated) return;
+    const destination = getHomePathForRole(role);
+    if (destination) {
+      router.push(destination);
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, role, router]);
 
   // Limpiar errores previos al montar
   useEffect(() => {
@@ -35,8 +37,10 @@ export default function RegisterPage() {
       first_name: data.firstName,
       last_name: data.lastName,
     });
-    // useAuthStore.register hace login automático tras el registro exitoso
-    router.push('/crm/dashboard');
+    const destination = getHomePathForRole(useAuthStore.getState().role);
+    if (destination) {
+      router.push(destination);
+    }
   };
 
   return (

@@ -17,6 +17,7 @@ import {
   ArrowLeft,
   LogIn
 } from 'lucide-react';
+import { getHomePathForRole } from '@/lib/routing';
 import { useAuthStore } from '@/store/authStore';
 
 export default function CRMPage() {
@@ -28,11 +29,10 @@ export default function CRMPage() {
   // Si ya está autenticado, redirigir al dashboard
   useEffect(() => {
     if (!isAuthenticated) return;
-    if (role === 'cliente') {
-      router.push('/client/dashboard');
-      return;
+    const destination = getHomePathForRole(role);
+    if (destination) {
+      router.push(destination);
     }
-    router.push('/crm/dashboard');
   }, [isAuthenticated, role, router]);
 
   // Limpiar errores previos al montar
@@ -45,12 +45,10 @@ export default function CRMPage() {
     if (!username || !password) return;
     try {
       await login({ username, password });
-      const currentRole = useAuthStore.getState().role;
-      if (currentRole === 'cliente') {
-        router.push('/client/dashboard');
-        return;
+      const destination = getHomePathForRole(useAuthStore.getState().role);
+      if (destination) {
+        router.push(destination);
       }
-      router.push('/crm/dashboard');
     } catch {
       // El error ya queda guardado en el store
     }

@@ -78,6 +78,7 @@ export interface AuthTokens {
 
 export interface RefreshTokenResponse {
   access: string;
+  role?: string;
 }
 
 // ===============================

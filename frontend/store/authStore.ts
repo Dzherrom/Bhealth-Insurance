@@ -1,41 +1,23 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import { authApi } from '@/lib/api';
-import { extractRoleFromToken, decodeJwtPayload, isTokenExpired, resolveRoleFromLogin } from '@/lib/jwt';
+import { isTokenExpired, resolveRoleFromLogin } from '@/lib/jwt';
+import {
+  clearAuthCookies,
+  resolveRoleFromProfile,
+  setAuthCookies,
+} from '@/lib/authSession';
 import type { User, LoginData, RegisterData, UserRole } from '@/types';
 
-// -----------------------------------------------
-// Helpers de cookie para el middleware Edge
-// El middleware de Next.js solo puede leer cookies,
-// no localStorage, por eso sincronizamos ambos.
-// -----------------------------------------------
-
-function setAuthCookie(token: string): void {
-  if (typeof document === 'undefined') return;
-  const payload = decodeJwtPayload(token);
-  const expStr = payload?.exp
-    ? `; expires=${new Date(payload.exp * 1000).toUTCString()}`
-    : '';
-  document.cookie = `access_token=${token}${expStr}; path=/; SameSite=Lax`;
-}
-
-function clearAuthCookie(): void {
-  if (typeof document === 'undefined') return;
-  document.cookie = 'access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict';
-}
-
 export interface AuthState {
-  // Estado
   user: User | null;
   accessToken: string | null;
   refreshToken: string | null;
-  /** Rol extraído del claim `role` del JWT access token */
   role: UserRole | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
 
-  // Acciones
   login: (data: LoginData) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
@@ -50,11 +32,18 @@ export interface AuthState {
 
 let settingsUpdateTimeout: NodeJS.Timeout;
 
+function mergeRole(
+  tokenRole: UserRole | null,
+  profileRole: UserRole | null,
+): UserRole | null {
+  if (profileRole === 'cliente' || tokenRole === 'cliente') return 'cliente';
+  return profileRole ?? tokenRole;
+}
+
 export const useAuthStore = create<AuthState>()(
   devtools(
     persist(
       (set, get) => ({
-        // Estado inicial
         user: null,
         accessToken: null,
         refreshToken: null,
@@ -63,13 +52,12 @@ export const useAuthStore = create<AuthState>()(
         isLoading: false,
         error: null,
 
-        // Login
         login: async (data: LoginData) => {
           set({ isLoading: true, error: null });
           try {
             const tokens = await authApi.login(data);
             const role = resolveRoleFromLogin(tokens.access, tokens.role);
-            setAuthCookie(tokens.access);
+            setAuthCookies(tokens.access, role);
             set({
               accessToken: tokens.access,
               refreshToken: tokens.refresh,
@@ -77,7 +65,6 @@ export const useAuthStore = create<AuthState>()(
               isAuthenticated: true,
               isLoading: false,
             });
-            // Obtener perfil del usuario después del login
             await get().getProfile();
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Error al iniciar sesión';
@@ -90,19 +77,26 @@ export const useAuthStore = create<AuthState>()(
           }
         },
 
-        // Obtener perfil del usuario
         getProfile: async () => {
           set({ isLoading: true, error: null });
           try {
             const profileData = await authApi.getProfile();
-            set({ user: profileData, isLoading: false });
+            const profileRole = resolveRoleFromProfile(profileData.profile);
+            const currentRole = get().role;
+            const role = mergeRole(currentRole, profileRole);
+            const accessToken = get().accessToken;
+
+            if (accessToken && role) {
+              setAuthCookies(accessToken, role);
+            }
+
+            set({ user: profileData, role, isLoading: false });
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Error al obtener el perfil';
             set({ error: errorMessage, isLoading: false });
           }
         },
 
-        // Registro
         register: async (data: RegisterData) => {
           set({ isLoading: true, error: null });
           try {
@@ -111,7 +105,6 @@ export const useAuthStore = create<AuthState>()(
               user,
               isLoading: false,
             });
-            // Después del registro, hacer login automáticamente
             if (data.username && data.password) {
               await get().login({
                 username: data.username,
@@ -128,14 +121,13 @@ export const useAuthStore = create<AuthState>()(
           }
         },
 
-        // Logout
         logout: async () => {
           try {
             await authApi.logout();
           } catch (error) {
             console.error('Error al cerrar sesión:', error);
           } finally {
-            clearAuthCookie();
+            clearAuthCookies();
             set({
               user: null,
               accessToken: null,
@@ -147,12 +139,13 @@ export const useAuthStore = create<AuthState>()(
           }
         },
 
-        // Refrescar token de acceso
         refreshAccessToken: async () => {
           try {
             const result = await authApi.refreshToken();
-            const role = extractRoleFromToken(result.access);
-            setAuthCookie(result.access);
+            const tokenRole = resolveRoleFromLogin(result.access, result.role);
+            const profileRole = resolveRoleFromProfile(get().user?.profile);
+            const role = mergeRole(tokenRole, profileRole);
+            setAuthCookies(result.access, role);
             set({
               accessToken: result.access,
               role,
@@ -163,7 +156,6 @@ export const useAuthStore = create<AuthState>()(
           }
         },
 
-        // Actualizar perfil del usuario
         updateProfile: async (data: Partial<User>) => {
           set({ isLoading: true, error: null });
           try {
@@ -182,7 +174,6 @@ export const useAuthStore = create<AuthState>()(
           }
         },
 
-        // Actualizar solo los settings
         updateSettings: async (settings: any) => {
           set({ isLoading: true, error: null });
           try {
@@ -195,7 +186,6 @@ export const useAuthStore = create<AuthState>()(
         },
 
         updateSelectedYears: (years: string[]) => {
-          // Optimistic update
           set(state => ({
             user: state.user ? {
               ...state.user,
@@ -209,21 +199,18 @@ export const useAuthStore = create<AuthState>()(
             } : null
           }));
 
-          // Debounced backend update
           clearTimeout(settingsUpdateTimeout);
           settingsUpdateTimeout = setTimeout(() => {
             get().updateSettings({ selectedYears: years });
           }, 500);
         },
 
-        // Manejo de errores
         setError: (error: string | null) => set({ error }),
         clearError: () => set({ error: null }),
       }),
       {
-        name: 'auth-storage', // nombre en localStorage
+        name: 'auth-storage',
         partialize: (state) => ({
-          // Solo persistir estos campos
           accessToken: state.accessToken,
           refreshToken: state.refreshToken,
           user: state.user,
@@ -233,7 +220,7 @@ export const useAuthStore = create<AuthState>()(
         onRehydrateStorage: () => (state) => {
           if (state && state.accessToken) {
             if (isTokenExpired(state.accessToken)) {
-              clearAuthCookie();
+              clearAuthCookies();
               state.user = null;
               state.accessToken = null;
               state.refreshToken = null;
@@ -241,7 +228,7 @@ export const useAuthStore = create<AuthState>()(
               state.isAuthenticated = false;
               state.error = null;
             } else {
-              setAuthCookie(state.accessToken);
+              setAuthCookies(state.accessToken, state.role);
             }
           }
         },

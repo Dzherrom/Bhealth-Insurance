@@ -1,10 +1,11 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Heart, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/authStore';
+import { getHomePathForRole } from '@/lib/routing';
 
 function getInitials(firstName?: string, lastName?: string, email?: string) {
   const first = firstName?.trim()?.[0] || '';
@@ -15,7 +16,22 @@ function getInitials(firstName?: string, lastName?: string, email?: string) {
 
 export default function ClientDashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const { logout, user } = useAuthStore();
+  const { logout, user, role, isAuthenticated } = useAuthStore();
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (role === 'cliente') return;
+
+    const destination = getHomePathForRole(role);
+    if (destination && destination !== '/client/dashboard') {
+      router.replace(destination);
+      return;
+    }
+
+    if (role !== 'cliente') {
+      router.replace('/client');
+    }
+  }, [isAuthenticated, role, router]);
 
   const handleLogout = async () => {
     await logout();

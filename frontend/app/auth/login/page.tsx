@@ -5,9 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import LoginUser from '@/components/auth/loginUser';
 import SplitLoginLayout from '@/components/auth/SplitLoginLayout';
+import { getHomePathForRole } from '@/lib/routing';
 import { useAuthStore } from '@/store/authStore';
-
-const OPEN_CRM_ACCESS = process.env.NEXT_PUBLIC_OPEN_CRM_ACCESS === 'true';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,16 +16,9 @@ export default function LoginPage() {
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    const normalizedRole = role?.toLowerCase();
-    const crmRoles = ['admin', 'manager', 'asistente', 'sherpa', 'pagos', 'citas'];
-
-    if (normalizedRole === 'cliente') {
-      router.push('/client/dashboard');
-      return;
-    }
-
-    if (OPEN_CRM_ACCESS || (normalizedRole && crmRoles.includes(normalizedRole))) {
-      router.push('/crm/dashboard');
+    const destination = getHomePathForRole(role);
+    if (destination) {
+      router.push(destination);
       return;
     }
 
@@ -39,6 +31,10 @@ export default function LoginPage() {
     setSubmitError(null);
     try {
       await login({ username: data.username, password: data.password });
+      const destination = getHomePathForRole(useAuthStore.getState().role);
+      if (destination) {
+        router.push(destination);
+      }
     } catch (loginError) {
       const message = loginError instanceof Error ? loginError.message : 'Error al iniciar sesión';
       setSubmitError(message);

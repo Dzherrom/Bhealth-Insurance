@@ -7,7 +7,15 @@ import Register from '@/components/auth/register';
 import SplitLoginLayout from '@/components/auth/SplitLoginLayout';
 import { TabGroup, TabList, Tab, TabPanels, TabPanel } from '@/components/animate-ui/components/headless/tabs';
 import { authApi } from '@/lib/api';
+import { getHomePathForRole } from '@/lib/routing';
 import { useAuthStore, useUIStore } from '@/store';
+
+function redirectAfterAuth(role: ReturnType<typeof useAuthStore.getState>['role']) {
+  const destination = getHomePathForRole(role);
+  if (!destination) return false;
+  window.location.assign(destination);
+  return true;
+}
 
 function ClientPageContent() {
   const router = useRouter();
@@ -23,7 +31,7 @@ function ClientPageContent() {
 
   useEffect(() => {
     if (isAuthenticated && role === 'cliente') {
-      router.push('/client/dashboard');
+      redirectAfterAuth(role);
     }
   }, [isAuthenticated, role, router]);
 
@@ -31,10 +39,12 @@ function ClientPageContent() {
     setLoginError(null);
     await login({ username: data.username, password: data.password });
     const currentRole = useAuthStore.getState().role;
+
     if (currentRole === 'cliente') {
-      router.push('/client/dashboard');
+      redirectAfterAuth(currentRole);
       return;
     }
+
     await logout();
     setLoginError('Esta cuenta es de empleado. Usa el acceso al CRM en /auth/login.');
     throw new Error('Cuenta de empleado');
@@ -56,10 +66,12 @@ function ClientPageContent() {
     });
     await login({ username: data.email, password: data.password });
     const currentRole = useAuthStore.getState().role;
+
     if (currentRole === 'cliente') {
-      router.push('/client/dashboard');
+      redirectAfterAuth(currentRole);
       return;
     }
+
     await logout();
     setLoginError('No se pudo activar el portal de cliente con esta cuenta.');
     throw new Error('Registro incompleto');

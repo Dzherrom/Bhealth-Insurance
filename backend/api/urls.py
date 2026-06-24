@@ -2,7 +2,6 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
-    TokenRefreshView,
 )
 from .views_export import ExportPolizasView
 from .views import (
@@ -15,6 +14,7 @@ from .views import (
     ReporteAgentesView, DashboardStatsView, ReporteIntentosFallidosView,
     ContratoViewSet, ReporteComisionViewSet, NotificacionViewSet,
     LocationLookupView, TarjetaCreditoViewSet, CustomTokenObtainPairView,
+    CustomTokenRefreshView,
     CuentaBancariaViewSet, InfoPagoViewSet,
     MatrizPermisoRolViewSet, AuditoriaGlobalViewSet, AuditoriaConsolidadaView,
     ConfiguracionComisionViewSet,
@@ -77,7 +77,7 @@ urlpatterns = [
     path('portal-cliente/solicitar-cambio/', ClienteSolicitudCambioView.as_view(), name='portal-cliente-solicitar-cambio'),
     path('portal-cliente/solicitar-documento/', ClienteSolicitudDocumentoView.as_view(), name='portal-cliente-solicitar-documento'),
     path('login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('login/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('login/refresh/', CustomTokenRefreshView.as_view(), name='token_refresh'),
     path('profile/', ProfileView.as_view(), name='profile'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('utils/zipcode/<str:zip_code>/', ZipCodeLookupView.as_view(), name='zipcode-lookup'),

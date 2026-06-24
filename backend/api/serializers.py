@@ -1,6 +1,7 @@
 from django.contrib.auth.models import User, Group
 from rest_framework import serializers
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
 from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
     EstadoPoliza, Poliza, PolizaCliente, Licencia, Nota, HistorialPoliza,
@@ -1068,12 +1069,23 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         return 'USER'
 
     @classmethod
+    def _attach_access_claims(cls, access, user):
+        from .client_portal import resolve_cliente_for_user
+
+        role = cls._resolve_user_role(user)
+        access['role'] = role
+        access['username'] = user.username
+        cliente = resolve_cliente_for_user(user)
+        if cliente:
+            access['cliente_id'] = cliente.id
+        return access, role, cliente
+
+    @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
-        # Añadir custom claims al token en si mismo
         token['role'] = cls._resolve_user_role(user)
         token['username'] = user.username
-        
+
         return token
 
     def validate(self, attrs):
@@ -1085,18 +1097,33 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             self.user.profile.refresh_from_db()
 
         refresh = self.get_token(self.user)
+        access, role, cliente = self._attach_access_claims(refresh.access_token, self.user)
         data['refresh'] = str(refresh)
-        data['access'] = str(refresh.access_token)
-        data['role'] = self._resolve_user_role(self.user)
+        data['access'] = str(access)
+        data['role'] = role
         data['username'] = self.user.username
         data['id'] = self.user.id
         data['email'] = self.user.email
         data['first_name'] = self.user.first_name
         data['last_name'] = self.user.last_name
-
-        cliente = resolve_cliente_for_user(self.user)
         data['cliente_id'] = cliente.id if cliente else None
 
+        return data
+
+
+class CustomTokenRefreshSerializer(TokenRefreshSerializer):
+    def validate(self, attrs):
+        data = super().validate(attrs)
+
+        refresh = RefreshToken(data.get('refresh', attrs['refresh']))
+        user = User.objects.select_related('profile').get(pk=refresh['user_id'])
+        access, role, cliente = CustomTokenObtainPairSerializer._attach_access_claims(
+            refresh.access_token,
+            user,
+        )
+        data['access'] = str(access)
+        data['role'] = role
+        data['cliente_id'] = cliente.id if cliente else None
         return data
 
 

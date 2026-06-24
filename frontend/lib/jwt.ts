@@ -16,6 +16,8 @@ export interface JwtPayload {
   username?: string;
   /** Rol del usuario (claim custom del backend) */
   role?: string;
+  /** Cliente vinculado al portal (claim custom del backend) */
+  cliente_id?: number;
   /** Expiración del token (Unix timestamp) */
   exp?: number;
   /** Emisión del token (Unix timestamp) */
@@ -41,6 +43,21 @@ function normalizeRoleClaim(role?: string | null): UserRole | null {
   if (!role) return null;
   const normalized = role.toLowerCase() as UserRole;
   return VALID_ROLES.includes(normalized) ? normalized : null;
+}
+
+export function resolveRoleClaim(role?: string | null): UserRole | null {
+  return normalizeRoleClaim(role);
+}
+
+export function resolveRoleFromAccessToken(token: string): UserRole | null {
+  const payload = decodeJwtPayload(token);
+  if (!payload) return null;
+
+  const fromRole = normalizeRoleClaim(payload.role);
+  if (fromRole) return fromRole;
+  if (payload.cliente_id) return 'cliente';
+
+  return null;
 }
 
 /**
@@ -78,8 +95,7 @@ export function decodeJwtPayload(token: string): JwtPayload | null {
  * @returns El `UserRole` si es válido, o `null` si no se puede determinar.
  */
 export function extractRoleFromToken(token: string): UserRole | null {
-  const payload = decodeJwtPayload(token);
-  return normalizeRoleClaim(payload?.role);
+  return resolveRoleFromAccessToken(token);
 }
 
 export function resolveRoleFromLogin(token: string, responseRole?: string | null): UserRole | null {
