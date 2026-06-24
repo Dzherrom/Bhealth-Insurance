@@ -2,39 +2,69 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import LoginUser from '@/components/auth/loginUser';
 import SplitLoginLayout from '@/components/auth/SplitLoginLayout';
+import { readPortalAuthState } from '@/lib/authSession';
+import {
+  canUseEmployeeLogin,
+  getClientDashboardPath,
+  getPortalAuthSnapshot,
+} from '@/lib/portalAccess';
 import { getHomePathForUser } from '@/lib/routing';
 import { useAuthStore } from '@/store/authStore';
 
+const CLIENT_PORTAL_MESSAGE =
+  'Esta cuenta es de cliente. Debes iniciar sesión en el portal de clientes.';
+
+function hardRedirect(path: string) {
+  window.location.replace(path);
+}
+
 export default function LoginPage() {
-  const router = useRouter();
-  const { login, isLoading, isAuthenticated, role, user, accessToken, error, clearError, setError } = useAuthStore();
+  const { login, logout, isLoading, isAuthenticated, role, user, error, clearError } = useAuthStore();
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    const destination = getHomePathForUser(role, user);
-    if (destination) {
-      router.push(destination);
+    const snapshot = getPortalAuthSnapshot({
+      role,
+      profileRole: user?.profile?.role,
+      profileClienteId: user?.profile?.cliente,
+    });
+
+    if (!canUseEmployeeLogin(snapshot)) {
+      hardRedirect(getClientDashboardPath());
       return;
     }
 
-    if (accessToken) {
-      setError(`La cuenta autenticó, pero el rol '${role || 'sin rol'}' no tiene acceso al panel.`);
+    const destination = getHomePathForUser(role, user);
+    if (destination?.startsWith('/crm')) {
+      hardRedirect(destination);
     }
-  }, [isAuthenticated, accessToken, role, user, setError, router]);
+  }, [isAuthenticated, role, user]);
 
   const handleLogin = async (data: { username: string; password: string }) => {
     setSubmitError(null);
     try {
       await login({ username: data.username, password: data.password });
+
       const state = useAuthStore.getState();
+      const snapshot = getPortalAuthSnapshot({
+        role: state.role,
+        profileRole: state.user?.profile?.role,
+        profileClienteId: state.user?.profile?.cliente,
+      });
+
+      if (!canUseEmployeeLogin(snapshot)) {
+        await logout();
+        setSubmitError(CLIENT_PORTAL_MESSAGE);
+        return;
+      }
+
       const destination = getHomePathForUser(state.role, state.user);
       if (destination) {
-        router.push(destination);
+        hardRedirect(destination);
       }
     } catch (loginError) {
       const message = loginError instanceof Error ? loginError.message : 'Error al iniciar sesión';

@@ -16,6 +16,7 @@ export interface AuthState {
   refreshToken: string | null;
   role: UserRole | null;
   isAuthenticated: boolean;
+  hasHydrated: boolean;
   isLoading: boolean;
   error: string | null;
 
@@ -54,6 +55,7 @@ export const useAuthStore = create<AuthState>()(
         refreshToken: null,
         role: null,
         isAuthenticated: false,
+        hasHydrated: false,
         isLoading: false,
         error: null,
 
@@ -250,9 +252,25 @@ export const useAuthStore = create<AuthState>()(
               setAuthCookies(state.accessToken, state.role);
             }
           }
+          state && (state.hasHydrated = true);
         },
       }
     ),
     { name: 'AuthStore' }
   )
 );
+
+if (typeof window !== 'undefined') {
+  const finishHydration = () => {
+    const { accessToken, role, isAuthenticated } = useAuthStore.getState();
+    if (isAuthenticated && accessToken && !isTokenExpired(accessToken)) {
+      setAuthCookies(accessToken, role);
+    }
+    useAuthStore.setState({ hasHydrated: true });
+  };
+
+  useAuthStore.persist.onFinishHydration(finishHydration);
+  if (useAuthStore.persist.hasHydrated()) {
+    finishHydration();
+  }
+}

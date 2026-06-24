@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import { Suspense, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import LoginUser from '@/components/auth/loginUser';
 import Register from '@/components/auth/register';
@@ -10,37 +11,30 @@ import { authApi } from '@/lib/api';
 import { canAccessClientPortal, getClientDashboardPath } from '@/lib/portalAccess';
 import { useAuthStore, useUIStore } from '@/store';
 
-function redirectToClientDashboard() {
-  window.location.assign(getClientDashboardPath());
-}
-
 function ClientPageContent() {
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab') || 'login';
-  const { login, logout, isAuthenticated, role, user } = useAuthStore();
+  const { login, logout, isAuthenticated, hasHydrated, role, user } = useAuthStore();
   const [loginError, setLoginError] = useState<string | null>(null);
   const { activeTabIndex, setActiveTabIndex } = useUIStore();
+
+  const portalSessionActive =
+    hasHydrated &&
+    isAuthenticated &&
+    canAccessClientPortal({
+      role,
+      profileRole: user?.profile?.role,
+      profileClienteId: user?.profile?.cliente,
+    });
 
   useEffect(() => {
     setActiveTabIndex(initialTab === 'register' ? 1 : 0);
   }, [initialTab, setActiveTabIndex]);
 
-  useEffect(() => {
-    if (!isAuthenticated) return;
+  const handleLoginSubmit = async (data: { username: string; password: string }) => {
+    setLoginError(null);
+    await login({ username: data.username, password: data.password });
 
-    const state = useAuthStore.getState();
-    if (
-      canAccessClientPortal({
-        role: state.role,
-        profileRole: state.user?.profile?.role,
-        profileClienteId: state.user?.profile?.cliente,
-      })
-    ) {
-      redirectToClientDashboard();
-    }
-  }, [isAuthenticated, role, user]);
-
-  const ensureClientPortalAccess = () => {
     const state = useAuthStore.getState();
     const allowed = canAccessClientPortal({
       role: state.role,
@@ -48,25 +42,13 @@ function ClientPageContent() {
       profileClienteId: state.user?.profile?.cliente,
     });
 
-    if (allowed) {
-      redirectToClientDashboard();
-      return true;
+    if (!allowed) {
+      await logout();
+      setLoginError('Esta cuenta es de empleado. Usa el acceso al CRM en /auth/login.');
+      throw new Error('Cuenta de empleado');
     }
 
-    return false;
-  };
-
-  const handleLoginSubmit = async (data: { username: string; password: string }) => {
-    setLoginError(null);
-    await login({ username: data.username, password: data.password });
-
-    if (ensureClientPortalAccess()) {
-      return;
-    }
-
-    await logout();
-    setLoginError('Esta cuenta es de empleado. Usa el acceso al CRM en /auth/login.');
-    throw new Error('Cuenta de empleado');
+    window.location.replace(getClientDashboardPath());
   };
 
   const handleRegisterSubmit = async (data: {
@@ -85,13 +67,20 @@ function ClientPageContent() {
     });
     await login({ username: data.email, password: data.password });
 
-    if (ensureClientPortalAccess()) {
-      return;
+    const state = useAuthStore.getState();
+    const allowed = canAccessClientPortal({
+      role: state.role,
+      profileRole: state.user?.profile?.role,
+      profileClienteId: state.user?.profile?.cliente,
+    });
+
+    if (!allowed) {
+      await logout();
+      setLoginError('No se pudo activar el portal de cliente con esta cuenta.');
+      throw new Error('Registro incompleto');
     }
 
-    await logout();
-    setLoginError('No se pudo activar el portal de cliente con esta cuenta.');
-    throw new Error('Registro incompleto');
+    window.location.replace(getClientDashboardPath());
   };
 
   return (
@@ -108,6 +97,18 @@ function ClientPageContent() {
         </p>
       }
     >
+      {portalSessionActive ? (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center space-y-3">
+          <p className="text-sm text-emerald-900">Ya tienes una sesión activa en el portal de clientes.</p>
+          <Link
+            href={getClientDashboardPath()}
+            className="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+          >
+            Ir a mi panel
+          </Link>
+        </div>
+      ) : null}
+
       <TabGroup defaultIndex={activeTabIndex} onChange={setActiveTabIndex} className="w-full">
         <TabList className="grid w-full grid-cols-2 mb-6 bg-white rounded-lg p-1 border border-emerald-100">
           <Tab className="hover:cursor-pointer data-[selected]:bg-emerald-600 data-[selected]:text-white rounded-md py-2 text-sm font-medium">

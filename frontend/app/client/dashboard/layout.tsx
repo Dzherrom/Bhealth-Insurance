@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Heart, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/authStore';
-import { canAccessClientPortal } from '@/lib/portalAccess';
+import { canAccessClientPortal, getClientDashboardPath } from '@/lib/portalAccess';
 import { getHomePathForUser } from '@/lib/routing';
 
 function getInitials(firstName?: string, lastName?: string, email?: string) {
@@ -17,9 +17,11 @@ function getInitials(firstName?: string, lastName?: string, email?: string) {
 
 export default function ClientDashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const { logout, user, role, isAuthenticated } = useAuthStore();
+  const { logout, user, role, isAuthenticated, hasHydrated } = useAuthStore();
 
   useEffect(() => {
+    if (!hasHydrated) return;
+
     if (!isAuthenticated) {
       router.replace('/client');
       return;
@@ -34,13 +36,13 @@ export default function ClientDashboardLayout({ children }: { children: ReactNod
     if (allowed) return;
 
     const destination = getHomePathForUser(role, user);
-    if (destination) {
+    if (destination && destination !== getClientDashboardPath()) {
       router.replace(destination);
       return;
     }
 
     router.replace('/client');
-  }, [isAuthenticated, role, user, router]);
+  }, [hasHydrated, isAuthenticated, role, user, router]);
 
   const handleLogout = async () => {
     await logout();
@@ -49,6 +51,14 @@ export default function ClientDashboardLayout({ children }: { children: ReactNod
 
   const displayName = [user?.first_name, user?.last_name].filter(Boolean).join(' ') || user?.email || 'Cliente';
   const initials = getInitials(user?.first_name, user?.last_name, user?.email);
+
+  if (!hasHydrated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] text-slate-600">
+        Cargando portal...
+      </div>
+    );
+  }
 
   return (
     <div className="light min-h-screen bg-[#f8fafc] text-slate-900">

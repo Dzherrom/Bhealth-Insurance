@@ -51,3 +51,19 @@ export function resolvePortalRole(input: PortalAccessInput): UserRole | null {
 export function getClientDashboardPath(): string {
   return '/client/dashboard';
 }
+
+export function canUseEmployeeLogin(input: PortalAccessInput): boolean {
+  return !canAccessClientPortal(input);
+}
+
+export function getPortalAuthSnapshot(input: {
+  role?: UserRole | null;
+  profileRole?: string | null;
+  profileClienteId?: number | null;
+}): PortalAccessInput {
+  return {
+    role: input.role ?? undefined,
+    profileRole: input.profileRole,
+    profileClienteId: input.profileClienteId,
+  };
+}

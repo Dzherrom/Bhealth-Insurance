@@ -2,26 +2,33 @@ import { decodeJwtPayload, resolveRoleClaim } from '@/lib/jwt';
 import { canAccessClientPortal } from '@/lib/portalAccess';
 import type { UserRole } from '@/types/auth';
 
+function cookieSuffix(exp?: number): string {
+  const secure =
+    typeof window !== 'undefined' && window.location.protocol === 'https:'
+      ? '; Secure'
+      : '';
+  const expStr = exp ? `; expires=${new Date(exp * 1000).toUTCString()}` : '';
+  return `${expStr}; path=/; SameSite=Lax${secure}`;
+}
+
 export function setAuthCookies(accessToken: string, role: UserRole | null): void {
   if (typeof document === 'undefined') return;
 
   const payload = decodeJwtPayload(accessToken);
-  const expStr = payload?.exp
-    ? `; expires=${new Date(payload.exp * 1000).toUTCString()}`
-    : '';
+  const suffix = cookieSuffix(payload?.exp);
 
-  document.cookie = `access_token=${accessToken}${expStr}; path=/; SameSite=Lax`;
+  document.cookie = `access_token=${encodeURIComponent(accessToken)}${suffix}`;
 
   const isPortalClient =
     role === 'cliente' ||
     canAccessClientPortal({ role, clienteId: payload?.cliente_id ?? null });
 
   if (role) {
-    document.cookie = `user_role=${role}${expStr}; path=/; SameSite=Lax`;
+    document.cookie = `user_role=${encodeURIComponent(role)}${suffix}`;
   }
 
   if (isPortalClient) {
-    document.cookie = `portal_client=1${expStr}; path=/; SameSite=Lax`;
+    document.cookie = `portal_client=1${suffix}`;
   } else {
     document.cookie = 'portal_client=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict';
   }
@@ -52,4 +59,16 @@ export function resolveRoleFromProfile(profile?: {
   }
 
   return resolveRoleClaim(profile.role);
+}
+
+export function readPortalAuthState(input: {
+  role?: UserRole | null;
+  profileRole?: string | null;
+  profileClienteId?: number | null;
+}) {
+  return canAccessClientPortal({
+    role: input.role ?? undefined,
+    profileRole: input.profileRole,
+    profileClienteId: input.profileClienteId,
+  });
 }

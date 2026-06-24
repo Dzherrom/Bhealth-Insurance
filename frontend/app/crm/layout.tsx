@@ -6,6 +6,7 @@ import SidebarCRM from "@/components/sidebar/sidebarCRM";
 import CRMNotificationButton from "@/components/configuraciones/CRMNotificationButton";
 import { CatalogoProvider } from "@/components/providers";
 import { useAuthStore } from "@/store/authStore";
+import { canAccessClientPortal, getClientDashboardPath, getPortalAuthSnapshot } from "@/lib/portalAccess";
 import { useLanguageStore } from "@/store/languageStore";
 import { useRouter, usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -19,6 +20,9 @@ export default function CRMLayout({ children }: CRMLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const logout = useAuthStore((state) => state.logout);
+  const role = useAuthStore((state) => state.role);
+  const user = useAuthStore((state) => state.user);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { theme, setTheme } = useTheme();
@@ -26,8 +30,21 @@ export default function CRMLayout({ children }: CRMLayoutProps) {
 
   useEffect(() => {
     setMounted(true);
-    // setupTokenInterceptor();
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated || pathname === '/crm') return;
+
+    const snapshot = getPortalAuthSnapshot({
+      role,
+      profileRole: user?.profile?.role,
+      profileClienteId: user?.profile?.cliente,
+    });
+
+    if (canAccessClientPortal(snapshot)) {
+      window.location.replace(getClientDashboardPath());
+    }
+  }, [isAuthenticated, role, user, pathname]);
 
   // No mostrar sidebar en la página principal de CRM (login)
   const showSidebar = pathname !== '/crm';
