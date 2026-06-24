@@ -17,19 +17,20 @@ export default function LoginPage() {
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    if (OPEN_CRM_ACCESS) {
+    const normalizedRole = role?.toLowerCase();
+    const crmRoles = ['admin', 'manager', 'asistente', 'sherpa', 'pagos', 'citas'];
+
+    if (normalizedRole === 'cliente') {
+      router.push('/client/dashboard');
+      return;
+    }
+
+    if (OPEN_CRM_ACCESS || (normalizedRole && crmRoles.includes(normalizedRole))) {
       router.push('/crm/dashboard');
       return;
     }
 
-    const normalizedRole = role?.toLowerCase();
-    const crmRoles = ['admin', 'manager', 'asistente', 'sherpa', 'pagos', 'citas'];
-
-    if (normalizedRole && crmRoles.includes(normalizedRole)) {
-      router.push('/crm/dashboard');
-    } else if (normalizedRole === 'cliente') {
-      router.push('/client/dashboard');
-    } else if (accessToken) {
+    if (accessToken) {
       setError(`La cuenta autenticó, pero el rol '${role || 'sin rol'}' no tiene acceso al panel.`);
     }
   }, [isAuthenticated, accessToken, role, setError, router]);

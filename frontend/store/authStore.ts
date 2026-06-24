@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import { authApi } from '@/lib/api';
-import { extractRoleFromToken, decodeJwtPayload, isTokenExpired } from '@/lib/jwt';
+import { extractRoleFromToken, decodeJwtPayload, isTokenExpired, resolveRoleFromLogin } from '@/lib/jwt';
 import type { User, LoginData, RegisterData, UserRole } from '@/types';
 
 // -----------------------------------------------
@@ -68,7 +68,7 @@ export const useAuthStore = create<AuthState>()(
           set({ isLoading: true, error: null });
           try {
             const tokens = await authApi.login(data);
-            const role = extractRoleFromToken(tokens.access);
+            const role = resolveRoleFromLogin(tokens.access, tokens.role);
             setAuthCookie(tokens.access);
             set({
               accessToken: tokens.access,

@@ -61,6 +61,15 @@ const ROUTE_RULES: RouteRule[] = [
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  const token = request.cookies.get('access_token')?.value;
+  const role =
+    token && !isTokenExpired(token) ? extractRoleFromToken(token) : null;
+
+  // Clientes autenticados nunca deben entrar al CRM de empleados
+  if (pathname.startsWith('/crm') && role === 'cliente') {
+    return NextResponse.redirect(new URL('/client/dashboard', request.url));
+  }
+
   if (OPEN_CRM_ACCESS && pathname.startsWith('/crm')) {
     return NextResponse.next();
   }
@@ -76,18 +85,15 @@ export function middleware(request: NextRequest) {
   // Ruta no protegida — continuar sin restricciones
   if (!rule) return NextResponse.next();
 
-  // Leer token desde cookie (sincronizada por authStore)
-  const token = request.cookies.get('access_token')?.value;
-
   // Sin token o token vencido → login con redirect de vuelta
   if (!token || isTokenExpired(token)) {
+    if (pathname.startsWith('/client/')) {
+      return NextResponse.redirect(new URL('/client', request.url));
+    }
     const loginUrl = new URL('/auth/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(loginUrl);
   }
-
-  // Extraer y validar el rol del token
-  const role = extractRoleFromToken(token);
 
   if (!role || !rule.allowedRoles.includes(role)) {
     // Usuario autenticado sin el rol requerido

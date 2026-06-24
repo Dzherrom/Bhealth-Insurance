@@ -21,16 +21,19 @@ import { useAuthStore } from '@/store/authStore';
 
 export default function CRMPage() {
   const router = useRouter();
-  const { login, isLoading, isAuthenticated, error, clearError } = useAuthStore();
+  const { login, isLoading, isAuthenticated, role, error, clearError } = useAuthStore();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
 
   // Si ya está autenticado, redirigir al dashboard
   useEffect(() => {
-    if (isAuthenticated) {
-      router.push('/crm/dashboard');
+    if (!isAuthenticated) return;
+    if (role === 'cliente') {
+      router.push('/client/dashboard');
+      return;
     }
-  }, [isAuthenticated, router]);
+    router.push('/crm/dashboard');
+  }, [isAuthenticated, role, router]);
 
   // Limpiar errores previos al montar
   useEffect(() => {
@@ -42,6 +45,11 @@ export default function CRMPage() {
     if (!username || !password) return;
     try {
       await login({ username, password });
+      const currentRole = useAuthStore.getState().role;
+      if (currentRole === 'cliente') {
+        router.push('/client/dashboard');
+        return;
+      }
       router.push('/crm/dashboard');
     } catch {
       // El error ya queda guardado en el store

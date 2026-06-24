@@ -2,7 +2,7 @@
 Puebla el entorno con 100 pólizas demo completas (direcciones, documentos, etiquetas,
 pagos, médicos, medicamentos, notas, cambios de vida y usuarios portal CLIENTE).
 
-Pensado para ejecutarse en el build de Render con --skip-if-exists.
+Pensado para ejecutarse en el start de Render (start.sh) con --skip-if-exists.
 """
 
 from __future__ import annotations
@@ -104,7 +104,10 @@ class Command(BaseCommand):
         parser.add_argument(
             "--skip-if-exists",
             action="store_true",
-            help="No ejecuta si ya existen pólizas con prefijo BHDEMO.",
+            help=(
+                "Omite si ya hay el total de pólizas BHDEMO; si hay un seed parcial, "
+                "lo elimina y vuelve a poblar."
+            ),
         )
         parser.add_argument(
             "--password",
@@ -133,11 +136,11 @@ class Command(BaseCommand):
             if existing_count > 0:
                 self.stdout.write(
                     self.style.WARNING(
-                        f"Existen {existing_count} pólizas {DEMO_PREFIX} parciales. "
-                        "Elimínelas manualmente o use otro entorno antes de poblar las 100."
+                        f"Seed {DEMO_PREFIX} incompleto ({existing_count}/{total} pólizas). "
+                        "Eliminando datos parciales y repoblando..."
                     )
                 )
-                return
+                self._cleanup_partial_demo_data()
 
         random.seed(20260624)
         fake = Faker("es_MX")
@@ -247,6 +250,34 @@ class Command(BaseCommand):
                 f"Dataset {DEMO_PREFIX} creado: {total} pólizas "
                 f"({quote_count} cotizaciones QUOTE), {portal_users_created} usuarios portal nuevos. "
                 f"Contraseña portal: {client_password}"
+            )
+        )
+
+    def _cleanup_partial_demo_data(self):
+        marker = f"{DEMO_PREFIX}-POL-"
+        polizas = Poliza.objects.filter(id_mercado__startswith=marker)
+        removed_polizas = polizas.count()
+        if removed_polizas:
+            polizas.delete()
+
+        demo_clientes = Cliente.objects.filter(ssn__startswith=f"{DEMO_PREFIX}-")
+        demo_cliente_ids = list(demo_clientes.values_list("id", flat=True))
+        if demo_cliente_ids:
+            portal_users = User.objects.filter(profile__cliente_id__in=demo_cliente_ids)
+            removed_users = portal_users.count()
+            portal_users.delete()
+            removed_clientes = demo_clientes.count()
+            demo_clientes.delete()
+        else:
+            removed_users = 0
+            removed_clientes = 0
+
+        Direccion.objects.filter(linea1__startswith=f"{DEMO_PREFIX}-").delete()
+
+        self.stdout.write(
+            self.style.WARNING(
+                f"Limpieza demo: {removed_polizas} pólizas, "
+                f"{removed_clientes} clientes, {removed_users} usuarios portal."
             )
         )
 

@@ -1061,7 +1061,10 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         if user.is_superuser:
             return 'ADMIN'
         if hasattr(user, 'profile') and getattr(user.profile, 'role', None):
-            return normalize_role(user.profile.role)
+            role = normalize_role(user.profile.role)
+            if role == 'USER' and getattr(user.profile, 'cliente_id', None):
+                return 'CLIENTE'
+            return role
         return 'USER'
 
     @classmethod

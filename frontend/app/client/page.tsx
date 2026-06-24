@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import LoginUser from '@/components/auth/loginUser';
 import Register from '@/components/auth/register';
@@ -13,7 +13,8 @@ function ClientPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab') || 'login';
-  const { login, isAuthenticated, role } = useAuthStore();
+  const { login, logout, isAuthenticated, role } = useAuthStore();
+  const [loginError, setLoginError] = useState<string | null>(null);
   const { activeTabIndex, setActiveTabIndex } = useUIStore();
 
   useEffect(() => {
@@ -27,8 +28,16 @@ function ClientPageContent() {
   }, [isAuthenticated, role, router]);
 
   const handleLoginSubmit = async (data: { username: string; password: string }) => {
+    setLoginError(null);
     await login({ username: data.username, password: data.password });
-    router.push('/client/dashboard');
+    const currentRole = useAuthStore.getState().role;
+    if (currentRole === 'cliente') {
+      router.push('/client/dashboard');
+      return;
+    }
+    await logout();
+    setLoginError('Esta cuenta es de empleado. Usa el acceso al CRM en /auth/login.');
+    throw new Error('Cuenta de empleado');
   };
 
   const handleRegisterSubmit = async (data: {
@@ -46,7 +55,14 @@ function ClientPageContent() {
       last_name: data.lastName,
     });
     await login({ username: data.email, password: data.password });
-    router.push('/client/dashboard');
+    const currentRole = useAuthStore.getState().role;
+    if (currentRole === 'cliente') {
+      router.push('/client/dashboard');
+      return;
+    }
+    await logout();
+    setLoginError('No se pudo activar el portal de cliente con esta cuenta.');
+    throw new Error('Registro incompleto');
   };
 
   return (
@@ -74,7 +90,11 @@ function ClientPageContent() {
         </TabList>
         <TabPanels>
           <TabPanel className="outline-none">
-            <LoginUser variant="client" onSubmit={handleLoginSubmit} />
+            <LoginUser
+              variant="client"
+              onSubmit={handleLoginSubmit}
+              externalError={loginError || undefined}
+            />
           </TabPanel>
           <TabPanel className="outline-none">
             <Register onSubmit={handleRegisterSubmit} />

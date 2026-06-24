@@ -37,6 +37,12 @@ const VALID_ROLES: UserRole[] = [
   'cliente',
 ];
 
+function normalizeRoleClaim(role?: string | null): UserRole | null {
+  if (!role) return null;
+  const normalized = role.toLowerCase() as UserRole;
+  return VALID_ROLES.includes(normalized) ? normalized : null;
+}
+
 /**
  * Decodifica el segmento payload de un JWT sin verificar la firma.
  * @returns El payload como objeto, o `null` si el token es inválido/malformado.
@@ -73,10 +79,11 @@ export function decodeJwtPayload(token: string): JwtPayload | null {
  */
 export function extractRoleFromToken(token: string): UserRole | null {
   const payload = decodeJwtPayload(token);
-  if (!payload?.role) return null;
+  return normalizeRoleClaim(payload?.role);
+}
 
-  const role = payload.role.toLowerCase() as UserRole;
-  return VALID_ROLES.includes(role) ? role : null;
+export function resolveRoleFromLogin(token: string, responseRole?: string | null): UserRole | null {
+  return extractRoleFromToken(token) ?? normalizeRoleClaim(responseRole);
 }
 
 /**

@@ -73,6 +73,7 @@ export interface User extends BaseEntity {
 export interface AuthTokens {
   access: string;
   refresh: string;
+  role?: string;
 }
 
 export interface RefreshTokenResponse {
