@@ -53,6 +53,7 @@ export interface UserProfile {
   telefono?: string | null;
   npn?: string | null;
   ssn?: string | null;
+  cliente?: number | null;
   agente?: number | null;
   agente_npn?: string | null;
   agente_ffm?: string | null;
@@ -74,11 +75,13 @@ export interface AuthTokens {
   access: string;
   refresh: string;
   role?: string;
+  cliente_id?: number | null;
 }
 
 export interface RefreshTokenResponse {
   access: string;
   role?: string;
+  cliente_id?: number | null;
 }
 
 // ===============================

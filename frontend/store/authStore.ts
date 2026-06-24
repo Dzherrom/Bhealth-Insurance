@@ -7,6 +7,7 @@ import {
   resolveRoleFromProfile,
   setAuthCookies,
 } from '@/lib/authSession';
+import { resolvePortalRole } from '@/lib/portalAccess';
 import type { User, LoginData, RegisterData, UserRole } from '@/types';
 
 export interface AuthState {
@@ -35,9 +36,13 @@ let settingsUpdateTimeout: NodeJS.Timeout;
 function mergeRole(
   tokenRole: UserRole | null,
   profileRole: UserRole | null,
+  profileClienteId?: number | null,
 ): UserRole | null {
-  if (profileRole === 'cliente' || tokenRole === 'cliente') return 'cliente';
-  return profileRole ?? tokenRole;
+  return resolvePortalRole({
+    role: tokenRole ?? undefined,
+    profileRole: profileRole ?? undefined,
+    profileClienteId,
+  });
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -56,7 +61,11 @@ export const useAuthStore = create<AuthState>()(
           set({ isLoading: true, error: null });
           try {
             const tokens = await authApi.login(data);
-            const role = resolveRoleFromLogin(tokens.access, tokens.role);
+            const role = resolveRoleFromLogin(
+              tokens.access,
+              tokens.role,
+              tokens.cliente_id,
+            );
             setAuthCookies(tokens.access, role);
             set({
               accessToken: tokens.access,
@@ -66,6 +75,12 @@ export const useAuthStore = create<AuthState>()(
               isLoading: false,
             });
             await get().getProfile();
+
+            const finalRole = get().role;
+            const accessToken = get().accessToken;
+            if (accessToken && finalRole) {
+              setAuthCookies(accessToken, finalRole);
+            }
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Error al iniciar sesión';
             set({
@@ -83,7 +98,7 @@ export const useAuthStore = create<AuthState>()(
             const profileData = await authApi.getProfile();
             const profileRole = resolveRoleFromProfile(profileData.profile);
             const currentRole = get().role;
-            const role = mergeRole(currentRole, profileRole);
+            const role = mergeRole(currentRole, profileRole, profileData.profile?.cliente);
             const accessToken = get().accessToken;
 
             if (accessToken && role) {
@@ -142,9 +157,13 @@ export const useAuthStore = create<AuthState>()(
         refreshAccessToken: async () => {
           try {
             const result = await authApi.refreshToken();
-            const tokenRole = resolveRoleFromLogin(result.access, result.role);
+            const tokenRole = resolveRoleFromLogin(
+              result.access,
+              result.role,
+              result.cliente_id,
+            );
             const profileRole = resolveRoleFromProfile(get().user?.profile);
-            const role = mergeRole(tokenRole, profileRole);
+            const role = mergeRole(tokenRole, profileRole, get().user?.profile?.cliente);
             setAuthCookies(result.access, role);
             set({
               accessToken: result.access,

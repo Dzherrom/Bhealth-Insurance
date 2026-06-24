@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "verify:client-login": "node scripts/verify-client-login.mjs",
     "start": "next start",
     "lint": "eslint"
   },

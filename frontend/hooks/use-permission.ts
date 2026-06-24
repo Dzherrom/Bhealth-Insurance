@@ -12,6 +12,7 @@
  */
 
 import { useAuthStore } from '@/store/authStore';
+import { canAccessClientPortal } from '@/lib/portalAccess';
 import {
   hasPermission,
   hasAnyPermission,
@@ -62,15 +63,22 @@ export interface UsePermissionReturn {
 
 export function usePermission(): UsePermissionReturn {
   const role = useAuthStore((state) => state.role);
+  const user = useAuthStore((state) => state.user);
+
+  const isClient = canAccessClientPortal({
+    role,
+    profileRole: user?.profile?.role,
+    profileClienteId: user?.profile?.cliente,
+  });
 
   return {
     role,
 
-    can: (permission: Permission) => hasPermission(role, permission),
+    can: (permission: Permission) => hasPermission(isClient ? 'cliente' : role, permission),
 
-    canAny: (permissions: Permission[]) => hasAnyPermission(role, permissions),
+    canAny: (permissions: Permission[]) => hasAnyPermission(isClient ? 'cliente' : role, permissions),
 
-    canAll: (permissions: Permission[]) => hasAllPermissions(role, permissions),
+    canAll: (permissions: Permission[]) => hasAllPermissions(isClient ? 'cliente' : role, permissions),
 
     isAdmin: role === 'admin',
 
@@ -78,6 +86,6 @@ export function usePermission(): UsePermissionReturn {
 
     isCRMUser: hasCRMAccess(role),
 
-    isClient: role === 'cliente',
+    isClient,
   };
 }

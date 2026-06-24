@@ -131,6 +131,7 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 _database_url = config('DATABASE_URL', default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}")
 _uses_postgres = _database_url.startswith('postgres')
+
 #RENDER DATABASE
 DATABASES = {
     'default': dj_database_url.config(

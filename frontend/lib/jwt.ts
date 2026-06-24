@@ -6,6 +6,7 @@
  * para validar la autenticidad del token.
  */
 
+import { canAccessClientPortal } from '@/lib/portalAccess';
 import type { UserRole } from '@/types/auth';
 
 /** Claims estándar + custom que el backend incluye en el JWT payload */
@@ -98,8 +99,24 @@ export function extractRoleFromToken(token: string): UserRole | null {
   return resolveRoleFromAccessToken(token);
 }
 
-export function resolveRoleFromLogin(token: string, responseRole?: string | null): UserRole | null {
-  return extractRoleFromToken(token) ?? normalizeRoleClaim(responseRole);
+export function resolveRoleFromLogin(
+  token: string,
+  responseRole?: string | null,
+  responseClienteId?: number | null,
+): UserRole | null {
+  const payloadRole = resolveRoleFromAccessToken(token);
+  if (payloadRole === 'cliente') return 'cliente';
+
+  if (
+    canAccessClientPortal({
+      role: responseRole,
+      clienteId: responseClienteId ?? decodeJwtPayload(token)?.cliente_id ?? null,
+    })
+  ) {
+    return 'cliente';
+  }
+
+  return payloadRole ?? resolveRoleClaim(responseRole);
 }
 
 /**

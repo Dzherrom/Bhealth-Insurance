@@ -5,18 +5,18 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import LoginUser from '@/components/auth/loginUser';
 import SplitLoginLayout from '@/components/auth/SplitLoginLayout';
-import { getHomePathForRole } from '@/lib/routing';
+import { getHomePathForUser } from '@/lib/routing';
 import { useAuthStore } from '@/store/authStore';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, isLoading, isAuthenticated, role, accessToken, error, clearError, setError } = useAuthStore();
+  const { login, isLoading, isAuthenticated, role, user, accessToken, error, clearError, setError } = useAuthStore();
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    const destination = getHomePathForRole(role);
+    const destination = getHomePathForUser(role, user);
     if (destination) {
       router.push(destination);
       return;
@@ -25,13 +25,14 @@ export default function LoginPage() {
     if (accessToken) {
       setError(`La cuenta autenticó, pero el rol '${role || 'sin rol'}' no tiene acceso al panel.`);
     }
-  }, [isAuthenticated, accessToken, role, setError, router]);
+  }, [isAuthenticated, accessToken, role, user, setError, router]);
 
   const handleLogin = async (data: { username: string; password: string }) => {
     setSubmitError(null);
     try {
       await login({ username: data.username, password: data.password });
-      const destination = getHomePathForRole(useAuthStore.getState().role);
+      const state = useAuthStore.getState();
+      const destination = getHomePathForUser(state.role, state.user);
       if (destination) {
         router.push(destination);
       }

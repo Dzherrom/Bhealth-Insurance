@@ -1,27 +1,23 @@
 ﻿'use client';
 
 import { Suspense, useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import LoginUser from '@/components/auth/loginUser';
 import Register from '@/components/auth/register';
 import SplitLoginLayout from '@/components/auth/SplitLoginLayout';
 import { TabGroup, TabList, Tab, TabPanels, TabPanel } from '@/components/animate-ui/components/headless/tabs';
 import { authApi } from '@/lib/api';
-import { getHomePathForRole } from '@/lib/routing';
+import { canAccessClientPortal, getClientDashboardPath } from '@/lib/portalAccess';
 import { useAuthStore, useUIStore } from '@/store';
 
-function redirectAfterAuth(role: ReturnType<typeof useAuthStore.getState>['role']) {
-  const destination = getHomePathForRole(role);
-  if (!destination) return false;
-  window.location.assign(destination);
-  return true;
+function redirectToClientDashboard() {
+  window.location.assign(getClientDashboardPath());
 }
 
 function ClientPageContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab') || 'login';
-  const { login, logout, isAuthenticated, role } = useAuthStore();
+  const { login, logout, isAuthenticated, role, user } = useAuthStore();
   const [loginError, setLoginError] = useState<string | null>(null);
   const { activeTabIndex, setActiveTabIndex } = useUIStore();
 
@@ -30,18 +26,41 @@ function ClientPageContent() {
   }, [initialTab, setActiveTabIndex]);
 
   useEffect(() => {
-    if (isAuthenticated && role === 'cliente') {
-      redirectAfterAuth(role);
+    if (!isAuthenticated) return;
+
+    const state = useAuthStore.getState();
+    if (
+      canAccessClientPortal({
+        role: state.role,
+        profileRole: state.user?.profile?.role,
+        profileClienteId: state.user?.profile?.cliente,
+      })
+    ) {
+      redirectToClientDashboard();
     }
-  }, [isAuthenticated, role, router]);
+  }, [isAuthenticated, role, user]);
+
+  const ensureClientPortalAccess = () => {
+    const state = useAuthStore.getState();
+    const allowed = canAccessClientPortal({
+      role: state.role,
+      profileRole: state.user?.profile?.role,
+      profileClienteId: state.user?.profile?.cliente,
+    });
+
+    if (allowed) {
+      redirectToClientDashboard();
+      return true;
+    }
+
+    return false;
+  };
 
   const handleLoginSubmit = async (data: { username: string; password: string }) => {
     setLoginError(null);
     await login({ username: data.username, password: data.password });
-    const currentRole = useAuthStore.getState().role;
 
-    if (currentRole === 'cliente') {
-      redirectAfterAuth(currentRole);
+    if (ensureClientPortalAccess()) {
       return;
     }
 
@@ -65,10 +84,8 @@ function ClientPageContent() {
       last_name: data.lastName,
     });
     await login({ username: data.email, password: data.password });
-    const currentRole = useAuthStore.getState().role;
 
-    if (currentRole === 'cliente') {
-      redirectAfterAuth(currentRole);
+    if (ensureClientPortalAccess()) {
       return;
     }
 
