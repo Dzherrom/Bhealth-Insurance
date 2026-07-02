@@ -8,7 +8,8 @@ from .models import (
     NotaAdjunto,
     Etiqueta, Documento, Tarea, CambioDeVida, UserProfile, TipoProducto,
     InfoPago, TarjetaCredito, CuentaBancaria, PolizaViewer, Cita, Medico, Medicamento, MedicoPoliza, Recordatorio,
-    Contrato, ReporteComision, ConfiguracionComision, Notificacion, PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal, ConfiguracionNotificacion
+    Contrato, ReporteComision, ConfiguracionComision, Notificacion, PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal, ConfiguracionNotificacion,
+    IngresoEmpleador, DocumentoLegalCliente,
 )
 
 
@@ -215,6 +216,55 @@ class AgenteSerializer(serializers.ModelSerializer):
         model = Agente
         fields = '__all__'
 
+class IngresoEmpleadorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IngresoEmpleador
+        fields = '__all__'
+        read_only_fields = ('fecha_creacion',)
+
+class DocumentoLegalClienteSerializer(serializers.ModelSerializer):
+    documento_details = serializers.SerializerMethodField()
+    tipo_label = serializers.CharField(source='get_tipo_display', read_only=True)
+    fecha_emision = serializers.DateField(required=False, allow_null=True, input_formats=['%Y-%m-%d', '%m/%d/%Y'])
+    fecha_vencimiento = serializers.DateField(required=False, allow_null=True, input_formats=['%Y-%m-%d', '%m/%d/%Y'])
+
+    class Meta:
+        model = DocumentoLegalCliente
+        fields = [
+            'id', 'cliente', 'tipo', 'tipo_label', 'documento', 'documento_details',
+            'numero_documento', 'fecha_emision', 'fecha_vencimiento', 'activo',
+            'fecha_creacion', 'fecha_modificacion',
+        ]
+        read_only_fields = ('fecha_creacion', 'fecha_modificacion', 'documento_details', 'tipo_label')
+        validators = []
+
+    def validate(self, attrs):
+        for field in ('fecha_emision', 'fecha_vencimiento'):
+            if attrs.get(field) == '':
+                attrs[field] = None
+        return attrs
+
+    def get_documento_details(self, obj):
+        if not obj.documento_id:
+            return None
+        doc = obj.documento
+        request = self.context.get('request')
+        archivo = doc.archivo.url if doc.archivo else None
+        if archivo and request and not archivo.startswith('http'):
+            archivo = request.build_absolute_uri(archivo)
+        return {
+            'id': doc.id,
+            'titulo': doc.titulo,
+            'categoria': doc.categoria,
+            'fecha_subida': doc.fecha_subida.isoformat() if doc.fecha_subida else None,
+            'fecha_vencimiento': (
+                obj.fecha_vencimiento.isoformat()
+                if obj.fecha_vencimiento
+                else (doc.fecha_vencimiento.isoformat() if doc.fecha_vencimiento else None)
+            ),
+            'archivo': archivo,
+        }
+
 class ClienteSerializer(serializers.ModelSerializer):
     fecha_nacimiento = serializers.DateField(required=False, allow_null=True, format='%m/%d/%Y', input_formats=['%m/%d/%Y', '%Y-%m-%d'])
     marketplace_password = serializers.CharField(required=False, allow_blank=True, allow_null=True)
@@ -229,6 +279,8 @@ class ClienteSerializer(serializers.ModelSerializer):
     direccion_postal_details = DireccionSerializer(source='direccion_postal', read_only=True)
     direccion_facturacion_details = DireccionSerializer(source='direccion_facturacion', read_only=True)
     nombre_completo = serializers.SerializerMethodField()
+    ingresos_empleador = IngresoEmpleadorSerializer(many=True, read_only=True)
+    documentos_legales = serializers.SerializerMethodField()
 
     class Meta:
         model = Cliente
@@ -237,6 +289,10 @@ class ClienteSerializer(serializers.ModelSerializer):
     def get_nombre_completo(self, obj):
         parts = [obj.primer_nombre, obj.segundo_nombre, obj.apellido_paterno, obj.apellido_materno]
         return ' '.join(part for part in parts if part).strip()
+
+    def get_documentos_legales(self, obj):
+        qs = obj.documentos_legales.filter(activo=True).select_related('documento')
+        return DocumentoLegalClienteSerializer(qs, many=True, context=self.context).data
 
     def get_portal_usuario_id(self, obj):
         if hasattr(obj, '_portal_usuario_id'):
@@ -562,7 +618,7 @@ class PolizaClienteSerializer(serializers.ModelSerializer):
     class Meta:
         model = PolizaCliente
         fields = [
-            'id', 'cliente', 'cliente_details', 'es_solicitante_principal', 'relacion',
+            'id', 'cliente', 'cliente_details', 'es_solicitante_principal', 'es_aplicante', 'relacion',
             'direccion_residencia', 'direccion_residencia_details',
             'direccion_postal', 'direccion_postal_details'
         ]

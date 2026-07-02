@@ -26,7 +26,9 @@ from .models import (
     EstadoPoliza, Poliza, Nota, HistorialPoliza, Etiqueta, Documento, Tarea, CambioDeVida,
     PolizaViewer, Cita, Medico, Medicamento, MedicoPoliza, Recordatorio, IntentoLoginFallido,
     Contrato, ReporteComision, Notificacion, TarjetaCredito, CuentaBancaria, InfoPago,
-    PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal, registrar_auditoria_global, PolizaCliente
+    PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal, registrar_auditoria_global, PolizaCliente,
+    IngresoEmpleador,
+    DocumentoLegalCliente,
 )
 from .serializers import *
 from .utils import send_activity_webhook, fetch_location_from_zip
@@ -1349,6 +1351,59 @@ class RecordatorioViewSet(viewsets.ModelViewSet):
             serializer.save(notificado=False, fecha_notificacion=None)
         else:
             serializer.save()
+
+class IngresoEmpleadorViewSet(viewsets.ModelViewSet):
+    serializer_class = IngresoEmpleadorSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filterset_fields = ['cliente', 'activo']
+
+    def get_queryset(self):
+        return IngresoEmpleador.objects.select_related('cliente').order_by('-fecha_creacion')
+
+    def perform_destroy(self, instance):
+        instance.activo = False
+        instance.save(update_fields=['activo'])
+
+class DocumentoLegalClienteViewSet(viewsets.ModelViewSet):
+    serializer_class = DocumentoLegalClienteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filterset_fields = ['cliente', 'tipo', 'activo']
+
+    def get_queryset(self):
+        return DocumentoLegalCliente.objects.select_related('cliente', 'documento').filter(activo=True)
+
+    def _sync_documento_vencimiento(self, instance):
+        if instance.documento_id:
+            Documento.objects.filter(pk=instance.documento_id).update(
+                fecha_vencimiento=instance.fecha_vencimiento,
+            )
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        cliente = data['cliente']
+        tipo = data['tipo']
+        defaults = {k: v for k, v in data.items() if k not in ('cliente', 'tipo')}
+        obj, created = DocumentoLegalCliente.objects.update_or_create(
+            cliente=cliente,
+            tipo=tipo,
+            defaults={**defaults, 'activo': True},
+        )
+        self._sync_documento_vencimiento(obj)
+        output = self.get_serializer(obj)
+        return Response(output.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        self._sync_documento_vencimiento(instance)
+
+    def perform_destroy(self, instance):
+        instance.documento = None
+        instance.numero_documento = ''
+        instance.fecha_emision = None
+        instance.fecha_vencimiento = None
+        instance.save(update_fields=['documento', 'numero_documento', 'fecha_emision', 'fecha_vencimiento'])
 
 class ReporteIntentosFallidosView(APIView):
     permission_classes = [permissions.IsAuthenticated] # Or IsAdminRole

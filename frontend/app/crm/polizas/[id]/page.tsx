@@ -16,16 +16,13 @@ import { MetadatosPoliza } from '@/components/polizas/MetadatosPoliza';
 import { CalendarioPrimasPoliza } from '@/components/polizas/CalendarioPrimasPoliza';
 import { NotasChat } from '@/components/notas/NotasChat';
 import { RegistrosActividadModal } from '@/components/polizas/RegistrosActividadModal';
-import { AddFamilyMemberCard } from '@/components/polizas/AddFamilyMemberCard';
-import { EditFamilyMemberModal } from '@/components/polizas/EditFamilyMemberModal';
+import { FamilyMembersSection } from '@/components/polizas/FamilyMembersSection';
 import { EditInfoPagoModal } from '@/components/polizas/EditInfoPagoModal';
 import { EditMedicoPolizaModal } from '@/components/polizas/EditMedicoPolizaModal';
 import { EditMedicamentoModal } from '@/components/polizas/EditMedicamentoModal';
 import type { MedicoPoliza, MedicamentoPoliza } from '@/lib/api';
 import { UltimaNotaCard } from '@/components/polizas/UltimaNotaCard';
 import { CitasPoliza } from '@/components/polizas/CitasPoliza';
-import { getRelacionFamiliarLabel } from '@/lib/familyMemberOptions';
-
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -51,9 +48,6 @@ export default function PolizaDetailsPage() {
 
   const [isBasicInfoModalOpen, setIsBasicInfoModalOpen] = useState(false);
   const [isFinancialModalOpen, setIsFinancialModalOpen] = useState(false);
-  const [isFamilyModalOpen, setIsFamilyModalOpen] = useState(false);
-  const [showAddMemberCard, setShowAddMemberCard] = useState(false);
-  const [currentFamilyMember, setCurrentFamilyMember] = useState<any>(null);
   const [isAddCardModalOpen, setIsAddCardModalOpen] = useState(false);
   const [isEditInfoPagoOpen, setIsEditInfoPagoOpen] = useState(false);
   const [isAddBankModalOpen, setIsAddBankModalOpen] = useState(false);
@@ -120,9 +114,6 @@ export default function PolizaDetailsPage() {
 
   const clientesInfo = poliza.clientes_info || [];
   const clientePrincipal = clientesInfo.find(c => c.es_solicitante_principal);
-  const aplicanteCount = clientesInfo.filter(c => c.es_solicitante_principal).length;
-  const familiaresCount = clientesInfo.length;
-  const dependientesCount = clientesInfo.filter(c => !c.es_solicitante_principal).length;
   const infoPago = (poliza as any).info_pago ?? null;
   const tarjetasPago = (poliza as any).tarjetas_credito || [];
   const cuentasBancarias = (poliza as any).cuentas_bancarias || [];
@@ -367,87 +358,10 @@ export default function PolizaDetailsPage() {
               </div>
             </div>
 
-            {/* Family Members */}
-            <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 dark:shadow-none flex w-auto flex-col p-4 lg:p-4">
-              <div className="flex items-center flex-wrap justify-between mb-2">
-                <h2 className="text-gray-700 dark:text-white text-base font-semibold">Miembros de la familia</h2>
-                <button
-                  className="flex gap-2 items-center w-fit cursor-pointer justify-center rounded-md transition-colors py-1.5 font-medium bg-primary text-white hover:bg-primary/90 px-2 text-xs"
-                  type="button"
-                  onClick={() => {
-                    setShowAddMemberCard((prev) => !prev);
-                    setCurrentFamilyMember(null);
-                  }}
-                >
-                  <i className="fa-solid fa-plus"></i>Agregar miembro
-                </button>
-              </div>
-              <hr className="border-slate-200 dark:border-slate-600 flex-1 mx-2 mb-4" />
-
-              {showAddMemberCard && poliza && (
-                <AddFamilyMemberCard
-                  poliza={poliza}
-                  onClose={() => setShowAddMemberCard(false)}
-                  onSaved={() => poliza.id && fetchPolizaById(poliza.id)}
-                />
-              )}
-              
-              <div className="flex flex-wrap gap-4 mb-4">
-                <div className="flex flex-col lg:flex-row gap-6">
-                  <div className="flex flex-col">
-                    <h2 className="text-gray-700 dark:text-gray-300 text-sm font-medium flex items-center gap-2">Total de aplicantes</h2>
-                    <p className="dark:text-white text-base flex items-center gap-1 text-primary font-semibold">{aplicanteCount}</p>
-                  </div>
-                  <div className="flex flex-col">
-                    <h2 className="text-gray-700 dark:text-gray-300 text-sm font-medium flex items-center gap-2">Total de miembros</h2>
-                    <p className="dark:text-white text-base flex items-center gap-1 text-primary font-semibold">{familiaresCount}</p>
-                  </div>
-                  <div className="flex flex-col">
-                    <h2 className="text-gray-700 dark:text-gray-300 text-sm font-medium flex items-center gap-2">Total de dependientes</h2>
-                    <p className="dark:text-white text-base flex items-center gap-1 text-primary font-semibold">{dependientesCount}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Miembros list - Using map based on API data */}
-              <div className="flex flex-col gap-4">
-                {clientesInfo.map((member) => (
-                  <div key={member.id} className="border border-slate-200 dark:border-slate-700 rounded-md p-3 dark:bg-slate-900/50">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center rounded-lg bg-blue-100 dark:bg-primary/20 w-10 h-10">
-                        <i className="text-blue-500 dark:text-blue-400 fas fa-lg fa-user"></i>
-                      </div>
-                      <div className="flex flex-col flex-1">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="text-primary font-medium">{member.cliente_details.primer_nombre} {member.cliente_details.apellido_paterno}</span>
-                            <span className="text-xs bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-0.5 rounded">
-                              {getRelacionFamiliarLabel(member.relacion)}
-                            </span>
-                            {member.es_solicitante_principal && (
-                              <span className="text-xs flex items-center gap-1 text-green-600 dark:text-green-400">
-                                <i className="fa-solid fa-check-circle"></i> Aplicante
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex gap-1">
-                            <Button variant="outline" size="sm" className="h-7 text-xs border-primary text-primary hover:bg-primary/10 gap-1" onClick={() => { setCurrentFamilyMember(member); setIsFamilyModalOpen(true); }}>
-                              <i className="fa-solid fa-edit text-[10px]"></i>Editar
-                            </Button>
-                            <Button variant="outline" size="sm" className="h-7 w-7 p-0 border-primary text-primary hover:bg-primary/10">
-                              <i className="fa-solid fa-chevron-down"></i>
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="text-gray-500 dark:text-gray-400 text-xs mt-1">
-                          {member.cliente_details.email || 'Sin correo'} • {member.cliente_details.telefono || 'Sin teléfono'}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <FamilyMembersSection
+              poliza={poliza}
+              onRefresh={() => poliza.id && fetchPolizaById(poliza.id)}
+            />
 
             {/* Addresses */}
             <div className="flex w-full gap-4 flex-col lg:flex-row">
@@ -823,12 +737,6 @@ export default function PolizaDetailsPage() {
         <button className="flex gap-2 items-center w-fit cursor-pointer rounded-md transition-colors py-2 font-medium text-primary bg-transparent hover:bg-slate-50 dark:hover:bg-slate-700 h-[34px] px-2.5 text-xs justify-end" type="button">Términos y condiciones</button>
       </div>
     </div>
-      <EditFamilyMemberModal
-        open={isFamilyModalOpen}
-        onOpenChange={setIsFamilyModalOpen}
-        member={currentFamilyMember}
-        onSaved={() => poliza.id && fetchPolizaById(poliza.id)}
-      />
       <AddCardModal
         open={isAddCardModalOpen}
         onOpenChange={setIsAddCardModalOpen}

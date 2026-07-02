@@ -31,6 +31,10 @@ export interface ClienteUpdateRequest extends Partial<ClienteCreateRequest> {
   peso?: string;
   estatura?: string;
   condicion_medica?: string;
+  idioma_preferido?: string;
+  categoria_inmigracion?: string | null;
+  numero_uscis?: string | null;
+  numero_naturalizacion?: string | null;
 }
 
 export interface DireccionCreateRequest {

@@ -1141,6 +1141,76 @@ export const setupTokenInterceptor = () => {
 };
 
 // Exportar todas las APIs como un objeto principal
+export const documentosLegalesApi = {
+  ...createCrudApi<any>('documentos-legales'),
+
+  link: async (payload: {
+    id?: number;
+    cliente: number;
+    tipo: string;
+    documento: number;
+    numero_documento?: string;
+    fecha_emision?: string | null;
+    fecha_vencimiento?: string | null;
+  }): Promise<any> => {
+    const { id, ...body } = payload;
+    if (id) {
+      const response = await fetchWithAuth(`${API_BASE_URL}/documentos-legales/${id}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          documento: body.documento,
+          numero_documento: body.numero_documento ?? '',
+          fecha_emision: body.fecha_emision ?? null,
+          fecha_vencimiento: body.fecha_vencimiento ?? null,
+        }),
+      });
+      return handleApiResponse<any>(response);
+    }
+    const response = await fetchWithAuth(`${API_BASE_URL}/documentos-legales/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return handleApiResponse<any>(response);
+  },
+
+  listByCliente: async (clienteId: number | string): Promise<any[]> => {
+    const response = await fetchWithAuth(
+      `${API_BASE_URL}/documentos-legales/?cliente=${encodeURIComponent(String(clienteId))}`,
+      { method: 'GET' },
+    );
+    const payload = await handleApiResponse<any>(response);
+    if (Array.isArray(payload)) return payload;
+    if (payload?.results && Array.isArray(payload.results)) return payload.results;
+    return [];
+  },
+
+  unlink: async (id: number): Promise<void> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/documentos-legales/${id}/`, {
+      method: 'DELETE',
+    });
+    await handleApiResponse(response);
+  },
+};
+
+export const ingresosEmpleadorApi = {
+  ...createCrudApi<any>('ingresos-empleador'),
+
+  listByCliente: async (clienteId: number | string): Promise<any[]> => {
+    const response = await fetchWithAuth(
+      `${API_BASE_URL}/ingresos-empleador/?cliente=${encodeURIComponent(String(clienteId))}`,
+      { method: 'GET' },
+    );
+    const payload = await handleApiResponse<any>(response);
+    if (Array.isArray(payload)) return payload.filter((item) => item.activo !== false);
+    if (payload?.results && Array.isArray(payload.results)) {
+      return payload.results.filter((item: any) => item.activo !== false);
+    }
+    return [];
+  },
+};
+
 export const recordatoriosApi = {
   ...createCrudApi<any>('recordatorios'),
 

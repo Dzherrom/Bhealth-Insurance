@@ -11,6 +11,8 @@ from .views import (
     EstadoPolizaViewSet, PolizaViewSet, NotaViewSet, HistorialPolizaViewSet,
     EtiquetaViewSet, DocumentoViewSet, TareaViewSet, CambioDeVidaViewSet, UserManagementViewSet,
     ZipCodeLookupView, CitaViewSet, MedicoViewSet, MedicoPolizaViewSet, MedicamentoViewSet, RecordatorioViewSet,
+    IngresoEmpleadorViewSet,
+    DocumentoLegalClienteViewSet,
     ReporteAgentesView, DashboardStatsView, ReporteIntentosFallidosView,
     ContratoViewSet, ReporteComisionViewSet, NotificacionViewSet,
     LocationLookupView, TarjetaCreditoViewSet, CustomTokenObtainPairView,
@@ -50,6 +52,8 @@ router.register(r'etiquetas', EtiquetaViewSet)
 router.register(r'documentos', DocumentoViewSet)
 router.register(r'tareas', TareaViewSet)
 router.register(r'cambios-de-vida', CambioDeVidaViewSet)
+router.register(r'ingresos-empleador', IngresoEmpleadorViewSet, basename='ingreso-empleador')
+router.register(r'documentos-legales', DocumentoLegalClienteViewSet, basename='documento-legal')
 router.register(r'recordatorios', RecordatorioViewSet, basename='recordatorio')
 router.register(r'citas', CitaViewSet)
 router.register(r'medicos', MedicoViewSet)

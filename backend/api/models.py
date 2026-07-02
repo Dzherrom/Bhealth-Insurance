@@ -77,6 +77,9 @@ class Cliente(models.Model):
     pais_nacimiento = models.CharField(max_length=100, verbose_name="País de Nacimiento")
     estado_inmigracion = models.CharField(max_length=100, verbose_name="Estado de Inmigración")
     categoria_inmigracion = models.CharField(max_length=100, blank=True, null=True, verbose_name="Categoría de Inmigración")
+    numero_uscis = models.CharField(max_length=50, blank=True, null=True, verbose_name="Número USCIS")
+    numero_naturalizacion = models.CharField(max_length=50, blank=True, null=True, verbose_name="Número de naturalización")
+    idioma_preferido = models.CharField(max_length=20, blank=True, null=True, default='ES', verbose_name="Idioma preferido")
     
     # Nuevos campos de salud y estilo de vida
     usa_tabaco = models.BooleanField(default=False, verbose_name="Usa Tabaco")
@@ -126,6 +129,71 @@ class Cliente(models.Model):
 
     def __str__(self):
         return f"{self.primer_nombre} {self.apellido_paterno}"
+
+class IngresoEmpleador(models.Model):
+    cliente = models.ForeignKey(
+        Cliente,
+        on_delete=models.CASCADE,
+        related_name='ingresos_empleador',
+        verbose_name="Cliente",
+    )
+    nombre_empleador = models.CharField(max_length=255, blank=True, default='', verbose_name="Nombre del empleador")
+    telefono_empleador = models.CharField(max_length=30, blank=True, default='', verbose_name="Teléfono del empleador")
+    cargo_ocupacion = models.CharField(max_length=255, blank=True, default='', verbose_name="Cargo / Ocupación")
+    ingreso_anual = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Ingreso anual")
+    ingreso_mensual = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Ingreso mensual")
+    activo = models.BooleanField(default=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-fecha_creacion']
+        verbose_name = "Ingreso por empleador"
+        verbose_name_plural = "Ingresos por empleador"
+
+    def __str__(self):
+        return f"{self.nombre_empleador or 'Empleador'} — {self.cliente}"
+
+class DocumentoLegalCliente(models.Model):
+    TIPO_CHOICES = [
+        ('ssn', 'Seguro Social (SSN)'),
+        ('green_card', 'Green card'),
+        ('permiso_trabajo', 'Permiso de trabajo'),
+        ('pasaporte', 'Pasaporte'),
+        ('licencia', 'Licencia de conducir'),
+    ]
+
+    cliente = models.ForeignKey(
+        Cliente,
+        on_delete=models.CASCADE,
+        related_name='documentos_legales',
+        verbose_name='Cliente',
+    )
+    tipo = models.CharField(max_length=30, choices=TIPO_CHOICES, verbose_name='Tipo de documento')
+    documento = models.ForeignKey(
+        'Documento',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='vinculos_legales',
+        verbose_name='Documento de la póliza',
+    )
+    numero_documento = models.CharField(max_length=100, blank=True, default='', verbose_name='Número de documento')
+    fecha_emision = models.DateField(null=True, blank=True, verbose_name='Fecha de emisión')
+    fecha_vencimiento = models.DateField(null=True, blank=True, verbose_name='Fecha de vencimiento')
+    activo = models.BooleanField(default=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_modificacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['tipo']
+        verbose_name = 'Documento legal del cliente'
+        verbose_name_plural = 'Documentos legales del cliente'
+        constraints = [
+            models.UniqueConstraint(fields=['cliente', 'tipo'], name='unique_cliente_tipo_documento_legal'),
+        ]
+
+    def __str__(self):
+        return f"{self.get_tipo_display()} — {self.cliente}"
 
 class Aseguradora(models.Model):
     nombre = models.CharField(max_length=255, verbose_name="Nombre Aseguradora")
@@ -311,6 +379,7 @@ class PolizaCliente(models.Model):
     poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE)
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE)
     es_solicitante_principal = models.BooleanField(default=False, verbose_name="Es Solicitante Principal")
+    es_aplicante = models.BooleanField(default=False, verbose_name="Es aplicante")
     relacion = models.CharField(max_length=50, verbose_name="Relación")
     direccion_residencia = models.ForeignKey(Direccion, on_delete=models.SET_NULL, null=True, related_name='polizas_residencia')
     direccion_postal = models.ForeignKey(Direccion, on_delete=models.SET_NULL, null=True, related_name='polizas_postal')

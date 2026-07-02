@@ -264,3 +264,57 @@ export function normalizeEstadoCivil(value?: string | null): string {
   const upper = value.trim().toUpperCase();
   return map[upper] || value;
 }
+
+export const IDIOMAS_PREFERIDOS = [
+  { value: 'ES', label: 'Español' },
+  { value: 'EN', label: 'Inglés' },
+] as const;
+
+export const ESTATUS_MIGRATORIOS = [
+  { value: 'ASILO', label: 'Asilo' },
+  { value: 'CIUDADANO', label: 'Ciudadano' },
+  { value: 'ESTUDIANTE', label: 'Estudiante' },
+  { value: 'PAROLE_HUMANITARIO', label: 'Parole humanitario' },
+  { value: 'RESIDENTE', label: 'Residente' },
+  { value: 'PROTECCION_TEMPORAL', label: 'Estatus de protección temporal' },
+  { value: 'AUTORIZACION_TRABAJO', label: 'Autorización de trabajo' },
+  { value: 'OTROS', label: 'Otros' },
+] as const;
+
+export const DOCUMENTOS_LEGALES = [
+  { key: 'ssn', label: 'Seguro Social (SSN)' },
+  { key: 'green_card', label: 'Green card' },
+  { key: 'permiso_trabajo', label: 'Permiso de trabajo' },
+  { key: 'pasaporte', label: 'Pasaporte' },
+  { key: 'licencia', label: 'Licencia de conducir' },
+] as const;
+
+export type LegalDocumentType = (typeof DOCUMENTOS_LEGALES)[number]['key'];
+
+export const CATEGORIA_POR_TIPO_LEGAL: Record<LegalDocumentType, string> = {
+  ssn: 'IDENTIFICACION',
+  green_card: 'ESTATUS_MIGRATORIO',
+  permiso_trabajo: 'ESTATUS_MIGRATORIO',
+  pasaporte: 'IDENTIFICACION',
+  licencia: 'IDENTIFICACION',
+};
+
+export function getEstatusMigratorioLabel(value?: string | null): string {
+  if (!value) return '—';
+  const normalized = value.trim().toUpperCase();
+  const found = ESTATUS_MIGRATORIOS.find(
+    (item) => item.value === normalized || item.label.toLowerCase() === value.trim().toLowerCase(),
+  );
+  return found?.label ?? value;
+}
+
+export function getIdiomaLabel(value?: string | null): string {
+  if (!value) return 'ES';
+  return IDIOMAS_PREFERIDOS.find((item) => item.value === value)?.label ?? value;
+}
+
+export function isCiudadanoStatus(value?: string | null): boolean {
+  if (!value) return false;
+  const v = value.trim().toUpperCase();
+  return v === 'CIUDADANO' || v === 'CIUDADANA' || value.toLowerCase() === 'ciudadano';
+}

@@ -46,13 +46,21 @@ export type EstadoCivil =
   | 'Otro';
 
 // Estados de inmigración
-export type EstadoInmigracion = 
-  | "Ciudadano"
-  | "Residente_permanente"
-  | "Visa_trabajo"
-  | "Visa_estudiante"
-  | "Asilado"
-  | "Otro";
+export type EstadoInmigracion =
+  | 'Ciudadano'
+  | 'Residente_permanente'
+  | 'Visa_trabajo'
+  | 'Visa_estudiante'
+  | 'Asilado'
+  | 'Otro'
+  | 'ASILO'
+  | 'CIUDADANO'
+  | 'ESTUDIANTE'
+  | 'PAROLE_HUMANITARIO'
+  | 'RESIDENTE'
+  | 'PROTECCION_TEMPORAL'
+  | 'AUTORIZACION_TRABAJO'
+  | 'OTROS';
 
 // Respuesta de error estándar de la API
 export interface ApiError {

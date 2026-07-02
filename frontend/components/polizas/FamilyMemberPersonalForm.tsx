@@ -11,7 +11,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ESTADOS_CIVILES, PAISES_NACIMIENTO, normalizeEstadoCivil, normalizePaisNacimiento } from '@/lib/familyMemberOptions';
+import { ESTADOS_CIVILES, PAISES_NACIMIENTO, IDIOMAS_PREFERIDOS, normalizeEstadoCivil, normalizePaisNacimiento } from '@/lib/familyMemberOptions';
+import { Switch } from '@/components/ui/switch';
 import type { ClienteUpdateRequest } from '@/types/clientes';
 import type { Genero, EstadoCivil } from '@/types/common';
 
@@ -26,6 +27,8 @@ export interface FamilyMemberFormData {
   email: string;
   estadoCivil: string;
   paisNacimiento: string;
+  idiomaPreferido: string;
+  esAplicante: boolean;
   usaTabaco: boolean;
   peso: string;
   estatura: string;
@@ -59,6 +62,8 @@ export function memberDetailsToFormData(details: Record<string, unknown>): Famil
     email: String(details.email || ''),
     estadoCivil: normalizeEstadoCivil(String(details.estado_civil || '')),
     paisNacimiento: normalizePaisNacimiento(String(details.pais_nacimiento || '')),
+    idiomaPreferido: String(details.idioma_preferido || 'ES'),
+    esAplicante: false,
     usaTabaco: !!details.usa_tabaco,
     peso: String(details.peso || ''),
     estatura: String(details.estatura || ''),
@@ -78,6 +83,7 @@ export function formDataToClientUpdate(form: FamilyMemberFormData): ClienteUpdat
     email: form.email?.trim() || undefined,
     estado_civil: form.estadoCivil as EstadoCivil,
     pais_nacimiento: form.paisNacimiento,
+    idioma_preferido: form.idiomaPreferido,
     usa_tabaco: form.usaTabaco,
     peso: form.peso || '',
     estatura: form.estatura || '',
@@ -96,6 +102,8 @@ export const emptyFamilyMemberForm = (sexo = 'Masculino'): FamilyMemberFormData 
   email: '',
   estadoCivil: '',
   paisNacimiento: '',
+  idiomaPreferido: 'ES',
+  esAplicante: false,
   usaTabaco: false,
   peso: '',
   estatura: '',
@@ -107,9 +115,10 @@ interface FamilyMemberPersonalFormProps {
   onChange: (value: FamilyMemberFormData) => void;
   title?: string;
   requireContact?: boolean;
+  showApplicantToggle?: boolean;
 }
 
-export function FamilyMemberPersonalForm({ value, onChange, title, requireContact = false }: FamilyMemberPersonalFormProps) {
+export function FamilyMemberPersonalForm({ value, onChange, title, requireContact = false, showApplicantToggle = true }: FamilyMemberPersonalFormProps) {
   const update = (field: keyof FamilyMemberFormData, fieldValue: string | boolean) => {
     onChange({ ...value, [field]: fieldValue });
   };
@@ -165,6 +174,21 @@ export function FamilyMemberPersonalForm({ value, onChange, title, requireContac
           <Input type="email" value={value.email} onChange={(e) => update('email', e.target.value)} className={inputClass} />
         </div>
         <div className="space-y-1.5">
+          <Label>Idioma preferido</Label>
+          <Select value={value.idiomaPreferido} onValueChange={(v) => update('idiomaPreferido', v)}>
+            <SelectTrigger className={inputClass}>
+              <SelectValue placeholder="Seleccionar idioma" />
+            </SelectTrigger>
+            <SelectContent>
+              {IDIOMAS_PREFERIDOS.map((lang) => (
+                <SelectItem key={lang.value} value={lang.value}>
+                  {lang.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
           <Label>País de nacimiento *</Label>
           <Select value={value.paisNacimiento} onValueChange={(v) => update('paisNacimiento', v)}>
             <SelectTrigger className={inputClass}>
@@ -195,6 +219,19 @@ export function FamilyMemberPersonalForm({ value, onChange, title, requireContac
           </Select>
         </div>
       </div>
+
+      {showApplicantToggle ? (
+        <div className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 px-4 py-3">
+          <Label htmlFor="es-aplicante" className="text-sm font-medium">
+            ¿Es este miembro un aplicante?
+          </Label>
+          <Switch
+            id="es-aplicante"
+            checked={value.esAplicante}
+            onCheckedChange={(checked) => update('esAplicante', checked)}
+          />
+        </div>
+      ) : null}
 
       <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 bg-slate-50 dark:bg-slate-800/40 space-y-4">
         <h4 className="text-sm font-semibold text-slate-800 dark:text-white">Detalles clínicos y estatus</h4>
