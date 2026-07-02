@@ -10,8 +10,8 @@ export function UsersHeader({ onNewUser, isCreating = false }: UsersHeaderProps)
   return (
     <div className="flex flex-col gap-4 mb-[20px] md:flex-row md:items-center md:justify-between">
       <div>
-        <h2 className="text-[20px] font-bold text-[#0f172a] m-0">Gestión de Empleados</h2>
-        <p className="text-[13px] text-[#64748b] mt-[4px]">
+        <h2 className="text-[20px] font-bold text-[#0f172a] dark:text-white m-0">Gestión de Empleados</h2>
+        <p className="text-[13px] text-[#64748b] dark:text-gray-400 mt-[4px]">
           Administra los empleados operativos y sus niveles de acceso al CRM
         </p>
       </div>

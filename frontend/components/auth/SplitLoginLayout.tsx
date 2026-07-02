@@ -71,7 +71,7 @@ export default function SplitLoginLayout({
         </div>
       </div>
 
-      <div className={`flex-1 flex flex-col justify-center px-6 py-10 sm:px-10 lg:px-16 ${config.formBg}`}>
+      <div className={`login-surface flex-1 flex flex-col justify-center px-6 py-10 sm:px-10 lg:px-16 ${config.formBg}`}>
         <div className="w-full max-w-md mx-auto">
           <div className="lg:hidden mb-8 text-center">
             <div className="relative mx-auto mb-4 h-40 w-full max-w-sm overflow-hidden rounded-2xl shadow-md">

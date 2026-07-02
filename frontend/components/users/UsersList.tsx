@@ -32,12 +32,12 @@ export function UsersList({
   actionBusyId,
 }: UsersListProps) {
   return (
-    <div className="bg-white rounded-[16px] border border-[#f1f5f9] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] overflow-hidden">
-      <div className="border-b border-[#f1f5f9] p-[20px]">
-        <div className="text-[16px] font-bold text-[#0f172a] mb-[4px]">
+    <div className="bg-white dark:bg-[#1e293b] rounded-[16px] border border-[#f1f5f9] dark:border-[#334155] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] overflow-hidden">
+      <div className="border-b border-[#f1f5f9] dark:border-[#334155] p-[20px]">
+        <div className="text-[16px] font-bold text-[#0f172a] dark:text-white mb-[4px]">
           Empleados ({users.length})
         </div>
-        <div className="text-[13px] text-[#64748b]">
+        <div className="text-[13px] text-[#64748b] dark:text-gray-400">
           Lista de todos los empleados registrados en el sistema
         </div>
       </div>
@@ -62,11 +62,11 @@ export function UsersList({
 
           {users.length === 0 && (
             <div className="text-center py-8">
-              <Users className="mx-auto h-12 w-12 text-[#94a3b8]" />
-              <h3 className="mt-2 text-[14px] font-bold text-[#0f172a]">
+              <Users className="mx-auto h-12 w-12 text-[#94a3b8] dark:text-gray-500" />
+              <h3 className="mt-2 text-[14px] font-bold text-[#0f172a] dark:text-white">
                 No se encontraron empleados
               </h3>
-              <p className="mt-1 text-[13px] text-[#64748b]">
+              <p className="mt-1 text-[13px] text-[#64748b] dark:text-gray-400">
                 Ajusta los filtros o agrega un nuevo empleado.
               </p>
             </div>

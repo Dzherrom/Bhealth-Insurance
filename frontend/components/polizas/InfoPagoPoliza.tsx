@@ -1,33 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CreditCard, Landmark, Calendar, Search, Plus, Trash2, Edit } from 'lucide-react';
+import { Calendar, Search } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cuentasBancariasApi, infoPagoApi, tarjetasCreditoApi } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
-import { UsBankCombobox } from '@/components/polizas/UsBankCombobox';
+import { PaymentMethodsSection } from '@/components/polizas/PaymentMethodsSection';
 
 interface InfoPagoPolizaProps {
   poliza: any;
 }
-
-const emptyCard = {
-  tipo_tarjeta: 'VISA',
-  numero: '',
-  nombre_titular: '',
-  cvv: '',
-  fecha_vencimiento: '',
-};
-
-const emptyBank = {
-  nombre_banco: '',
-  numero_cuenta: '',
-  aba_routing: '',
-  titular_cuenta: '',
-};
 
 export function InfoPagoPoliza({ poliza }: InfoPagoPolizaProps) {
   const [loading, setLoading] = useState(false);
@@ -38,20 +23,12 @@ export function InfoPagoPoliza({ poliza }: InfoPagoPolizaProps) {
   const [cuentas, setCuentas] = useState<any[]>([]);
 
   const [openInfoModal, setOpenInfoModal] = useState(false);
-  const [openCardModal, setOpenCardModal] = useState(false);
-  const [openBankModal, setOpenBankModal] = useState(false);
-
-  const [editingCard, setEditingCard] = useState<any | null>(null);
-  const [editingBank, setEditingBank] = useState<any | null>(null);
 
   const [infoForm, setInfoForm] = useState({
     pago_recurrente: false,
     fecha_primer_pago: '',
     dia_pago_preferido: '',
   });
-
-  const [cardForm, setCardForm] = useState<any>(emptyCard);
-  const [bankForm, setBankForm] = useState<any>(emptyBank);
 
   const polizaId = poliza?.id;
 
@@ -144,70 +121,6 @@ export function InfoPagoPoliza({ poliza }: InfoPagoPolizaProps) {
     }
   };
 
-  const saveCard = async () => {
-    if (!polizaId) return;
-    try {
-      const payload = { ...cardForm, poliza: polizaId };
-      if (editingCard?.id) {
-        await tarjetasCreditoApi.patch(editingCard.id, payload);
-      } else {
-        await tarjetasCreditoApi.create(payload);
-      }
-      toast({ title: 'Tarjeta guardada' });
-      setOpenCardModal(false);
-      setEditingCard(null);
-      setCardForm(emptyCard);
-      await loadData();
-    } catch (error) {
-      console.error(error);
-      toast({ title: 'Error guardando tarjeta', variant: 'destructive' });
-    }
-  };
-
-  const saveBank = async () => {
-    if (!polizaId) return;
-    try {
-      const payload = { ...bankForm, poliza: polizaId };
-      if (editingBank?.id) {
-        await cuentasBancariasApi.patch(editingBank.id, payload);
-      } else {
-        await cuentasBancariasApi.create(payload);
-      }
-      toast({ title: 'Cuenta guardada' });
-      setOpenBankModal(false);
-      setEditingBank(null);
-      setBankForm(emptyBank);
-      await loadData();
-    } catch (error) {
-      console.error(error);
-      toast({ title: 'Error guardando cuenta', variant: 'destructive' });
-    }
-  };
-
-  const removeCard = async (id: number) => {
-    if (!window.confirm('Eliminar tarjeta?')) return;
-    try {
-      await tarjetasCreditoApi.delete(id);
-      toast({ title: 'Tarjeta eliminada' });
-      await loadData();
-    } catch (error) {
-      console.error(error);
-      toast({ title: 'Error eliminando tarjeta', variant: 'destructive' });
-    }
-  };
-
-  const removeBank = async (id: number) => {
-    if (!window.confirm('Eliminar cuenta?')) return;
-    try {
-      await cuentasBancariasApi.delete(id);
-      toast({ title: 'Cuenta eliminada' });
-      await loadData();
-    } catch (error) {
-      console.error(error);
-      toast({ title: 'Error eliminando cuenta', variant: 'destructive' });
-    }
-  };
-
   if (!poliza) return <div className="p-4">Cargando pagos...</div>;
 
   return (
@@ -266,7 +179,9 @@ export function InfoPagoPoliza({ poliza }: InfoPagoPolizaProps) {
               ))}
               {rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground dark:text-gray-400">Sin resultados</TableCell>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground dark:text-gray-400">
+                    {loading ? 'Cargando...' : 'Sin resultados'}
+                  </TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -274,73 +189,12 @@ export function InfoPagoPoliza({ poliza }: InfoPagoPolizaProps) {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg flex items-center text-blue-800">
-              <CreditCard className="w-5 h-5 mr-2" /> Tarjetas
-            </CardTitle>
-            <Button size="sm" onClick={() => { setCardForm(emptyCard); setEditingCard(null); setOpenCardModal(true); }}>
-              <Plus className="h-4 w-4 mr-1" /> Agregar
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {loading ? <p className="text-sm text-muted-foreground dark:text-gray-400">Cargando...</p> : tarjetas.length === 0 ? (
-              <p className="text-sm text-muted-foreground dark:text-gray-400">No hay tarjetas registradas.</p>
-            ) : (
-              tarjetas.map((t) => (
-                <div key={t.id} className="border rounded p-3 flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{t.tipo_tarjeta} ****{String(t.numero || '').slice(-4)}</p>
-                    <p className="text-xs text-muted-foreground dark:text-gray-400">{t.nombre_titular} - {t.fecha_vencimiento}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="icon" onClick={() => { setEditingCard(t); setCardForm({ ...t }); setOpenCardModal(true); }}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="icon" onClick={() => removeCard(t.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg flex items-center text-emerald-800">
-              <Landmark className="w-5 h-5 mr-2" /> Cuentas bancarias
-            </CardTitle>
-            <Button size="sm" onClick={() => { setBankForm(emptyBank); setEditingBank(null); setOpenBankModal(true); }}>
-              <Plus className="h-4 w-4 mr-1" /> Agregar
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {loading ? <p className="text-sm text-muted-foreground dark:text-gray-400">Cargando...</p> : cuentas.length === 0 ? (
-              <p className="text-sm text-muted-foreground dark:text-gray-400">No hay cuentas registradas.</p>
-            ) : (
-              cuentas.map((b) => (
-                <div key={b.id} className="border rounded p-3 flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{b.nombre_banco} ****{String(b.numero_cuenta || '').slice(-4)}</p>
-                    <p className="text-xs text-muted-foreground dark:text-gray-400">{b.titular_cuenta} - ABA {b.aba_routing}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="icon" onClick={() => { setEditingBank(b); setBankForm({ ...b }); setOpenBankModal(true); }}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="icon" onClick={() => removeBank(b.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      <PaymentMethodsSection
+        polizaId={polizaId}
+        tarjetas={tarjetas}
+        cuentas={cuentas}
+        onRefresh={loadData}
+      />
 
       <Dialog open={openInfoModal} onOpenChange={setOpenInfoModal}>
         <DialogContent>
@@ -365,39 +219,6 @@ export function InfoPagoPoliza({ poliza }: InfoPagoPolizaProps) {
             <div className="flex justify-end">
               <Button onClick={saveInfoPago}>Guardar</Button>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={openCardModal} onOpenChange={setOpenCardModal}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{editingCard ? 'Editar tarjeta' : 'Nueva tarjeta'}</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div><Label>Tipo</Label><Input value={cardForm.tipo_tarjeta} onChange={(e) => setCardForm((p: any) => ({ ...p, tipo_tarjeta: e.target.value }))} /></div>
-            <div><Label>Numero</Label><Input value={cardForm.numero} onChange={(e) => setCardForm((p: any) => ({ ...p, numero: e.target.value }))} /></div>
-            <div><Label>Titular</Label><Input value={cardForm.nombre_titular} onChange={(e) => setCardForm((p: any) => ({ ...p, nombre_titular: e.target.value }))} /></div>
-            <div><Label>CVV</Label><Input value={cardForm.cvv} onChange={(e) => setCardForm((p: any) => ({ ...p, cvv: e.target.value }))} /></div>
-            <div><Label>Vencimiento (MM/YY)</Label><Input value={cardForm.fecha_vencimiento} onChange={(e) => setCardForm((p: any) => ({ ...p, fecha_vencimiento: e.target.value }))} /></div>
-            <div className="flex justify-end"><Button onClick={saveCard}>Guardar</Button></div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={openBankModal} onOpenChange={setOpenBankModal}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{editingBank ? 'Editar cuenta' : 'Nueva cuenta'}</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <Label>Banco</Label>
-              <UsBankCombobox
-                value={bankForm.nombre_banco}
-                onChange={(nombre_banco) => setBankForm((p: any) => ({ ...p, nombre_banco }))}
-              />
-            </div>
-            <div><Label>Numero de cuenta</Label><Input value={bankForm.numero_cuenta} onChange={(e) => setBankForm((p: any) => ({ ...p, numero_cuenta: e.target.value }))} /></div>
-            <div><Label>ABA / Routing</Label><Input value={bankForm.aba_routing} onChange={(e) => setBankForm((p: any) => ({ ...p, aba_routing: e.target.value }))} /></div>
-            <div><Label>Titular</Label><Input value={bankForm.titular_cuenta} onChange={(e) => setBankForm((p: any) => ({ ...p, titular_cuenta: e.target.value }))} /></div>
-            <div className="flex justify-end"><Button onClick={saveBank}>Guardar</Button></div>
           </div>
         </DialogContent>
       </Dialog>

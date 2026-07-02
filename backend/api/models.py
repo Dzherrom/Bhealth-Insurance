@@ -648,6 +648,8 @@ class TarjetaCredito(models.Model):
     nombre_titular = models.CharField(max_length=255, verbose_name="Nombre Titular")
     cvv = models.CharField(max_length=100, verbose_name="CVV")
     fecha_vencimiento = models.CharField(max_length=10, verbose_name="Fecha Vencimiento (MM/YY)")
+    es_predeterminado = models.BooleanField(default=False, verbose_name="Predeterminado")
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de creación")
 
     def __str__(self):
         return f"{self.tipo_tarjeta}"
@@ -658,6 +660,8 @@ class CuentaBancaria(models.Model):
     numero_cuenta = models.CharField(max_length=100, verbose_name="Número de Cuenta")
     aba_routing = models.CharField(max_length=100, verbose_name="ABA/Enrutamiento")
     titular_cuenta = models.CharField(max_length=255, verbose_name="Titular de la Cuenta")
+    es_predeterminado = models.BooleanField(default=False, verbose_name="Predeterminado")
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de creación")
 
     def __str__(self):
         return f"{self.nombre_banco} - {self.titular_cuenta}"

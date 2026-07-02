@@ -17,6 +17,9 @@ const loginUserSchema = z.object({
 
 type LoginUserFormData = z.infer<typeof loginUserSchema>;
 
+const loginInputClass =
+  'h-11 bg-white text-[#0f172a] dark:text-[#0f172a] placeholder:text-[#64748b] dark:placeholder:text-[#64748b] caret-[#0f172a] dark:bg-white';
+
 interface LoginUserProps {
   onSubmit?: (data: LoginUserFormData) => Promise<void>;
   isLoading?: boolean;
@@ -73,20 +76,20 @@ export default function LoginUser({
         )}
 
         <div className="space-y-2">
-          <Label htmlFor="username">Usuario</Label>
+          <Label htmlFor="username" className="text-[#0f172a]">Usuario</Label>
           <Input
             id="username"
             type="text"
             placeholder="Username"
             autoComplete="username"
             {...register('username')}
-            className={`h-11 bg-white ${errors.username ? 'border-red-500' : ''}`}
+            className={`${loginInputClass} ${errors.username ? 'border-red-500' : ''}`}
           />
           {errors.username && <p className="text-sm text-red-500">{errors.username.message}</p>}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="password">Contraseña</Label>
+          <Label htmlFor="password" className="text-[#0f172a]">Contraseña</Label>
           <div className="relative">
             <Input
               id="password"
@@ -94,7 +97,7 @@ export default function LoginUser({
               placeholder="Tu contraseña"
               autoComplete="current-password"
               {...register('password')}
-              className={`h-11 bg-white pr-10 ${errors.password ? 'border-red-500' : ''}`}
+              className={`${loginInputClass} pr-10 ${errors.password ? 'border-red-500' : ''}`}
             />
             <button
               type="button"

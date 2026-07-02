@@ -29,7 +29,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import api from '@/lib/api';
 import { formatDireccion, formatFechaDisplay } from '@/components/polizas/polizaUtils';
-import { UsBankCombobox } from '@/components/polizas/UsBankCombobox';
+import { PaymentMethodsSection } from '@/components/polizas/PaymentMethodsSection';
 
 const formatCurrency = (amount: string | number) => {
   const numAmount = typeof amount === 'string' ? parseFloat(amount || '0') : amount;
@@ -48,9 +48,7 @@ export default function PolizaDetailsPage() {
 
   const [isBasicInfoModalOpen, setIsBasicInfoModalOpen] = useState(false);
   const [isFinancialModalOpen, setIsFinancialModalOpen] = useState(false);
-  const [isAddCardModalOpen, setIsAddCardModalOpen] = useState(false);
   const [isEditInfoPagoOpen, setIsEditInfoPagoOpen] = useState(false);
-  const [isAddBankModalOpen, setIsAddBankModalOpen] = useState(false);
   const [medicoModalOpen, setMedicoModalOpen] = useState(false);
   const [selectedMedico, setSelectedMedico] = useState<MedicoPoliza | null>(null);
   const [medicamentoModalOpen, setMedicamentoModalOpen] = useState(false);
@@ -139,12 +137,6 @@ export default function PolizaDetailsPage() {
   const openEditMedicamento = (medicamento: MedicamentoPoliza) => {
     setSelectedMedicamento(medicamento);
     setMedicamentoModalOpen(true);
-  };
-
-  const maskCardNumber = (numero?: string) => {
-    if (!numero) return '****';
-    const digits = numero.replace(/\D/g, '');
-    return `****${digits.slice(-4) || numero.slice(-4)}`;
   };
 
   const refreshPoliza = () => poliza.id && fetchPolizaById(poliza.id, { silent: true });
@@ -444,69 +436,12 @@ export default function PolizaDetailsPage() {
               </div>
             </div>
 
-            {/* Payment Cards */}
-            <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-gray-700 dark:text-white text-base font-semibold">Tarjetas de pago</h2>
-                <button className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md" type="button" onClick={() => setIsAddCardModalOpen(true)}>
-                  <i className="fa-solid fa-plus"></i>Agregar
-                </button>
-              </div>
-              <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
-              {tarjetasPago.length === 0 ? (
-                <div className="border border-dashed border-slate-200 dark:border-slate-700 rounded-md py-8 text-center flex flex-col items-center">
-                  <i className="fa-solid fa-credit-card text-2xl text-gray-400 mb-2"></i>
-                  <p className="font-medium dark:text-white">No se encontró información de la tarjeta</p>
-                  <p className="text-sm dark:text-gray-400 mt-1">Aún no tienes ninguna tarjeta de crédito o débito asociada.</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {tarjetasPago.map((tarjeta: any) => (
-                    <div key={tarjeta.id} className="border border-slate-200 dark:border-slate-700 rounded-md p-3 flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-medium text-primary dark:text-white">
-                          {tarjeta.tipo_tarjeta} {maskCardNumber(tarjeta.numero)}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {tarjeta.nombre_titular} · Vence {tarjeta.fecha_vencimiento || 'N/A'}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Bank Accounts */}
-            <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-gray-700 dark:text-white text-base font-semibold">Cuentas bancarias</h2>
-                <button className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md" type="button" onClick={() => setIsAddBankModalOpen(true)}>
-                  <i className="fa-solid fa-plus"></i>Agregar
-                </button>
-              </div>
-              <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
-              {cuentasBancarias.length === 0 ? (
-                <div className="border border-dashed border-slate-200 dark:border-slate-700 rounded-md py-8 text-center flex flex-col items-center">
-                  <i className="fa-solid fa-building-columns text-2xl text-gray-400 mb-2"></i>
-                  <p className="font-medium dark:text-white">No se encontró información de la cuenta bancaria</p>
-                  <p className="text-sm dark:text-gray-400 mt-1">Aún no tienes ninguna cuenta bancaria asociada.</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {cuentasBancarias.map((cuenta: any) => (
-                    <div key={cuenta.id} className="border border-slate-200 dark:border-slate-700 rounded-md p-3">
-                      <p className="text-sm font-medium text-primary dark:text-white">
-                        {cuenta.nombre_banco} ****{String(cuenta.numero_cuenta || '').slice(-4)}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {cuenta.titular_cuenta} · ABA {cuenta.aba_routing || 'N/A'}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <PaymentMethodsSection
+              polizaId={poliza.id}
+              tarjetas={tarjetasPago}
+              cuentas={cuentasBancarias}
+              onRefresh={refreshPoliza}
+            />
 
             {/* Notes */}
             <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 p-4">
@@ -737,18 +672,6 @@ export default function PolizaDetailsPage() {
         <button className="flex gap-2 items-center w-fit cursor-pointer rounded-md transition-colors py-2 font-medium text-primary bg-transparent hover:bg-slate-50 dark:hover:bg-slate-700 h-[34px] px-2.5 text-xs justify-end" type="button">Términos y condiciones</button>
       </div>
     </div>
-      <AddCardModal
-        open={isAddCardModalOpen}
-        onOpenChange={setIsAddCardModalOpen}
-        polizaId={poliza.id}
-        onSaved={refreshPoliza}
-      />
-      <AddBankAccountModal
-        open={isAddBankModalOpen}
-        onOpenChange={setIsAddBankModalOpen}
-        polizaId={poliza.id}
-        onSaved={refreshPoliza}
-      />
       <EditInfoPagoModal
         open={isEditInfoPagoOpen}
         onOpenChange={setIsEditInfoPagoOpen}
@@ -792,130 +715,6 @@ export default function PolizaDetailsPage() {
         }}
       />
   </div>
-  );
-}
-
-function AddCardModal({ open, onOpenChange, polizaId, onSaved }: { open: boolean, onOpenChange: (open: boolean) => void, polizaId: number, onSaved?: () => void }) {
-  const { toast } = useToast();
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const data = {
-      tipo_tarjeta: formData.get("tipo_tarjeta")?.toString() || 'VISA',
-      numero: formData.get("numero")?.toString(),
-      fecha_vencimiento: formData.get("fecha_vencimiento")?.toString(),
-      cvv: formData.get("cvv")?.toString(),
-      nombre_titular: formData.get("nombre_titular")?.toString(),
-      poliza: polizaId,
-    };
-    try {
-        await api.tarjetasCredito.create(data);
-        toast({ title: "Éxito", description: "Tarjeta agregada correctamente." });
-        onOpenChange(false);
-        onSaved?.();
-    } catch (error) {
-        toast({ title: "Error", description: "Error al agregar la tarjeta.", variant: "destructive" });
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader><DialogTitle>Agregar Tarjeta de Pago</DialogTitle></DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-2">
-            <Label htmlFor="tipo_tarjeta">Tipo de tarjeta</Label>
-            <select id="tipo_tarjeta" name="tipo_tarjeta" className="flex h-10 w-full rounded-md border border-input bg-white dark:bg-slate-800 px-3 py-1 text-sm" defaultValue="VISA">
-              <option value="VISA">VISA</option>
-              <option value="MASTERCARD">Mastercard</option>
-              <option value="AMEX">American Express</option>
-              <option value="DISCOVER">Discover</option>
-            </select>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="nombre_titular">Nombre del Titular</Label>
-            <Input id="nombre_titular" name="nombre_titular" required />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="numero">Número de Tarjeta</Label>
-            <Input id="numero" name="numero" required />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="fecha_vencimiento">Expiración (MM/YY)</Label>
-              <Input id="fecha_vencimiento" name="fecha_vencimiento" placeholder="MM/YY" required />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="cvv">CVV</Label>
-              <Input id="cvv" name="cvv" required />
-            </div>
-          </div>
-          <DialogFooter><Button type="submit">Guardar Tarjeta</Button></DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function AddBankAccountModal({ open, onOpenChange, polizaId, onSaved }: { open: boolean, onOpenChange: (open: boolean) => void, polizaId: number, onSaved?: () => void }) {
-  const { toast } = useToast();
-  const [nombreBanco, setNombreBanco] = useState('');
-
-  useEffect(() => {
-    if (!open) setNombreBanco('');
-  }, [open]);
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const data = {
-      nombre_banco: formData.get("nombre_banco")?.toString(),
-      numero_cuenta: formData.get("numero_cuenta")?.toString(),
-      aba_routing: formData.get("aba_routing")?.toString(),
-      titular_cuenta: formData.get("titular_cuenta")?.toString(),
-      poliza: polizaId,
-    };
-    try {
-      await api.cuentasBancarias.create(data);
-      toast({ title: "Éxito", description: "Cuenta bancaria agregada correctamente." });
-      onOpenChange(false);
-      onSaved?.();
-    } catch (error) {
-      toast({ title: "Error", description: "Error al agregar la cuenta bancaria.", variant: "destructive" });
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader><DialogTitle>Agregar Cuenta Bancaria</DialogTitle></DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-2">
-            <Label htmlFor="nombre_banco">Nombre del banco</Label>
-            <UsBankCombobox
-              id="nombre_banco"
-              name="nombre_banco"
-              value={nombreBanco}
-              onChange={setNombreBanco}
-              required
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="numero_cuenta">Número de cuenta</Label>
-            <Input id="numero_cuenta" name="numero_cuenta" required />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="aba_routing">ABA / Routing</Label>
-            <Input id="aba_routing" name="aba_routing" required />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="titular_cuenta">Titular de la cuenta</Label>
-            <Input id="titular_cuenta" name="titular_cuenta" required />
-          </div>
-          <DialogFooter><Button type="submit">Guardar Cuenta</Button></DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }
 

@@ -202,3 +202,49 @@
     background: var(--crm-primary-hover);
   }
 }
+
+/* Login pages: always light form controls, even when global dark mode is active */
+.login-surface {
+  color-scheme: light;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --input: oklch(0.922 0 0);
+  --border: oklch(0.922 0 0);
+  color: #0f172a;
+}
+
+.login-surface [data-slot="input"] {
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+  caret-color: #0f172a;
+  background-color: #ffffff !important;
+}
+
+.dark .login-surface [data-slot="input"] {
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+  background-color: #ffffff !important;
+}
+
+.login-surface [data-slot="input"]::placeholder {
+  color: #64748b !important;
+  -webkit-text-fill-color: #64748b;
+  opacity: 1;
+}
+
+.login-surface [data-slot="label"] {
+  color: #0f172a !important;
+}
+
+.login-surface input[data-slot="input"]:-webkit-autofill,
+.login-surface input[data-slot="input"]:-webkit-autofill:hover,
+.login-surface input[data-slot="input"]:-webkit-autofill:focus {
+  -webkit-text-fill-color: #0f172a !important;
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  box-shadow: 0 0 0 1000px #ffffff inset !important;
+}
