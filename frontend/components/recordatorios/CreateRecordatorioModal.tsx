@@ -6,19 +6,31 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Clock } from 'lucide-react';
+import { CalendarIcon, Clock, Lock } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import {
+  RECORDATORIO_ANTELACIONES,
+  RECORDATORIO_MOTIVOS,
+  RECORDATORIO_TIPOS,
+  type RecordatorioAntelacion,
+  type RecordatorioMotivo,
+  type RecordatorioTipo,
+} from '@/lib/recordatorios';
 
 export interface RecordatorioFormData {
-  titulo: string;
+  titulo?: string;
+  tipo: RecordatorioTipo;
+  motivo?: RecordatorioMotivo | '';
   fecha_vencimiento: string;
   hora_vencimiento: string;
   zona_horaria: string;
+  antelacion: RecordatorioAntelacion;
   establecer_recordatorio: boolean;
+  es_privado: boolean;
   usuario_notificar: number;
   descripcion?: string;
   poliza: number;
@@ -34,6 +46,17 @@ interface CreateRecordatorioModalProps {
   initialData?: Partial<RecordatorioFormData>;
 }
 
+const MOTIVO_NONE = '__none__';
+
+function normalizeTime(value?: string): string {
+  if (!value) return '09:00';
+  return value.slice(0, 5);
+}
+
+function toApiTime(value: string): string {
+  return value.length === 5 ? `${value}:00` : value;
+}
+
 export function CreateRecordatorioModal({
   isOpen,
   onClose,
@@ -46,49 +69,36 @@ export function CreateRecordatorioModal({
   const [fechaVencimiento, setFechaVencimiento] = useState<Date>();
   const [horaVencimiento, setHoraVencimiento] = useState('09:00');
   const [zonaHoraria, setZonaHoraria] = useState('America/New_York');
-  const [tipoRecordatorio, setTipoRecordatorio] = useState('');
-  const [paraQueEs, setParaQueEs] = useState('');
+  const [tipoRecordatorio, setTipoRecordatorio] = useState<RecordatorioTipo | ''>('');
+  const [motivo, setMotivo] = useState<RecordatorioMotivo | typeof MOTIVO_NONE>(MOTIVO_NONE);
+  const [antelacion, setAntelacion] = useState<RecordatorioAntelacion>('1h');
   const [descripcion, setDescripcion] = useState('');
   const [esPrivado, setEsPrivado] = useState(false);
 
-  const tiposRecordatorio = useMemo(
-    () => [
-      'Seguimiento de documentos',
-      'Verificacion de elegibilidad',
-      'Renovacion de poliza',
-      'Contacto con cliente',
-      'Revision de cobertura',
-      'Pago pendiente',
-    ],
-    []
-  );
-
-  const opcionesPara = useMemo(
-    () => [
-      'Documentacion pendiente',
-      'Llamada de seguimiento',
-      'Revision medica',
-      'Actualizacion de datos',
-      'Verificacion de beneficios',
-      'Proceso de renovacion',
-    ],
-    []
-  );
+  const horasDisponibles = useMemo(() => {
+    const slots: string[] = [];
+    for (let hour = 0; hour < 24; hour++) {
+      for (let minute = 0; minute < 60; minute += 30) {
+        slots.push(`${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`);
+      }
+    }
+    return slots;
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
 
     if (mode === 'edit' && initialData) {
-      const parts = (initialData.titulo || '').split(' - ');
-      setParaQueEs(parts[0] || '');
-      setTipoRecordatorio(parts[1] || initialData.titulo || '');
-      setHoraVencimiento(initialData.hora_vencimiento || '09:00');
+      setTipoRecordatorio((initialData.tipo as RecordatorioTipo) || '');
+      setMotivo(initialData.motivo ? (initialData.motivo as RecordatorioMotivo) : MOTIVO_NONE);
+      setAntelacion((initialData.antelacion as RecordatorioAntelacion) || '1h');
+      setHoraVencimiento(normalizeTime(initialData.hora_vencimiento));
       setZonaHoraria(initialData.zona_horaria || 'America/New_York');
       setDescripcion(initialData.descripcion || '');
-      setEsPrivado(!(initialData.establecer_recordatorio ?? true));
+      setEsPrivado(Boolean(initialData.es_privado));
 
       if (initialData.fecha_vencimiento) {
-        const parsed = new Date(initialData.fecha_vencimiento);
+        const parsed = new Date(`${initialData.fecha_vencimiento}T12:00:00`);
         if (!Number.isNaN(parsed.getTime())) {
           setFechaVencimiento(parsed);
         }
@@ -100,37 +110,36 @@ export function CreateRecordatorioModal({
     setHoraVencimiento('09:00');
     setZonaHoraria('America/New_York');
     setTipoRecordatorio('');
-    setParaQueEs('');
+    setMotivo(MOTIVO_NONE);
+    setAntelacion('1h');
     setDescripcion('');
     setEsPrivado(false);
   }, [isOpen, mode, initialData]);
 
   const handleSave = () => {
-    if (!fechaVencimiento || !tipoRecordatorio || !paraQueEs || !polizaId) {
+    if (!fechaVencimiento || !tipoRecordatorio || !antelacion || !polizaId) {
       alert('Completa los campos obligatorios');
       return;
     }
 
+    const motivoValue = motivo === MOTIVO_NONE ? '' : motivo;
+
     const payload: RecordatorioFormData = {
       poliza: Number(polizaId),
-      titulo: `${paraQueEs} - ${tipoRecordatorio}`,
+      tipo: tipoRecordatorio,
+      motivo: motivoValue,
       fecha_vencimiento: format(fechaVencimiento, 'yyyy-MM-dd'),
-      hora_vencimiento: horaVencimiento,
+      hora_vencimiento: toApiTime(horaVencimiento),
       zona_horaria: zonaHoraria,
-      establecer_recordatorio: !esPrivado,
+      antelacion,
+      establecer_recordatorio: true,
+      es_privado: esPrivado,
       usuario_notificar: Number(initialData?.usuario_notificar || userId || 1),
       descripcion: descripcion || '',
     };
 
     onSave(payload);
   };
-
-  const horasDisponibles: string[] = [];
-  for (let hour = 0; hour < 24; hour++) {
-    for (let minute = 0; minute < 60; minute += 30) {
-      horasDisponibles.push(`${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`);
-    }
-  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -181,6 +190,27 @@ export function CreateRecordatorioModal({
           </div>
 
           <div>
+            <Label className="text-sm font-medium">
+              Recordar con antelación <span className="text-red-500">*</span>
+            </Label>
+            <Select value={antelacion} onValueChange={(value) => setAntelacion(value as RecordatorioAntelacion)}>
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="Seleccionar antelación" />
+              </SelectTrigger>
+              <SelectContent>
+                {RECORDATORIO_ANTELACIONES.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground mt-1">
+              El agente recibirá una notificación en el CRM en ese momento antes del vencimiento.
+            </p>
+          </div>
+
+          <div>
             <Label className="text-sm font-medium text-gray-600">Zona horaria</Label>
             <Select value={zonaHoraria} onValueChange={setZonaHoraria}>
               <SelectTrigger className="mt-1">
@@ -197,16 +227,16 @@ export function CreateRecordatorioModal({
 
           <div>
             <Label className="text-sm font-medium">
-              Tipo <span className="text-red-500">*</span>
+              Tipo de recordatorio <span className="text-red-500">*</span>
             </Label>
-            <Select value={tipoRecordatorio} onValueChange={setTipoRecordatorio}>
+            <Select value={tipoRecordatorio} onValueChange={(value) => setTipoRecordatorio(value as RecordatorioTipo)}>
               <SelectTrigger className="mt-1">
                 <SelectValue placeholder="Seleccionar tipo" />
               </SelectTrigger>
               <SelectContent>
-                {tiposRecordatorio.map((tipo) => (
-                  <SelectItem key={tipo} value={tipo}>
-                    {tipo}
+                {RECORDATORIO_TIPOS.map((tipo) => (
+                  <SelectItem key={tipo.value} value={tipo.value}>
+                    {tipo.label}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -214,17 +244,16 @@ export function CreateRecordatorioModal({
           </div>
 
           <div>
-            <Label className="text-sm font-medium">
-              Motivo <span className="text-red-500">*</span>
-            </Label>
-            <Select value={paraQueEs} onValueChange={setParaQueEs}>
+            <Label className="text-sm font-medium">Motivo</Label>
+            <Select value={motivo} onValueChange={(value) => setMotivo(value as RecordatorioMotivo | typeof MOTIVO_NONE)}>
               <SelectTrigger className="mt-1">
-                <SelectValue placeholder="Seleccionar motivo" />
+                <SelectValue placeholder="Seleccionar motivo (opcional)" />
               </SelectTrigger>
               <SelectContent>
-                {opcionesPara.map((opcion) => (
-                  <SelectItem key={opcion} value={opcion}>
-                    {opcion}
+                <SelectItem value={MOTIVO_NONE}>Sin motivo específico</SelectItem>
+                {RECORDATORIO_MOTIVOS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -232,24 +261,28 @@ export function CreateRecordatorioModal({
           </div>
 
           <div>
-            <Label className="text-sm font-medium">Descripcion</Label>
+            <Label className="text-sm font-medium">Descripción</Label>
             <Textarea
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}
-              placeholder="Opcional"
+              placeholder="Escriba aqui mas detalles sobre el recordatorio"
               className="mt-1 min-h-[80px]"
             />
           </div>
 
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="privado"
-              checked={esPrivado}
-              onCheckedChange={(checked) => setEsPrivado(Boolean(checked))}
-            />
-            <Label htmlFor="privado" className="text-sm text-gray-600">
-              Privado (sin notificacion automatica)
-            </Label>
+          <div className="flex items-start justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Lock className="h-4 w-4 text-slate-500" />
+                <Label htmlFor="privado" className="text-sm font-medium text-slate-800">
+                  Recordatorio privado
+                </Label>
+              </div>
+              <p className="text-xs text-slate-500">
+                Solo será visible para el usuario que lo creó.
+              </p>
+            </div>
+            <Switch id="privado" checked={esPrivado} onCheckedChange={setEsPrivado} />
           </div>
 
           <div className="flex justify-end space-x-2 pt-4 border-t">

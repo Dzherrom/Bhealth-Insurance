@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import LoginUser from '@/components/auth/loginUser';
 import SplitLoginLayout from '@/components/auth/SplitLoginLayout';
-import { readPortalAuthState } from '@/lib/authSession';
+import { readPortalAuthState, waitForSessionCookies } from '@/lib/authSession';
 import {
   canUseEmployeeLogin,
   getClientDashboardPath,
@@ -17,7 +17,9 @@ const CLIENT_PORTAL_MESSAGE =
   'Esta cuenta es de cliente. Debes iniciar sesión en el portal de clientes.';
 
 function hardRedirect(path: string) {
-  window.location.replace(path);
+  void waitForSessionCookies().then(() => {
+    window.location.replace(path);
+  });
 }
 
 export default function LoginPage() {

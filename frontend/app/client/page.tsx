@@ -9,6 +9,7 @@ import SplitLoginLayout from '@/components/auth/SplitLoginLayout';
 import { TabGroup, TabList, Tab, TabPanels, TabPanel } from '@/components/animate-ui/components/headless/tabs';
 import { authApi } from '@/lib/api';
 import { canAccessClientPortal, getClientDashboardPath } from '@/lib/portalAccess';
+import { waitForSessionCookies } from '@/lib/authSession';
 import { useAuthStore, useUIStore } from '@/store';
 
 function ClientPageContent() {
@@ -48,6 +49,7 @@ function ClientPageContent() {
       throw new Error('Cuenta de empleado');
     }
 
+    await waitForSessionCookies();
     window.location.replace(getClientDashboardPath());
   };
 
@@ -80,6 +82,7 @@ function ClientPageContent() {
       throw new Error('Registro incompleto');
     }
 
+    await waitForSessionCookies();
     window.location.replace(getClientDashboardPath());
   };
 

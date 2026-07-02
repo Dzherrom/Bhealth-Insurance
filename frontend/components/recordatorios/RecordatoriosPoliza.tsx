@@ -4,26 +4,36 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { CreateRecordatorioModal } from './CreateRecordatorioModal';
-import { Calendar, Plus, Search, Eye, Edit, Trash2, Bell, Clock, User } from 'lucide-react';
+import { Calendar, Plus, Search, Eye, Edit, Trash2, Bell, Clock, User, Lock } from 'lucide-react';
 import { recordatoriosApi } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/authStore';
 import type { RecordatorioFormData } from './CreateRecordatorioModal';
+import {
+  getRecordatorioAntelacionLabel,
+  getRecordatorioMotivoLabel,
+  getRecordatorioTipoLabel,
+} from '@/lib/recordatorios';
 
 interface Recordatorio {
   id: number;
   usuario: string;
   usuario_notificar: number;
   titulo: string;
+  tipo: string;
+  motivo?: string;
+  antelacion: string;
   poliza: number;
   fechaVencimiento: string;
   horaVencimiento: string;
   zonaHoraria: string;
   descripcion?: string;
-  establecerRecordatorio: boolean;
+  esPrivado: boolean;
+  notificado: boolean;
 }
 
 interface RecordatoriosPolizaProps {
@@ -43,27 +53,29 @@ export function RecordatoriosPoliza({ polizaId }: RecordatoriosPolizaProps) {
     loadRecordatorios();
   }, [polizaId]);
 
+  const mapRecordatorio = (r: any): Recordatorio => ({
+    id: r.id,
+    usuario: r.usuario_notificar_username || `#${r.usuario_notificar}`,
+    usuario_notificar: r.usuario_notificar,
+    titulo: r.titulo,
+    tipo: r.tipo,
+    motivo: r.motivo,
+    antelacion: r.antelacion,
+    poliza: r.poliza,
+    fechaVencimiento: r.fecha_vencimiento,
+    horaVencimiento: (r.hora_vencimiento || '').slice(0, 5),
+    zonaHoraria: r.zona_horaria,
+    descripcion: r.descripcion,
+    esPrivado: Boolean(r.es_privado),
+    notificado: Boolean(r.notificado),
+  });
+
   const loadRecordatorios = async () => {
     if (!polizaId) return;
     setIsLoading(true);
     try {
-      const all = await recordatoriosApi.list();
-      let recs = (all as any[]);
-      if ((all as any).results) recs = (all as any).results;
-
-      const forPoliza = recs.filter(r => String(r.poliza) === String(polizaId));
-      setRecordatorios(forPoliza.map(r => ({
-        id: r.id,
-        usuario: r.usuario_notificar_username || `#${r.usuario_notificar}`,
-        usuario_notificar: r.usuario_notificar,
-        titulo: r.titulo,
-        poliza: r.poliza,
-        fechaVencimiento: r.fecha_vencimiento,
-        horaVencimiento: r.hora_vencimiento,
-        zonaHoraria: r.zona_horaria,
-        descripcion: r.descripcion,
-        establecerRecordatorio: r.establecer_recordatorio,
-      })));
+      const forPoliza = await recordatoriosApi.listByPoliza(polizaId);
+      setRecordatorios(forPoliza.map(mapRecordatorio));
     } catch (err) {
       console.error(err);
       toast({ title: 'Error al cargar recordatorios', variant: 'destructive' });
@@ -73,7 +85,7 @@ export function RecordatoriosPoliza({ polizaId }: RecordatoriosPolizaProps) {
   };
 
   const handleEliminar = async (id: number) => {
-    if(!window.confirm('¿Seguro de eliminar este recordatorio?')) return;
+    if (!window.confirm('¿Seguro de eliminar este recordatorio?')) return;
     try {
       await recordatoriosApi.delete(id);
       toast({ title: 'Recordatorio eliminado' });
@@ -84,17 +96,22 @@ export function RecordatoriosPoliza({ polizaId }: RecordatoriosPolizaProps) {
     }
   };
 
-  const filtered = recordatorios.filter(r => 
-    r.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.usuario.toLowerCase().includes(searchTerm.toLowerCase())
+  const filtered = recordatorios.filter(
+    (r) =>
+      r.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.usuario.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      getRecordatorioTipoLabel(r.tipo).toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   const toModalData = (recordatorio: Recordatorio): Partial<RecordatorioFormData> => ({
-    titulo: recordatorio.titulo,
+    tipo: recordatorio.tipo as RecordatorioFormData['tipo'],
+    motivo: (recordatorio.motivo || '') as RecordatorioFormData['motivo'],
+    antelacion: recordatorio.antelacion as RecordatorioFormData['antelacion'],
     fecha_vencimiento: recordatorio.fechaVencimiento,
     hora_vencimiento: recordatorio.horaVencimiento,
     zona_horaria: recordatorio.zonaHoraria,
-    establecer_recordatorio: recordatorio.establecerRecordatorio,
+    es_privado: recordatorio.esPrivado,
+    establecer_recordatorio: true,
     usuario_notificar: recordatorio.usuario_notificar,
     descripcion: recordatorio.descripcion,
     poliza: recordatorio.poliza,
@@ -139,10 +156,7 @@ export function RecordatoriosPoliza({ polizaId }: RecordatoriosPolizaProps) {
               className="pl-10"
             />
           </div>
-          <Button 
-            className="bg-blue-600 hover:bg-blue-700" 
-            onClick={() => setIsCreateModalOpen(true)}
-          >
+          <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => setIsCreateModalOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
             Nuevo Recordatorio
           </Button>
@@ -160,8 +174,8 @@ export function RecordatoriosPoliza({ polizaId }: RecordatoriosPolizaProps) {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[8%]">ID</TableHead>
-                  <TableHead>Usuario</TableHead>
-                  <TableHead>Título</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Antelación</TableHead>
                   <TableHead>Vencimiento</TableHead>
                   <TableHead className="text-center">Acciones</TableHead>
                 </TableRow>
@@ -171,16 +185,24 @@ export function RecordatoriosPoliza({ polizaId }: RecordatoriosPolizaProps) {
                   <TableRow key={recordatorio.id} className="hover:bg-gray-50">
                     <TableCell className="font-medium">#{recordatorio.id}</TableCell>
                     <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <User className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm">{recordatorio.usuario}</span>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Bell className="w-4 h-4 text-amber-500 shrink-0" />
+                          <span className="text-sm font-medium">{getRecordatorioTipoLabel(recordatorio.tipo)}</span>
+                          {recordatorio.esPrivado ? (
+                            <Badge variant="outline" className="text-[10px] gap-1">
+                              <Lock className="w-3 h-3" />
+                              Privado
+                            </Badge>
+                          ) : null}
+                        </div>
+                        {recordatorio.motivo ? (
+                          <p className="text-xs text-gray-500 pl-6">{getRecordatorioMotivoLabel(recordatorio.motivo)}</p>
+                        ) : null}
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <Bell className="w-4 h-4 text-amber-500" />
-                        <span className="text-sm font-medium">{recordatorio.titulo}</span>
-                      </div>
+                    <TableCell className="text-sm text-gray-600">
+                      {getRecordatorioAntelacionLabel(recordatorio.antelacion)}
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
@@ -196,13 +218,28 @@ export function RecordatoriosPoliza({ polizaId }: RecordatoriosPolizaProps) {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-center space-x-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:bg-blue-50" onClick={() => setViewingRecordatorio(recordatorio)}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-blue-600 hover:bg-blue-50"
+                          onClick={() => setViewingRecordatorio(recordatorio)}
+                        >
                           <Eye className="w-4 h-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-amber-600 hover:bg-amber-50" onClick={() => setEditingRecordatorio(recordatorio)}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-amber-600 hover:bg-amber-50"
+                          onClick={() => setEditingRecordatorio(recordatorio)}
+                        >
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:bg-red-50" onClick={() => handleEliminar(recordatorio.id)}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-600 hover:bg-red-50"
+                          onClick={() => handleEliminar(recordatorio.id)}
+                        >
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
@@ -215,7 +252,7 @@ export function RecordatoriosPoliza({ polizaId }: RecordatoriosPolizaProps) {
         )}
       </CardContent>
 
-      <CreateRecordatorioModal 
+      <CreateRecordatorioModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSave={handleCreate}
@@ -240,12 +277,42 @@ export function RecordatoriosPoliza({ polizaId }: RecordatoriosPolizaProps) {
           </DialogHeader>
           {viewingRecordatorio && (
             <div className="space-y-3 text-sm">
-              <p><span className="font-medium">Titulo:</span> {viewingRecordatorio.titulo}</p>
-              <p><span className="font-medium">Usuario:</span> {viewingRecordatorio.usuario}</p>
-              <p><span className="font-medium">Fecha:</span> {new Date(viewingRecordatorio.fechaVencimiento).toLocaleDateString('es-ES')}</p>
-              <p><span className="font-medium">Hora:</span> {viewingRecordatorio.horaVencimiento}</p>
-              <p><span className="font-medium">Zona:</span> {viewingRecordatorio.zonaHoraria}</p>
-              <p><span className="font-medium">Descripcion:</span> {viewingRecordatorio.descripcion || 'Sin descripcion'}</p>
+              <p>
+                <span className="font-medium">Tipo:</span> {getRecordatorioTipoLabel(viewingRecordatorio.tipo)}
+              </p>
+              {viewingRecordatorio.motivo ? (
+                <p>
+                  <span className="font-medium">Motivo:</span>{' '}
+                  {getRecordatorioMotivoLabel(viewingRecordatorio.motivo)}
+                </p>
+              ) : null}
+              <p>
+                <span className="font-medium">Usuario a notificar:</span> {viewingRecordatorio.usuario}
+              </p>
+              <p>
+                <span className="font-medium">Antelación:</span>{' '}
+                {getRecordatorioAntelacionLabel(viewingRecordatorio.antelacion)}
+              </p>
+              <p>
+                <span className="font-medium">Fecha:</span>{' '}
+                {new Date(viewingRecordatorio.fechaVencimiento).toLocaleDateString('es-ES')}
+              </p>
+              <p>
+                <span className="font-medium">Hora:</span> {viewingRecordatorio.horaVencimiento}
+              </p>
+              <p>
+                <span className="font-medium">Zona:</span> {viewingRecordatorio.zonaHoraria}
+              </p>
+              <p>
+                <span className="font-medium">Privado:</span> {viewingRecordatorio.esPrivado ? 'Sí' : 'No'}
+              </p>
+              <p>
+                <span className="font-medium">Notificación enviada:</span>{' '}
+                {viewingRecordatorio.notificado ? 'Sí' : 'Pendiente'}
+              </p>
+              <p>
+                <span className="font-medium">Descripción:</span> {viewingRecordatorio.descripcion || 'Sin descripción'}
+              </p>
             </div>
           )}
         </DialogContent>

@@ -1317,13 +1317,38 @@ class ReporteAgentesView(APIView):
         return Response(report_data)
 
 class RecordatorioViewSet(viewsets.ModelViewSet):
-    queryset = Recordatorio.objects.all()
     serializer_class = RecordatorioSerializer
     permission_classes = [permissions.IsAuthenticated]
-    filterset_fields = ['poliza', 'fecha_vencimiento', 'usuario_notificar']
+    filterset_fields = ['poliza', 'fecha_vencimiento', 'usuario_notificar', 'tipo', 'es_privado']
+
+    def get_queryset(self):
+        from django.db.models import Q
+
+        user = self.request.user
+        qs = Recordatorio.objects.select_related(
+            'poliza', 'usuario_notificar', 'creado_por',
+        ).order_by('fecha_vencimiento', 'hora_vencimiento')
+
+        return qs.filter(Q(es_privado=False) | Q(creado_por=user))
 
     def perform_create(self, serializer):
-        recordatorio = serializer.save()
+        user = self.request.user
+        usuario_notificar = serializer.validated_data.get('usuario_notificar') or user
+        serializer.save(
+            creado_por=user,
+            usuario_notificar=usuario_notificar,
+            establecer_recordatorio=True,
+        )
+
+    def perform_update(self, serializer):
+        reschedule = bool(
+            set(serializer.validated_data.keys())
+            & {'fecha_vencimiento', 'hora_vencimiento', 'antelacion', 'zona_horaria'}
+        )
+        if reschedule:
+            serializer.save(notificado=False, fecha_notificacion=None)
+        else:
+            serializer.save()
 
 class ReporteIntentosFallidosView(APIView):
     permission_classes = [permissions.IsAuthenticated] # Or IsAdminRole

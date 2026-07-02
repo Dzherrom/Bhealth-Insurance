@@ -27,6 +27,8 @@ export function setAuthCookies(accessToken: string, role: UserRole | null): void
     document.cookie = `user_role=${encodeURIComponent(role)}${suffix}`;
   }
 
+  document.cookie = `auth_session=1${suffix}`;
+
   if (isPortalClient) {
     document.cookie = `portal_client=1${suffix}`;
   } else {
@@ -40,7 +42,32 @@ export function clearAuthCookies(): void {
   const expired = 'path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict';
   document.cookie = `access_token=; ${expired}`;
   document.cookie = `user_role=; ${expired}`;
+  document.cookie = `auth_session=; ${expired}`;
   document.cookie = `portal_client=; ${expired}`;
+}
+
+/** Espera a que las cookies de sesión estén escritas antes de un reload completo. */
+export function waitForSessionCookies(): Promise<void> {
+  if (typeof document === 'undefined') return Promise.resolve();
+
+  return new Promise((resolve) => {
+    const deadline = Date.now() + 500;
+    const tick = () => {
+      const hasRole = document.cookie.includes('user_role=');
+      const hasPortal = document.cookie.includes('portal_client=1');
+      const hasSession = document.cookie.includes('auth_session=1');
+      if ((hasRole || hasPortal) && hasSession) {
+        resolve();
+        return;
+      }
+      if (Date.now() >= deadline) {
+        resolve();
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    tick();
+  });
 }
 
 export function resolveRoleFromProfile(profile?: {

@@ -108,6 +108,10 @@ export default function NotificationButton({
   className
 }: NotificationButtonProps) {
   const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
+
+  useEffect(() => {
+    setNotifications(initialNotifications);
+  }, [initialNotifications]);
   
   const unreadCount = notifications.filter(n => !n.read).length;
   

@@ -62,6 +62,8 @@ const clearClientAuthStorage = () => {
 
   document.cookie = 'access_token=; Path=/; Max-Age=0; SameSite=Lax';
   document.cookie = 'user_role=; Path=/; Max-Age=0; SameSite=Lax';
+  document.cookie = 'auth_session=; Path=/; Max-Age=0; SameSite=Lax';
+  document.cookie = 'portal_client=; Path=/; Max-Age=0; SameSite=Lax';
 };
 
 // Utilidad para obtener el token de autenticación
@@ -1038,10 +1040,28 @@ export const configuracionComisionesApi = createCrudApi<any>('configuracion-comi
 export const consentRequestsApi = createCrudApi<any>('consent-requests');
 
 export const notificacionesApi = {
-  enviarGeneral: async (data: { mensaje: string; tipo?: string }): Promise<any> => {
-    const response = await fetch(`${API_BASE_URL}/notificaciones/enviar-general/`, {
+  list: async (): Promise<any[]> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/notificaciones/`, { method: 'GET' });
+    const payload = await handleApiResponse<any>(response);
+    if (Array.isArray(payload)) return payload;
+    if (payload?.results && Array.isArray(payload.results)) return payload.results;
+    return [];
+  },
+  marcarLeida: async (id: number): Promise<any> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/notificaciones/${id}/marcar_leida/`, {
       method: 'POST',
-      headers: getAuthHeaders(),
+    });
+    return handleApiResponse<any>(response);
+  },
+  marcarTodasLeidas: async (): Promise<any> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/notificaciones/marcar_todas_leidas/`, {
+      method: 'POST',
+    });
+    return handleApiResponse<any>(response);
+  },
+  enviarGeneral: async (data: { mensaje: string; tipo?: string }): Promise<any> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/notificaciones/enviar-general/`, {
+      method: 'POST',
       body: JSON.stringify(data),
     });
     return handleApiResponse<any>(response);
@@ -1121,7 +1141,20 @@ export const setupTokenInterceptor = () => {
 };
 
 // Exportar todas las APIs como un objeto principal
-export const recordatoriosApi = createCrudApi<any>('recordatorios');
+export const recordatoriosApi = {
+  ...createCrudApi<any>('recordatorios'),
+
+  listByPoliza: async (polizaId: number | string): Promise<any[]> => {
+    const response = await fetchWithAuth(
+      `${API_BASE_URL}/recordatorios/?poliza=${encodeURIComponent(String(polizaId))}`,
+      { method: 'GET' },
+    );
+    const payload = await handleApiResponse<any>(response);
+    if (Array.isArray(payload)) return payload;
+    if (payload?.results && Array.isArray(payload.results)) return payload.results;
+    return [];
+  },
+};
 
 export const api = {
   auth: authApi,

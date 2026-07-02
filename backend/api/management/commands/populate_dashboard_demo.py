@@ -327,10 +327,21 @@ class Command(BaseCommand):
             Recordatorio.objects.create(
                 poliza=policy,
                 titulo=f"DEMO Recordatorio {i:04d}",
+                tipo=random.choice([
+                    'ESTADO_MIGRATORIO',
+                    'VERIFICACION_INGRESOS',
+                    'REALIZAR_PAGO',
+                    'CARGAR_DOCUMENTOS',
+                    'ACTUALIZAR_INFO_CLIENTE',
+                    'OTRO',
+                ]),
+                antelacion=random.choice(['30m', '1h', '2h', '1d', '3d', '7d']),
                 fecha_vencimiento=due_date,
                 hora_vencimiento=due_time,
                 zona_horaria="America/New_York",
                 establecer_recordatorio=True,
+                es_privado=False,
+                creado_por=notify_user,
                 usuario_notificar=notify_user,
                 descripcion="Generado automaticamente para dashboard demo.",
             )

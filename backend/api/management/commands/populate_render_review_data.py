@@ -324,10 +324,21 @@ class Command(BaseCommand):
         Recordatorio.objects.create(
             poliza=poliza,
             titulo=f"{DEMO_PREFIX} Recordatorio {poliza.id_mercado}",
+            tipo=random.choice([
+                'ESTADO_MIGRATORIO',
+                'VERIFICACION_INGRESOS',
+                'REALIZAR_PAGO',
+                'CARGAR_DOCUMENTOS',
+                'ACTUALIZAR_INFO_CLIENTE',
+                'OTRO',
+            ]),
+            antelacion=random.choice(['30m', '1h', '2h', '1d', '3d', '7d']),
             fecha_vencimiento=(now + timedelta(days=random.randint(3, 45))).date(),
             hora_vencimiento=(now + timedelta(hours=random.randint(1, 12))).time().replace(second=0, microsecond=0),
             zona_horaria="America/New_York",
             establecer_recordatorio=True,
+            es_privado=False,
+            creado_por=user,
             usuario_notificar=user,
             descripcion=fake.sentence(nb_words=14),
         )

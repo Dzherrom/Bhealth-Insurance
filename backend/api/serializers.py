@@ -644,10 +644,33 @@ class AuditoriaGlobalSerializer(serializers.ModelSerializer):
 
 class RecordatorioSerializer(serializers.ModelSerializer):
     usuario_notificar_username = serializers.ReadOnlyField(source='usuario_notificar.username')
+    creado_por_username = serializers.ReadOnlyField(source='creado_por.username')
+    tipo_display = serializers.CharField(source='get_tipo_display', read_only=True)
+    antelacion_display = serializers.CharField(source='get_antelacion_display', read_only=True)
 
     class Meta:
         model = Recordatorio
         fields = '__all__'
+        read_only_fields = ('notificado', 'fecha_notificacion', 'fecha_creacion', 'creado_por')
+
+    def _build_titulo(self, validated_data):
+        from .recordatorio_utils import build_recordatorio_titulo
+
+        tipo = validated_data.get('tipo') or getattr(self.instance, 'tipo', 'OTRO')
+        motivo = validated_data.get('motivo', getattr(self.instance, 'motivo', ''))
+        return build_recordatorio_titulo(tipo, motivo)
+
+    def create(self, validated_data):
+        validated_data['titulo'] = self._build_titulo(validated_data)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        merged = {
+            'tipo': validated_data.get('tipo', instance.tipo),
+            'motivo': validated_data.get('motivo', instance.motivo),
+        }
+        validated_data['titulo'] = self._build_titulo({**merged, **validated_data})
+        return super().update(instance, validated_data)
 
 
 class PolizaListSerializer(serializers.ModelSerializer):

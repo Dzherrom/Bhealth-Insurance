@@ -1,7 +1,9 @@
 'use client';
 
+import { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import NotificationButton, { type Notification } from '@/components/ui/notification-button';
-import { crmNotifications } from './crmNotifications';
+import { notificacionesApi } from '@/lib/api';
 
 interface CRMNotificationButtonProps {
   /**
@@ -31,36 +33,79 @@ export default function CRMNotificationButton({
   size = 'md',
   className
 }: CRMNotificationButtonProps) {
-  
-  const handleNotificationClick = (notification: Notification) => {
-    console.log('CRM - Notificación clickeada:', notification);
+  const router = useRouter();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const data = await notificacionesApi.list();
+      const formatted: Notification[] = data.map((n: any) => {
+        let type: Notification['type'] = 'info';
+        if (n.tipo === 'SISTEMA') type = 'info';
+        else if (n.tipo === 'SEGURIDAD') type = 'warning';
+        else if (n.tipo === 'ASIGNACION') type = 'success';
+        else if (n.tipo === 'RECORDATORIO') type = 'warning';
+        else if (n.tipo === 'TAG') type = 'info';
+
+        return {
+          id: String(n.id),
+          title: n.tipo || 'Notificación',
+          message: n.mensaje,
+          type,
+          timestamp: new Date(n.fecha_creacion),
+          read: n.leida,
+          raw: n, // Guardamos el objeto original por si necesitamos más datos
+        };
+      });
+      setNotifications(formatted);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchNotifications();
     
-    // Lógica específica para el CRM según el tipo de notificación
-    switch (notification.id) {
-      case 'crm-1': // Nuevo cliente
-        // Redirigir a la lista de usuarios pendientes
-        console.log('Redirigiendo a usuarios pendientes...');
-        break;
-      case 'crm-2': // Pólizas vencimiento próximo
-        // Redirigir al módulo de pólizas con filtro de vencimiento
-        console.log('Redirigiendo a pólizas próximas a vencer...');
-        break;
-      case 'crm-4': // Reclamo pendiente
-        // Redirigir al sistema de reclamos
-        console.log('Redirigiendo a reclamos pendientes...');
-        break;
-      case 'crm-6': // Actualización del sistema
-        // Abrir modal con novedades
-        console.log('Mostrando novedades del sistema...');
-        break;
-      default:
-        console.log('Notificación genérica del CRM clickeada');
+    // Polling cada 30 segundos para tiempo real
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
+
+  const handleNotificationClick = async (notification: Notification) => {
+    try {
+      if (!notification.read) {
+        await notificacionesApi.marcarLeida(Number(notification.id));
+        // Actualizamos localmente para que se sienta rápido
+        setNotifications(prev => 
+          prev.map(n => n.id === notification.id ? { ...n, read: true } : n)
+        );
+      }
+
+      const raw = (notification as any).raw;
+      
+      // Redirección basada en el tipo o contenido
+      if (raw?.tipo === 'RECORDATORIO' && raw?.object_id) {
+        // Podríamos redirigir a la póliza si tuviéramos el ID de la póliza
+        // Por ahora, el recordatorio no tiene un endpoint directo de vista, 
+        // pero podríamos redirigir a un dashboard o intentar extraer la póliza.
+        // Si no hay ruta clara, simplemente se marca como leída.
+      } else if (raw?.tipo === 'ASIGNACION') {
+        // Redirigir a pólizas
+        router.push('/crm/polizas');
+      }
+
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
     }
   };
 
-  const handleMarkAllAsRead = () => {
-    console.log('CRM - Todas las notificaciones marcadas como leídas');
-    // Aquí podrías hacer una llamada a la API para marcar como leídas
+  const handleMarkAllAsRead = async () => {
+    try {
+      await notificacionesApi.marcarTodasLeidas();
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
   };
 
   return (
@@ -69,7 +114,7 @@ export default function CRMNotificationButton({
       position={position}
       size={size}
       className={className}
-      initialNotifications={crmNotifications}
+      initialNotifications={notifications}
       onNotificationClick={handleNotificationClick}
       onMarkAllAsRead={handleMarkAllAsRead}
     />

@@ -652,18 +652,64 @@ class Medicamento(models.Model):
         return f"{self.nombre} ({self.dosis})"
 
 class Recordatorio(models.Model):
+    TIPO_CHOICES = [
+        ('ESTADO_MIGRATORIO', 'Estado migratorio'),
+        ('VERIFICACION_INGRESOS', 'Verificación de ingresos'),
+        ('REALIZAR_PAGO', 'Realizar pago'),
+        ('CARGAR_DOCUMENTOS', 'Cargar documentos'),
+        ('ACTUALIZAR_INFO_CLIENTE', 'Actualizar información del cliente'),
+        ('OTRO', 'Otro'),
+    ]
+
+    ANTELACION_CHOICES = [
+        ('30m', '30 minutos antes'),
+        ('1h', '1 hora antes'),
+        ('2h', '2 horas antes'),
+        ('1d', '1 día antes'),
+        ('3d', '3 días antes'),
+        ('7d', '7 días antes'),
+    ]
+
     poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='recordatorios', verbose_name="Póliza")
     titulo = models.CharField(max_length=255, verbose_name="Para qué es este recordatorio")
+    tipo = models.CharField(max_length=40, choices=TIPO_CHOICES, default='OTRO', verbose_name="Tipo de recordatorio")
+    motivo = models.CharField(max_length=255, blank=True, default='', verbose_name="Motivo")
     fecha_vencimiento = models.DateField(verbose_name="Fecha de Vencimiento")
     hora_vencimiento = models.TimeField(verbose_name="Hora de Vencimiento")
     zona_horaria = models.CharField(max_length=50, default="UTC", verbose_name="Zona Horaria")
-    establecer_recordatorio = models.BooleanField(default=True, verbose_name="Establecer Recordatorio")
+    antelacion = models.CharField(
+        max_length=4,
+        choices=ANTELACION_CHOICES,
+        default='1h',
+        verbose_name="Notificar con antelación",
+    )
+    establecer_recordatorio = models.BooleanField(default=True, verbose_name="Enviar notificación automática")
+    es_privado = models.BooleanField(default=False, verbose_name="Recordatorio privado")
+    creado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='recordatorios_creados',
+        verbose_name="Creado por",
+    )
     usuario_notificar = models.ForeignKey(User, on_delete=models.CASCADE, related_name='recordatorios_asignados', verbose_name="Quién debe ser notificado")
     descripcion = models.TextField(blank=True, null=True, verbose_name="Descripción o Comentarios")
+    notificado = models.BooleanField(default=False, verbose_name="Notificación enviada")
+    fecha_notificacion = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de notificación")
     fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['fecha_vencimiento', 'hora_vencimiento']
 
     def __str__(self):
         return f"Recordatorio: {self.titulo} - {self.fecha_vencimiento}"
+
+    def get_tipo_display_label(self):
+        return dict(self.TIPO_CHOICES).get(self.tipo, self.tipo)
+
+    def get_antelacion_display_label(self):
+        return dict(self.ANTELACION_CHOICES).get(self.antelacion, self.antelacion)
 
 class PolizaTransferencia(models.Model):
     ACCION_CHOICES = [
@@ -841,6 +887,7 @@ class Notificacion(models.Model):
         ('ASIGNACION', 'Asignación'),
         ('SEGURIDAD', 'Seguridad'),
         ('SISTEMA', 'Sistema'),
+        ('RECORDATORIO', 'Recordatorio'),
     ]
     usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notificaciones')
     mensaje = models.CharField(max_length=255)

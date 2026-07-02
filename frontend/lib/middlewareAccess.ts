@@ -26,30 +26,36 @@ export function canAccessCRM(role: UserRole | null | undefined): boolean {
   return ['admin', 'manager', 'asistente', 'sherpa', 'pagos', 'citas'].includes(role);
 }
 
+function hasRoleSessionCookie(ctx: MiddlewareAuthContext): boolean {
+  return Boolean(ctx.userRoleCookie?.trim() || ctx.portalClientCookie === '1');
+}
+
 export function resolveMiddlewareRedirect(
   pathname: string,
   ctx: MiddlewareAuthContext & { hasValidToken: boolean },
 ): string | null {
   const portalClient = isPortalClientSession(ctx);
+  const hasSessionHint = ctx.hasValidToken || hasRoleSessionCookie(ctx);
 
   if (pathname.startsWith('/crm')) {
     if (portalClient) return '/client/dashboard';
+    if (canAccessCRM(ctx.role) && hasSessionHint) return null;
     if (!ctx.hasValidToken || !canAccessCRM(ctx.role)) return '/auth/login';
     return null;
   }
 
   if (pathname === '/auth/login') {
-    if (portalClient && ctx.hasValidToken) return '/client/dashboard';
+    if (portalClient && hasSessionHint) return '/client/dashboard';
+    if (canAccessCRM(ctx.role) && hasSessionHint) return '/crm/dashboard';
     return null;
   }
 
   if (pathname.startsWith('/client/')) {
-    const hasTokenCookie = Boolean(ctx.token);
+    // Portal: confiar en cookies ligeras (portal_client, user_role). El JWT puede
+    // vivir solo en localStorage; el edge no siempre recibe access_token a tiempo.
+    if (portalClient && hasSessionHint) return null;
 
-    if (!hasTokenCookie) return '/client';
-
-    // Sesión de portal: dejar pasar y validar en el cliente (evita loop con Zustand).
-    if (isPortalClientSession(ctx)) return null;
+    if (!ctx.token) return '/client';
 
     if (!ctx.hasValidToken) return '/client';
 
