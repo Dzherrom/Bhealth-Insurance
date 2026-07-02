@@ -12,6 +12,7 @@ import {
   formDataToClientUpdate,
   type FamilyMemberFormData,
 } from './FamilyMemberPersonalForm';
+import { getRelacionFamiliarLabel } from '@/lib/familyMemberOptions';
 
 interface EditFamilyMemberModalProps {
   open: boolean;
@@ -40,6 +41,15 @@ export function EditFamilyMemberModal({ open, onOpenChange, member, onSaved }: E
       toast({
         title: 'Campos obligatorios',
         description: 'Completa nombre, apellido y fecha de nacimiento.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!form.paisNacimiento || !form.estadoCivil) {
+      toast({
+        title: 'Campos obligatorios',
+        description: 'Selecciona país de nacimiento y estado civil.',
         variant: 'destructive',
       });
       return;
@@ -79,7 +89,9 @@ export function EditFamilyMemberModal({ open, onOpenChange, member, onSaved }: E
           <DialogTitle>
             Editar miembro{memberName ? `: ${memberName}` : ''}
             {member?.relacion && (
-              <span className="block text-sm font-normal text-muted-foreground mt-1">{member.relacion}</span>
+              <span className="block text-sm font-normal text-muted-foreground mt-1">
+                {getRelacionFamiliarLabel(member.relacion)}
+              </span>
             )}
           </DialogTitle>
         </DialogHeader>

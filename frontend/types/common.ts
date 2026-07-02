@@ -29,16 +29,21 @@ export type RelacionFamiliar =
 export type Genero = "Masculino" | "Femenino" | "Otro";
 
 // Estados civiles
-export type EstadoCivil = 
-  | "Soltero"
-  | "Soltera" 
-  | "Casado"
-  | "Casada"
-  | "Divorciado"
-  | "Divorciada"
-  | "Viudo"
-  | "Viuda"
-  | "Union_libre";
+export type EstadoCivil =
+  | 'Soltero'
+  | 'Soltera'
+  | 'Casado'
+  | 'Casada'
+  | 'Divorciado'
+  | 'Divorciada'
+  | 'Viudo'
+  | 'Viuda'
+  | 'Union_libre'
+  | 'Casado/a'
+  | 'Cabeza de familia'
+  | 'Soltero/a'
+  | 'Viudo/a'
+  | 'Otro';
 
 // Estados de inmigración
 export type EstadoInmigracion = 

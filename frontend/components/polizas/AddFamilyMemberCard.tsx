@@ -12,10 +12,14 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import api from '@/lib/api';
+import {
+  RELACIONES_FAMILIARES,
+  getRelacionFamiliarLabel,
+  isConyugeRelacion,
+  type RelacionFamiliarValue,
+} from '@/lib/familyMemberOptions';
 import { X } from 'lucide-react';
 import { FamilyMemberPersonalForm, emptyFamilyMemberForm, type FamilyMemberFormData } from './FamilyMemberPersonalForm';
-
-type MemberTipo = 'CONYUGE' | 'DEPENDIENTE' | '';
 
 interface AddFamilyMemberCardProps {
   poliza: any;
@@ -34,8 +38,8 @@ function buildClientPayload(form: FamilyMemberFormData, prefix: string) {
     genero: form.sexo,
     telefono: form.telefono?.trim() || null,
     email: form.email?.trim() || null,
-    estado_civil: 'Desconocido',
-    pais_nacimiento: 'Desconocido',
+    estado_civil: form.estadoCivil,
+    pais_nacimiento: form.paisNacimiento,
     estado_inmigracion: 'Desconocido',
     ingreso_anual: 0,
     usa_tabaco: form.usaTabaco,
@@ -48,27 +52,43 @@ function buildClientPayload(form: FamilyMemberFormData, prefix: string) {
 
 export function AddFamilyMemberCard({ poliza, onClose, onSaved }: AddFamilyMemberCardProps) {
   const { toast } = useToast();
-  const [tipo, setTipo] = useState<MemberTipo>('');
+  const [relacion, setRelacion] = useState<RelacionFamiliarValue | ''>('');
   const [form, setForm] = useState<FamilyMemberFormData>(emptyFamilyMemberForm());
   const [saving, setSaving] = useState(false);
 
   const hasConyuge = useMemo(
-    () => (poliza?.clientes_info || []).some((m: any) => String(m.relacion || '').toUpperCase().includes('CONYUG')),
-    [poliza?.clientes_info]
+    () => (poliza?.clientes_info || []).some((m: any) => isConyugeRelacion(m.relacion)),
+    [poliza?.clientes_info],
   );
 
-  const handleTipoChange = (value: MemberTipo) => {
-    setTipo(value);
+  const handleRelacionChange = (value: RelacionFamiliarValue) => {
+    setRelacion(value);
     setForm(emptyFamilyMemberForm(value === 'CONYUGE' ? 'Femenino' : 'Masculino'));
   };
 
   const handleSave = async () => {
-    if (!tipo) {
-      toast({ title: 'Selecciona el tipo', description: 'Indica si es cónyuge o dependiente.', variant: 'destructive' });
+    if (!relacion) {
+      toast({
+        title: 'Selecciona la relación',
+        description: 'Indica la relación del miembro con el solicitante principal.',
+        variant: 'destructive',
+      });
       return;
     }
     if (!form.primerNombre.trim() || !form.apellidoPaterno.trim() || !form.fechaNacimiento) {
-      toast({ title: 'Campos obligatorios', description: 'Completa nombre, apellido y fecha de nacimiento.', variant: 'destructive' });
+      toast({
+        title: 'Campos obligatorios',
+        description: 'Completa nombre, apellido y fecha de nacimiento.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (!form.paisNacimiento || !form.estadoCivil) {
+      toast({
+        title: 'Campos obligatorios',
+        description: 'Selecciona país de nacimiento y estado civil.',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -77,7 +97,7 @@ export function AddFamilyMemberCard({ poliza, onClose, onSaved }: AddFamilyMembe
       const principal = (poliza.clientes_info || []).find((m: any) => m.es_solicitante_principal);
       const direccionId = principal?.direccion_residencia || poliza.direccion_fisica || null;
 
-      const prefix = tipo === 'CONYUGE' ? 'conyuge' : 'dependiente';
+      const prefix = relacion.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 20);
       const cliente = await api.clientes.create(buildClientPayload(form, prefix) as any);
 
       const existingClientesData = (poliza.clientes_info || []).map((m: any) => ({
@@ -94,7 +114,7 @@ export function AddFamilyMemberCard({ poliza, onClose, onSaved }: AddFamilyMembe
           {
             cliente: cliente.id,
             es_solicitante_principal: false,
-            relacion: tipo,
+            relacion,
             direccion_residencia: direccionId,
           },
         ],
@@ -102,7 +122,7 @@ export function AddFamilyMemberCard({ poliza, onClose, onSaved }: AddFamilyMembe
 
       toast({
         title: 'Miembro agregado',
-        description: tipo === 'CONYUGE' ? 'Cónyuge registrado en la póliza.' : 'Dependiente registrado en la póliza.',
+        description: `${getRelacionFamiliarLabel(relacion)} registrado en la póliza.`,
       });
       onSaved();
       onClose();
@@ -124,30 +144,36 @@ export function AddFamilyMemberCard({ poliza, onClose, onSaved }: AddFamilyMembe
       </div>
 
       <div className="space-y-4">
-        <div className="space-y-2 max-w-xs">
-          <Label>Tipo de miembro *</Label>
-          <Select value={tipo} onValueChange={(v) => handleTipoChange(v as MemberTipo)}>
+        <div className="space-y-2 max-w-md">
+          <Label>Relación con el solicitante *</Label>
+          <Select value={relacion} onValueChange={(v) => handleRelacionChange(v as RelacionFamiliarValue)}>
             <SelectTrigger className="bg-white dark:bg-slate-800">
-              <SelectValue placeholder="Seleccionar tipo" />
+              <SelectValue placeholder="Seleccionar relación" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="CONYUGE" disabled={hasConyuge}>
-                Cónyuge{hasConyuge ? ' (ya registrado)' : ''}
-              </SelectItem>
-              <SelectItem value="DEPENDIENTE">Dependiente</SelectItem>
+            <SelectContent className="max-h-60">
+              {RELACIONES_FAMILIARES.map((option) => (
+                <SelectItem
+                  key={option.value}
+                  value={option.value}
+                  disabled={option.value === 'CONYUGE' && hasConyuge}
+                >
+                  {option.label}
+                  {option.value === 'CONYUGE' && hasConyuge ? ' (ya registrado)' : ''}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
 
-        {tipo && (
+        {relacion && (
           <FamilyMemberPersonalForm
             value={form}
             onChange={setForm}
-            title={tipo === 'CONYUGE' ? 'Información del cónyuge' : 'Información del dependiente'}
+            title={`Información del miembro (${getRelacionFamiliarLabel(relacion)})`}
           />
         )}
 
-        {tipo && (
+        {relacion && (
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={onClose} disabled={saving}>
               Cancelar

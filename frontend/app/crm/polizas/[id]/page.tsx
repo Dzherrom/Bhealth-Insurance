@@ -24,6 +24,7 @@ import { EditMedicamentoModal } from '@/components/polizas/EditMedicamentoModal'
 import type { MedicoPoliza, MedicamentoPoliza } from '@/lib/api';
 import { UltimaNotaCard } from '@/components/polizas/UltimaNotaCard';
 import { CitasPoliza } from '@/components/polizas/CitasPoliza';
+import { getRelacionFamiliarLabel } from '@/lib/familyMemberOptions';
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -421,7 +422,7 @@ export default function PolizaDetailsPage() {
                           <div className="flex items-center gap-2">
                             <span className="text-primary font-medium">{member.cliente_details.primer_nombre} {member.cliente_details.apellido_paterno}</span>
                             <span className="text-xs bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-0.5 rounded">
-                              {member.relacion}
+                              {getRelacionFamiliarLabel(member.relacion)}
                             </span>
                             {member.es_solicitante_principal && (
                               <span className="text-xs flex items-center gap-1 text-green-600 dark:text-green-400">

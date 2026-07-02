@@ -4,8 +4,16 @@ import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ESTADOS_CIVILES, PAISES_NACIMIENTO, normalizeEstadoCivil, normalizePaisNacimiento } from '@/lib/familyMemberOptions';
 import type { ClienteUpdateRequest } from '@/types/clientes';
-import type { Genero } from '@/types/common';
+import type { Genero, EstadoCivil } from '@/types/common';
 
 export interface FamilyMemberFormData {
   primerNombre: string;
@@ -16,6 +24,8 @@ export interface FamilyMemberFormData {
   sexo: string;
   telefono: string;
   email: string;
+  estadoCivil: string;
+  paisNacimiento: string;
   usaTabaco: boolean;
   peso: string;
   estatura: string;
@@ -47,6 +57,8 @@ export function memberDetailsToFormData(details: Record<string, unknown>): Famil
     sexo: String(details.genero || 'Masculino'),
     telefono: String(details.telefono || ''),
     email: String(details.email || ''),
+    estadoCivil: normalizeEstadoCivil(String(details.estado_civil || '')),
+    paisNacimiento: normalizePaisNacimiento(String(details.pais_nacimiento || '')),
     usaTabaco: !!details.usa_tabaco,
     peso: String(details.peso || ''),
     estatura: String(details.estatura || ''),
@@ -64,6 +76,8 @@ export function formDataToClientUpdate(form: FamilyMemberFormData): ClienteUpdat
     genero: form.sexo as Genero,
     telefono: form.telefono?.trim() || undefined,
     email: form.email?.trim() || undefined,
+    estado_civil: form.estadoCivil as EstadoCivil,
+    pais_nacimiento: form.paisNacimiento,
     usa_tabaco: form.usaTabaco,
     peso: form.peso || '',
     estatura: form.estatura || '',
@@ -80,6 +94,8 @@ export const emptyFamilyMemberForm = (sexo = 'Masculino'): FamilyMemberFormData 
   sexo,
   telefono: '',
   email: '',
+  estadoCivil: '',
+  paisNacimiento: '',
   usaTabaco: false,
   peso: '',
   estatura: '',
@@ -147,6 +163,36 @@ export function FamilyMemberPersonalForm({ value, onChange, title, requireContac
         <div className="space-y-1.5">
           <Label>Correo electrónico{requireContact ? ' *' : ' (opcional)'}</Label>
           <Input type="email" value={value.email} onChange={(e) => update('email', e.target.value)} className={inputClass} />
+        </div>
+        <div className="space-y-1.5">
+          <Label>País de nacimiento *</Label>
+          <Select value={value.paisNacimiento} onValueChange={(v) => update('paisNacimiento', v)}>
+            <SelectTrigger className={inputClass}>
+              <SelectValue placeholder="Seleccionar país" />
+            </SelectTrigger>
+            <SelectContent className="max-h-60">
+              {PAISES_NACIMIENTO.map((pais) => (
+                <SelectItem key={pais} value={pais}>
+                  {pais}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Estado civil *</Label>
+          <Select value={value.estadoCivil} onValueChange={(v) => update('estadoCivil', v)}>
+            <SelectTrigger className={inputClass}>
+              <SelectValue placeholder="Seleccionar estado civil" />
+            </SelectTrigger>
+            <SelectContent>
+              {ESTADOS_CIVILES.map((estado) => (
+                <SelectItem key={estado.value} value={estado.value}>
+                  {estado.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
