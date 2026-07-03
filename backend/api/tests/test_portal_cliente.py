@@ -69,6 +69,42 @@ class PortalClienteAPITests(APITestCase):
         self.assertEqual(dashboard.status_code, status.HTTP_200_OK)
         self.assertGreaterEqual(len(dashboard.data.get('cambios_pendientes', [])), 1)
 
+    def test_solicitar_cambio_crea_cambio_de_vida_visible_en_crm(self):
+        if not self.poliza:
+            self.skipTest('Cliente sin póliza principal.')
+
+        response = self.client_api.post(
+            '/api/portal-cliente/solicitar-cambio/',
+            {
+                'poliza_id': self.poliza.id,
+                'campos': {'telefono': '555-0100'},
+                'descripcion': 'Actualización de teléfono desde portal',
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+
+        cambio = CambioDeVida.objects.filter(
+            poliza=self.poliza,
+            creado_por=self.user,
+            estado='PENDIENTE',
+        ).order_by('-id').first()
+        self.assertIsNotNone(cambio)
+        self.assertEqual(cambio.datos.get('origen'), 'PORTAL_CLIENTE')
+        self.assertEqual(cambio.datos.get('campos_solicitados', {}).get('telefono'), '555-0100')
+
+        staff = User.objects.filter(is_superuser=True).first()
+        if not staff:
+            self.skipTest('No hay usuario staff para verificar listado CRM.')
+        staff_client = APIClient()
+        staff_client.force_authenticate(user=staff)
+        list_response = staff_client.get(f'/api/cambios-de-vida/?poliza={self.poliza.id}')
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        payload = list_response.data
+        items = payload if isinstance(payload, list) else payload.get('results', [])
+        ids = {item['id'] for item in items}
+        self.assertIn(cambio.id, ids)
+
     def test_dashboard_sin_poliza_incluye_arreglos_vacios(self):
         user = User.objects.create_user(username='cliente_sin_poliza', password='testpass123', email='sinpoliza@test.com')
         profile = user.profile

@@ -27,9 +27,29 @@ import { polizaIsQuote, previewPolizaEnvioErrors } from '@/lib/polizaEnvioUtils'
 import { PaymentMethodsSection } from '@/components/polizas/PaymentMethodsSection';
 import { MedicosMedicamentosSection } from '@/components/polizas/MedicosMedicamentosSection';
 import { StatusBadge } from '@/components/polizas/polizaStatusUtils';
+import { CopyableValue } from '@/components/polizas/CopyableValue';
 import type { OtraPoliza } from '@/types/polizas';
 
 const EFFECTIVE_YEARS = [2026, 2025, 2024] as const;
+
+const METAL_LABELS: Record<string, string> = {
+  BRONCE: 'Bronce',
+  PLATA: 'Plata',
+  ORO: 'Oro',
+  PLATINO: 'Platino',
+};
+
+function formatMetalLabel(metal?: string | null): string {
+  if (!metal) return 'Metal no seleccionado';
+  return `Metal ${METAL_LABELS[metal] || metal}`;
+}
+
+function formatMoneyCopyValue(value?: string | number | null): string | undefined {
+  if (value == null || value === '') return undefined;
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  if (Number.isNaN(num)) return String(value);
+  return num.toFixed(2);
+}
 
 function filterOtrasPolizasByYear(
   items: OtraPoliza[],
@@ -380,7 +400,10 @@ export default function PolizaDetailsPage() {
                     </div>
                     <div className="flex flex-col">
                       <h2 className="text-gray-700 dark:text-white text-base font-semibold flex items-center gap-1">
-                        {poliza.plan_nombre || 'No se ha seleccionado aseguradora'}
+                        <CopyableValue
+                          value={(poliza as any).aseguradora_nombre || poliza.plan_nombre || undefined}
+                          fallback="No se ha seleccionado aseguradora"
+                        />
                       </h2>
                       <div className="flex gap-2 items-center">
                         <h2 className="text-gray-700 dark:text-gray-300 text-sm font-normal flex items-center gap-1">
@@ -405,40 +428,74 @@ export default function PolizaDetailsPage() {
                 </div>
                 <div className="grid grid-cols-12 mb-2">
                   <div className="col-span-12 flex flex-col pb-2">
+                    <div className="text-gray-700 dark:text-gray-300 text-xs font-medium mb-1">Aseguradora</div>
+                    <div className="dark:text-white text-base font-normal text-primary flex items-center gap-1 mb-2">
+                      <CopyableValue
+                        value={(poliza as any).aseguradora_nombre || undefined}
+                        fallback="No se ha seleccionado aseguradora"
+                      />
+                    </div>
+                    <div className="text-gray-700 dark:text-gray-300 text-xs font-medium mb-1">Plan</div>
                     <h2 className="dark:text-white text-base font-normal text-primary flex items-center gap-1">
-                      {poliza.plan_nombre || 'No se ha seleccionado un plan'}
+                      <CopyableValue value={poliza.plan_nombre || undefined} fallback="No se ha seleccionado un plan" />
                     </h2>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-gray-700 dark:text-gray-300 text-xs font-normal flex items-center gap-1">
-                        {poliza.metal
-                          ? `Metal ${({ BRONCE: 'Bronce', PLATA: 'Plata', ORO: 'Oro', PLATINO: 'Platino' } as Record<string, string>)[poliza.metal] || poliza.metal}`
-                          : 'Metal no seleccionado'}
+                        <CopyableValue value={formatMetalLabel(poliza.metal)} />
                       </span>
                       <div className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-600"></div>
                       <span className="text-gray-700 dark:text-gray-300 text-xs font-medium flex items-center gap-1">
-                        ID del plan CMS: <span className="font-normal">{poliza.id_plan_cms || 'No se proporcionó ID del plan'}</span>
+                        ID del plan CMS:{' '}
+                        <CopyableValue
+                          value={poliza.id_plan_cms || undefined}
+                          className="font-normal"
+                          fallback="No se proporcionó ID del plan"
+                        />
                       </span>
                     </div>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-4 w-full mb-2">
-                  <div className="flex col-span-1 md:col-span-4 flex-col gap-1 rounded-md">
+                  <div className="flex col-span-1 md:col-span-3 flex-col gap-1 rounded-md">
                     <span className="text-gray-700 dark:text-gray-300 text-sm font-medium">Prima mensual</span>
                     <div className="flex items-start justify-start">
                       <span className="text-gray-700 dark:text-white text-sm font-medium leading-none mt-1">$</span>
                       <span className="text-gray-700 dark:text-white text-2xl font-semibold leading-none">{poliza.prima_mensual?.toString().split('.')[0] || '0'}</span>
                       <span className="text-gray-700 dark:text-white text-sm font-medium leading-none mt-1">.{poliza.prima_mensual?.toString().split('.')[1] || '00'}</span>
+                      <CopyableValue
+                        value={formatMoneyCopyValue(poliza.prima_mensual)}
+                        copyOnly
+                        className="ml-2 mt-1"
+                      />
                     </div>
                   </div>
-                  <div className="flex col-span-1 md:col-span-4 flex-col gap-1 rounded-md">
+                  <div className="flex col-span-1 md:col-span-3 flex-col gap-1 rounded-md">
                     <span className="text-gray-700 dark:text-gray-300 text-sm font-medium">Total de ahorros</span>
+                    <div className="flex items-start justify-start">
+                      <span className="text-gray-700 dark:text-white text-sm font-medium leading-none mt-1">$</span>
+                      <span className="text-gray-700 dark:text-white text-2xl font-semibold leading-none">{(poliza as any).total_ahorros?.toString().split('.')[0] || '0'}</span>
+                      <span className="text-gray-700 dark:text-white text-sm font-medium leading-none mt-1">.{(poliza as any).total_ahorros?.toString().split('.')[1] || '00'}</span>
+                      <CopyableValue
+                        value={formatMoneyCopyValue((poliza as any).total_ahorros)}
+                        copyOnly
+                        className="ml-2 mt-1"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex col-span-1 md:col-span-3 flex-col gap-1 rounded-md">
+                    <span className="text-gray-700 dark:text-gray-300 text-sm font-medium">Subsidio</span>
                     <div className="flex items-start justify-start">
                       <span className="text-gray-700 dark:text-white text-sm font-medium leading-none mt-1">$</span>
                       <span className="text-gray-700 dark:text-white text-2xl font-semibold leading-none">{poliza.subsidio?.toString().split('.')[0] || '0'}</span>
                       <span className="text-gray-700 dark:text-white text-sm font-medium leading-none mt-1">.{poliza.subsidio?.toString().split('.')[1] || '00'}</span>
+                      <CopyableValue
+                        value={formatMoneyCopyValue(poliza.subsidio)}
+                        copyOnly
+                        className="ml-2 mt-1"
+                      />
                     </div>
                   </div>
-                  <div className="flex col-span-1 md:col-span-4 flex-col gap-1 rounded-md">
+                  <div className="flex col-span-1 md:col-span-3 flex-col gap-1 rounded-md">
                     <span className="text-gray-700 dark:text-gray-300 text-sm font-medium">Costo Total</span>
                     <div className="flex items-start justify-start">
                       <span className="text-gray-700 dark:text-white text-sm font-medium leading-none mt-1">$</span>
@@ -453,23 +510,35 @@ export default function PolizaDetailsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-4 gap-y-2 w-full">
                   <div className="col-span-1 md:col-span-4 flex-col">
                     <div className="text-gray-700 dark:text-gray-300 text-sm font-medium">ID del miembro</div>
-                    <div className="text-gray-700 dark:text-white text-sm font-normal break-all">{poliza.id_miembro || '-'}</div>
+                    <div className="text-gray-700 dark:text-white text-sm font-normal break-all">
+                      <CopyableValue value={poliza.id_miembro || undefined} />
+                    </div>
                   </div>
                   <div className="col-span-1 md:col-span-4 flex-col">
                     <div className="text-gray-700 dark:text-gray-300 text-sm font-medium">ID del mercado</div>
-                    <div className="text-gray-700 dark:text-white text-sm font-normal break-all">{poliza.id_mercado || '-'}</div>
+                    <div className="text-gray-700 dark:text-white text-sm font-normal break-all">
+                      <CopyableValue value={poliza.id_mercado || undefined} />
+                    </div>
                   </div>
                   <div className="col-span-1 md:col-span-4 flex-col">
                     <div className="text-gray-700 dark:text-gray-300 text-sm font-medium">Fecha de efectividad</div>
-                    <div className="text-gray-700 dark:text-white text-sm font-normal">{poliza.fecha_efectiva ? new Date(poliza.fecha_efectiva).toLocaleDateString() : '-'}</div>
+                    <div className="text-gray-700 dark:text-white text-sm font-normal">
+                      <CopyableValue
+                        value={poliza.fecha_efectiva ? formatFechaDisplay(poliza.fecha_efectiva) : undefined}
+                      />
+                    </div>
                   </div>
                   <div className="col-span-1 md:col-span-4 flex-col">
                     <div className="text-gray-700 dark:text-gray-300 text-sm font-medium">NPN utilizado en ID del mercado</div>
-                    <div className="text-gray-700 dark:text-white text-sm font-normal break-all">{poliza.npn_mercado || '-'}</div>
+                    <div className="text-gray-700 dark:text-white text-sm font-normal break-all">
+                      <CopyableValue value={poliza.npn_mercado || undefined} />
+                    </div>
                   </div>
                   <div className="col-span-1 md:col-span-4 flex-col">
                     <div className="text-gray-700 dark:text-gray-300 text-sm font-medium">FFM utilizado en el mercado</div>
-                    <div className="text-gray-700 dark:text-white text-sm font-normal break-all">{poliza.ffm_mercado || '-'}</div>
+                    <div className="text-gray-700 dark:text-white text-sm font-normal break-all">
+                      <CopyableValue value={poliza.ffm_mercado || undefined} />
+                    </div>
                   </div>
                   <div className="col-span-1 md:col-span-4 flex-col">
                     <div className="text-gray-700 dark:text-gray-300 text-sm font-medium">Fecha de cancelación</div>
@@ -499,7 +568,9 @@ export default function PolizaDetailsPage() {
                 </div>
                 <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
                 {poliza.direccion_fisica_details ? (
-                  <p className="text-sm dark:text-gray-300">{formatDireccion(poliza.direccion_fisica_details)}</p>
+                  <p className="text-sm dark:text-gray-300">
+                    <CopyableValue value={formatDireccion(poliza.direccion_fisica_details)} />
+                  </p>
                 ) : (
                   <div className="border border-dashed border-slate-200 dark:border-slate-700 rounded-md py-4 text-center">
                     <p className="text-sm dark:text-gray-400">No hay una dirección asociada con esta póliza.</p>
@@ -515,7 +586,9 @@ export default function PolizaDetailsPage() {
                 </div>
                 <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
                 {poliza.direccion_postal_details ? (
-                  <p className="text-sm dark:text-gray-300">{formatDireccion(poliza.direccion_postal_details)}</p>
+                  <p className="text-sm dark:text-gray-300">
+                    <CopyableValue value={formatDireccion(poliza.direccion_postal_details)} />
+                  </p>
                 ) : (
                   <div className="border border-dashed border-slate-200 dark:border-slate-700 rounded-md py-4 text-center">
                     <p className="text-sm dark:text-gray-400">No hay una dirección asociada con esta póliza.</p>
@@ -531,7 +604,9 @@ export default function PolizaDetailsPage() {
                 </div>
                 <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
                 {poliza.direccion_facturacion_details ? (
-                  <p className="text-sm dark:text-gray-300">{formatDireccion(poliza.direccion_facturacion_details)}</p>
+                  <p className="text-sm dark:text-gray-300">
+                    <CopyableValue value={formatDireccion(poliza.direccion_facturacion_details)} />
+                  </p>
                 ) : (
                   <div className="border border-dashed border-slate-200 dark:border-slate-700 rounded-md py-4 text-center">
                     <p className="text-sm dark:text-gray-400">No hay una dirección asociada con esta póliza.</p>

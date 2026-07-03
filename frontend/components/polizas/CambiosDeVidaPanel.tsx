@@ -39,6 +39,7 @@ import {
   buildBlogDetailLines,
   isEstadoPendiente,
   isEstadoRealizado,
+  isPortalClienteOrigen,
   matchesBlogFilter,
   type CambioDeVidaDatos,
 } from './cambiosDeVida/constants';
@@ -125,6 +126,7 @@ function CambioBlogEntry({
   const detalles = buildBlogDetailLines(item.tipo, item.datos || {});
   const isUpdating = updatingId === item.id;
   const realizado = isEstadoRealizado(item.estado);
+  const fromPortal = isPortalClienteOrigen(item.datos);
 
   return (
     <article className="relative pl-8 pb-8 last:pb-2">
@@ -143,9 +145,16 @@ function CambioBlogEntry({
         <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700/80 bg-slate-50/80 dark:bg-slate-800/80">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-                {item.tipo_display || tipoMeta?.label || item.tipo}
-              </h3>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                  {item.tipo_display || tipoMeta?.label || item.tipo}
+                </h3>
+                {fromPortal ? (
+                  <Badge variant="outline" className="text-[10px] border-blue-200 text-blue-700 dark:border-blue-800 dark:text-blue-300">
+                    Portal cliente
+                  </Badge>
+                ) : null}
+              </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{formatDateTime(item.fecha_creacion)}</p>
             </div>
             <Badge className={`text-[10px] shrink-0 ${estadoMeta?.color || ''}`}>

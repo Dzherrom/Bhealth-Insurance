@@ -7,6 +7,7 @@ import CRMNotificationButton from "@/components/configuraciones/CRMNotificationB
 import { CatalogoProvider } from "@/components/providers";
 import { useAuthStore } from "@/store/authStore";
 import { canAccessClientPortal, getClientDashboardPath, getPortalAuthSnapshot } from "@/lib/portalAccess";
+import { startEmployeeTokenRefresh, stopEmployeeTokenRefresh } from "@/lib/employeeTokenRefresh";
 import { useLanguageStore } from "@/store/languageStore";
 import { useRouter, usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -26,10 +27,20 @@ export default function CRMLayout({ children }: CRMLayoutProps) {
   const [mounted, setMounted] = useState(false);
   const { theme, setTheme } = useTheme();
   const { language, toggleLanguage } = useLanguageStore();
+  const showSidebar = pathname !== '/crm';
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!showSidebar) return;
+    const unsubscribe = startEmployeeTokenRefresh();
+    return () => {
+      unsubscribe();
+      stopEmployeeTokenRefresh();
+    };
+  }, [showSidebar]);
 
   useEffect(() => {
     if (!isAuthenticated || pathname === '/crm') return;
@@ -44,9 +55,6 @@ export default function CRMLayout({ children }: CRMLayoutProps) {
       window.location.replace(getClientDashboardPath());
     }
   }, [isAuthenticated, role, user, pathname]);
-
-  // No mostrar sidebar en la página principal de CRM (login)
-  const showSidebar = pathname !== '/crm';
 
   const handleSidebarNavigation = (item: any) => {
     if (item.href) {

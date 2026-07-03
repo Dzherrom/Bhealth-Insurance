@@ -591,12 +591,28 @@ export function FamilyMembersSection({ poliza, onRefresh }: FamilyMembersSection
                           <DetailField
                             label="Fecha de nacimiento"
                             value={formatMemberBirthDate(details.fecha_nacimiento)}
+                            copyValue={
+                              details.fecha_nacimiento
+                                ? formatMemberBirthDate(details.fecha_nacimiento)
+                                : undefined
+                            }
+                            onCopy={handleCopy}
                           />
                           <DetailField label="Género" value={getGenderLabel(details.genero)} />
                           <DetailField label="País de nacimiento" value={details.pais_nacimiento || '—'} />
                           <DetailField label="Estado civil" value={details.estado_civil || '—'} />
-                          <DetailField label="Correo electrónico" value={details.email || '—'} />
-                          <DetailField label="Teléfono" value={details.telefono || '—'} />
+                          <DetailField
+                            label="Correo electrónico"
+                            value={details.email || '—'}
+                            copyValue={details.email || undefined}
+                            onCopy={details.email ? handleCopy : undefined}
+                          />
+                          <DetailField
+                            label="Teléfono"
+                            value={details.telefono || '—'}
+                            copyValue={details.telefono || undefined}
+                            onCopy={details.telefono ? handleCopy : undefined}
+                          />
                           <DetailField label="Peso (Lbs)" value={details.peso || '—'} />
                           <DetailField label="Altura (Ft)" value={details.estatura || '—'} />
                           <DetailField
@@ -741,8 +757,36 @@ export function FamilyMembersSection({ poliza, onRefresh }: FamilyMembersSection
                                     <td colSpan={3} className="px-3 py-2 text-right">
                                       Total:
                                     </td>
-                                    <td className="px-3 py-2">{formatUsd(totalAnnual)}</td>
-                                    <td className="px-3 py-2">{formatUsd(totalMonthly)}</td>
+                                    <td className="px-3 py-2">
+                                      <span className="inline-flex items-center gap-1">
+                                        {formatUsd(totalAnnual)}
+                                        {totalAnnual > 0 ? (
+                                          <button
+                                            type="button"
+                                            className="text-slate-400 hover:text-primary"
+                                            onClick={() => handleCopy(String(totalAnnual))}
+                                            aria-label="Copiar ingreso anual total"
+                                          >
+                                            <i className="fa-regular fa-copy text-[10px]" />
+                                          </button>
+                                        ) : null}
+                                      </span>
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      <span className="inline-flex items-center gap-1">
+                                        {formatUsd(totalMonthly)}
+                                        {totalMonthly > 0 ? (
+                                          <button
+                                            type="button"
+                                            className="text-slate-400 hover:text-primary"
+                                            onClick={() => handleCopy(String(totalMonthly))}
+                                            aria-label="Copiar ingreso mensual total"
+                                          >
+                                            <i className="fa-regular fa-copy text-[10px]" />
+                                          </button>
+                                        ) : null}
+                                      </span>
+                                    </td>
                                     <td />
                                   </tr>
                                 </tfoot>
@@ -771,12 +815,23 @@ export function FamilyMembersSection({ poliza, onRefresh }: FamilyMembersSection
                             <DetailField
                               label="Estatus migratorio"
                               value={getEstatusMigratorioLabel(details.estado_inmigracion)}
+                              copyValue={getEstatusMigratorioLabel(details.estado_inmigracion) !== '—'
+                                ? getEstatusMigratorioLabel(details.estado_inmigracion)
+                                : undefined}
+                              onCopy={details.estado_inmigracion ? handleCopy : undefined}
                             />
                             <DetailField
                               label="Categoría de estatus migratorio"
                               value={details.categoria_inmigracion || '—'}
+                              copyValue={details.categoria_inmigracion || undefined}
+                              onCopy={details.categoria_inmigracion ? handleCopy : undefined}
                             />
-                            <DetailField label="Número de USCIS" value={details.numero_uscis || '—'} />
+                            <DetailField
+                              label="Número de USCIS"
+                              value={details.numero_uscis || '—'}
+                              copyValue={details.numero_uscis || undefined}
+                              onCopy={details.numero_uscis ? handleCopy : undefined}
+                            />
                           </div>
 
                           <h5 className="text-xs font-semibold text-slate-300 mb-2">Documentos legales</h5>

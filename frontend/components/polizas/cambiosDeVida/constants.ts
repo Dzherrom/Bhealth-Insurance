@@ -103,6 +103,57 @@ export const emptyDependiente = (): DependienteFormData => ({
 
 export type CambioDeVidaDatos = Record<string, unknown>;
 
+const PORTAL_CAMPO_LABELS: Record<string, string> = {
+  fecha_nacimiento: 'Fecha de nacimiento',
+  direccion: 'Dirección completa',
+  telefono: 'Teléfono',
+  email: 'Correo electrónico',
+  estatus_poliza: 'Estatus de póliza',
+  ingresos: 'Ingresos',
+  grupo_familiar: 'Grupo familiar',
+  tarjetas_digitales: 'Tarjetas digitales',
+};
+
+export function isPortalClienteOrigen(datos?: CambioDeVidaDatos | null): boolean {
+  return datos?.origen === 'PORTAL_CLIENTE';
+}
+
+function buildPortalClientDetailLines(datos: CambioDeVidaDatos): string[] {
+  if (datos.tipo_solicitud === 'DOCUMENTO') {
+    const lines = ['Solicitud de documento desde portal del cliente'];
+    if (datos.titulo) lines.push(`Documento: ${String(datos.titulo)}`);
+    if (datos.categoria) lines.push(`Categoría: ${String(datos.categoria)}`);
+    if (datos.documento_id) lines.push(`ID documento: ${String(datos.documento_id)}`);
+    return lines;
+  }
+
+  const campos = datos.campos_solicitados as Record<string, unknown> | undefined;
+  if (!campos) return ['Solicitud desde portal del cliente'];
+
+  return Object.entries(campos).map(([key, value]) => {
+    const label = PORTAL_CAMPO_LABELS[key] || key;
+    return `${label}: ${String(value ?? '')}`;
+  });
+}
+
+function buildPortalClientDescripcion(datos: CambioDeVidaDatos): string {
+  if (datos.tipo_solicitud === 'DOCUMENTO') {
+    return `Documento solicitado: ${String(datos.titulo || 'Archivo')}`;
+  }
+
+  const campos = datos.campos_solicitados as Record<string, unknown> | undefined;
+  if (!campos || Object.keys(campos).length === 0) {
+    return 'Solicitud desde portal del cliente';
+  }
+
+  const keys = Object.keys(campos);
+  const firstLabel = PORTAL_CAMPO_LABELS[keys[0]] || keys[0];
+  if (keys.length === 1) {
+    return `Solicitud portal: ${firstLabel}`;
+  }
+  return `Solicitud portal: ${keys.length} campos actualizados`;
+}
+
 export function getMemberName(member: any): string {
   const c = member?.cliente_details;
   if (!c) return 'Miembro';
@@ -115,6 +166,10 @@ export function isFemaleMember(member: any): boolean {
 }
 
 export function buildBlogDetailLines(tipo: string, datos: CambioDeVidaDatos): string[] {
+  if (isPortalClienteOrigen(datos)) {
+    return buildPortalClientDetailLines(datos);
+  }
+
   const lines: string[] = [];
   switch (tipo) {
     case 'CAMBIO_INGRESOS':
@@ -163,6 +218,10 @@ export function buildBlogDetailLines(tipo: string, datos: CambioDeVidaDatos): st
 }
 
 export function buildDescripcionFromDatos(tipo: string, datos: CambioDeVidaDatos): string {
+  if (isPortalClienteOrigen(datos)) {
+    return buildPortalClientDescripcion(datos);
+  }
+
   switch (tipo) {
     case 'CAMBIO_INGRESOS':
       return `Cambio de ingresos para ${datos.miembro_nombre || 'miembro'} — $${datos.ingresos_anuales || '0'}/año`;
