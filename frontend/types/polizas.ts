@@ -16,6 +16,7 @@ export interface PolizaEtiqueta {
 export interface ClientePolizaData {
   cliente: number;
   es_solicitante_principal: boolean;
+  es_aplicante?: boolean;
   relacion: RelacionFamiliar;
   direccion_residencia: number;
   direccion_postal?: number;
@@ -30,6 +31,7 @@ export interface ClientePolizaDetails {
     [key: string]: any;
   };
   es_solicitante_principal: boolean;
+  es_aplicante?: boolean;
   relacion: RelacionFamiliar;
   direccion_residencia?: number;
   direccion_postal?: number;
@@ -130,6 +132,10 @@ export interface PolizaResponse extends BaseEntity {
   estado_documento?: string | null;
   metal?: string | null;
   id_plan_cms?: string | null;
+  ffm_mercado?: string | null;
+  npn_mercado?: string | null;
+  tipo_inscripcion?: string | null;
+  fecha_cancelacion?: string | null;
   etiquetas?: PolizaEtiqueta[];
   direccion_fisica_details?: Direccion | null;
   direccion_postal_details?: Direccion | null;

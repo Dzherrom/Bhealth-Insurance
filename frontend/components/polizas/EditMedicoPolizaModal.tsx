@@ -30,6 +30,7 @@ export function EditMedicoPolizaModal({
   const [nombre, setNombre] = useState('');
   const [especializacion, setEspecializacion] = useState('');
   const [hospital, setHospital] = useState('');
+  const [esPrincipal, setEsPrincipal] = useState(false);
   const isEditing = Boolean(medico?.id);
 
   useEffect(() => {
@@ -37,6 +38,7 @@ export function EditMedicoPolizaModal({
       setNombre(medico?.nombre ?? '');
       setEspecializacion(medico?.especializacion ?? '');
       setHospital(medico?.hospital ?? '');
+      setEsPrincipal(Boolean(medico?.es_principal));
     }
   }, [open, medico]);
 
@@ -53,6 +55,7 @@ export function EditMedicoPolizaModal({
         nombre: nombre.trim(),
         especializacion: especializacion.trim() || null,
         hospital: hospital.trim() || null,
+        es_principal: esPrincipal,
       };
 
       if (isEditing && medico?.id) {
@@ -100,7 +103,7 @@ export function EditMedicoPolizaModal({
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="medico_nombre">Médico principal</Label>
+            <Label htmlFor="medico_nombre">Nombre / información</Label>
             <Textarea
               id="medico_nombre"
               value={nombre}
@@ -130,6 +133,15 @@ export function EditMedicoPolizaModal({
               />
             </div>
           </div>
+
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={esPrincipal}
+              onChange={(e) => setEsPrincipal(e.target.checked)}
+            />
+            Marcar como médico principal
+          </label>
         </div>
 
         <DialogFooter className="flex-col sm:flex-row gap-2">

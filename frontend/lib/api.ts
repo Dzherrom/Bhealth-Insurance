@@ -805,6 +805,36 @@ export const polizasApi = {
     });
     return handleApiResponse<any>(response);
   },
+
+  validarEnvio: async (id: number): Promise<{
+    es_cotizacion: boolean;
+    puede_enviar: boolean;
+    errores: string[];
+  }> => {
+    const response = await fetch(`${API_BASE_URL}/polizas/${id}/validar-envio/`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+    return handleApiResponse(response);
+  },
+
+  enviar: async (id: number): Promise<{ detail: string; poliza: PolizaResponse; es_cotizacion: boolean }> => {
+    const response = await fetch(`${API_BASE_URL}/polizas/${id}/enviar/`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const err = new Error(
+        errorData.detail || errorData.message || `HTTP ${response.status}`
+      ) as Error & { errores?: string[] };
+      if (Array.isArray(errorData.errores)) {
+        err.errores = errorData.errores;
+      }
+      throw err;
+    }
+    return response.json();
+  },
 };
 
 // 📋 Tareas - Con función especializada para mis tareas
@@ -976,6 +1006,7 @@ export interface MedicoPoliza {
   nombre: string;
   especializacion?: string | null;
   hospital?: string | null;
+  es_principal?: boolean;
   fecha_creacion?: string;
 }
 
@@ -984,6 +1015,7 @@ export interface MedicamentoPoliza {
   poliza: number;
   nombre: string;
   dosis?: string | null;
+  duracion_tratamiento?: string | null;
   frecuencia?: string | null;
   fecha_inicio?: string | null;
   fecha_fin?: string | null;

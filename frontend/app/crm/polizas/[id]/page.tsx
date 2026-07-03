@@ -18,18 +18,15 @@ import { NotasChat } from '@/components/notas/NotasChat';
 import { RegistrosActividadModal } from '@/components/polizas/RegistrosActividadModal';
 import { FamilyMembersSection } from '@/components/polizas/FamilyMembersSection';
 import { EditInfoPagoModal } from '@/components/polizas/EditInfoPagoModal';
-import { EditMedicoPolizaModal } from '@/components/polizas/EditMedicoPolizaModal';
-import { EditMedicamentoModal } from '@/components/polizas/EditMedicamentoModal';
-import type { MedicoPoliza, MedicamentoPoliza } from '@/lib/api';
 import { UltimaNotaCard } from '@/components/polizas/UltimaNotaCard';
 import { CitasPoliza } from '@/components/polizas/CitasPoliza';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import api from '@/lib/api';
 import { formatDireccion, formatFechaDisplay } from '@/components/polizas/polizaUtils';
+import { polizaIsQuote, previewPolizaEnvioErrors } from '@/lib/polizaEnvioUtils';
 import { PaymentMethodsSection } from '@/components/polizas/PaymentMethodsSection';
+import { MedicosMedicamentosSection } from '@/components/polizas/MedicosMedicamentosSection';
 
 const formatCurrency = (amount: string | number) => {
   const numAmount = typeof amount === 'string' ? parseFloat(amount || '0') : amount;
@@ -43,16 +40,14 @@ const formatCurrency = (amount: string | number) => {
 export default function PolizaDetailsPage() {
   const router = useRouter();
   const params = useParams();
+  const { toast } = useToast();
   const { polizaSeleccionada: poliza, isLoading: loading, error, fetchPolizaById } = usePolizaStore();
   const [activeSection, setActiveSection] = useState('poliza');
+  const [enviandoPoliza, setEnviandoPoliza] = useState(false);
+  const [envioRequisitosOpen, setEnvioRequisitosOpen] = useState(false);
 
   const [isBasicInfoModalOpen, setIsBasicInfoModalOpen] = useState(false);
-  const [isFinancialModalOpen, setIsFinancialModalOpen] = useState(false);
   const [isEditInfoPagoOpen, setIsEditInfoPagoOpen] = useState(false);
-  const [medicoModalOpen, setMedicoModalOpen] = useState(false);
-  const [selectedMedico, setSelectedMedico] = useState<MedicoPoliza | null>(null);
-  const [medicamentoModalOpen, setMedicamentoModalOpen] = useState(false);
-  const [selectedMedicamento, setSelectedMedicamento] = useState<MedicamentoPoliza | null>(null);
   const [isNotasChatOpen, setIsNotasChatOpen] = useState(false);
 
   useEffect(() => {
@@ -116,30 +111,46 @@ export default function PolizaDetailsPage() {
   const tarjetasPago = (poliza as any).tarjetas_credito || [];
   const cuentasBancarias = (poliza as any).cuentas_bancarias || [];
   const polizaNotas = (poliza as any).notas || [];
-  const medicosPrincipales: MedicoPoliza[] = (poliza as any).medicos_principales ?? [];
-  const medicamentosLista: MedicamentoPoliza[] = (poliza as any).medicamentos ?? [];
-
-  const openAddMedico = () => {
-    setSelectedMedico(null);
-    setMedicoModalOpen(true);
-  };
-
-  const openEditMedico = (medico: MedicoPoliza) => {
-    setSelectedMedico(medico);
-    setMedicoModalOpen(true);
-  };
-
-  const openAddMedicamento = () => {
-    setSelectedMedicamento(null);
-    setMedicamentoModalOpen(true);
-  };
-
-  const openEditMedicamento = (medicamento: MedicamentoPoliza) => {
-    setSelectedMedicamento(medicamento);
-    setMedicamentoModalOpen(true);
-  };
+  const medicosPrincipales = (poliza as any).medicos_principales ?? [];
+  const medicamentosLista = (poliza as any).medicamentos ?? [];
 
   const refreshPoliza = () => poliza.id && fetchPolizaById(poliza.id, { silent: true });
+
+  const esCotizacion = poliza ? polizaIsQuote(poliza) : false;
+  const erroresEnvioPreview = poliza ? previewPolizaEnvioErrors(poliza) : [];
+  const puedeEnviarPoliza = esCotizacion && erroresEnvioPreview.length === 0;
+
+  const handleEnviarPoliza = async () => {
+    if (!poliza?.id || enviandoPoliza) return;
+
+    const erroresLocales = previewPolizaEnvioErrors(poliza);
+    if (erroresLocales.length > 0) {
+      setEnvioRequisitosOpen(true);
+      return;
+    }
+
+    setEnviandoPoliza(true);
+    try {
+      const result = await api.polizas.enviar(poliza.id);
+      await refreshPoliza();
+      toast({
+        title: 'Póliza enviada',
+        description: result.detail || 'La póliza aparecerá como activa en el listado de pólizas.',
+      });
+    } catch (err: unknown) {
+      const payload = err as { errores?: string[]; message?: string };
+      const errores = payload.errores?.length
+        ? payload.errores.join(' ')
+        : (payload.message || 'No se pudo enviar la póliza.');
+      toast({
+        title: 'Error al enviar',
+        description: errores,
+        variant: 'destructive',
+      });
+    } finally {
+      setEnviandoPoliza(false);
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-transparent">
@@ -157,17 +168,94 @@ export default function PolizaDetailsPage() {
           </h1>
         </div>
         <div className="flex items-center gap-3">
-          <button className="flex gap-2 items-center px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-md text-sm font-medium transition-colors">
-            <i className="fa-solid fa-check-circle"></i> Enviar Póliza
-          </button>
+          {esCotizacion ? (
+            <button
+              type="button"
+              onClick={handleEnviarPoliza}
+              disabled={enviandoPoliza}
+              title={
+                !puedeEnviarPoliza
+                  ? 'Hay requisitos pendientes. Haz clic para ver el detalle.'
+                  : 'Enviar póliza como activa'
+              }
+              className={`flex gap-2 items-center px-4 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+                puedeEnviarPoliza
+                  ? 'bg-green-500 hover:bg-green-600 text-white'
+                  : 'bg-amber-500 hover:bg-amber-600 text-white'
+              }`}
+            >
+              <i className={`fa-solid ${puedeEnviarPoliza ? 'fa-check-circle' : 'fa-triangle-exclamation'}`}></i>
+              {enviandoPoliza ? 'Enviando...' : puedeEnviarPoliza ? 'Enviar Póliza' : 'Requisitos pendientes'}
+            </button>
+          ) : (
+            <span className="flex gap-2 items-center px-4 py-2 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 rounded-md text-sm font-medium">
+              <i className="fa-solid fa-circle-check"></i>
+              Póliza enviada
+            </span>
+          )}
           <button className="flex gap-2 items-center px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-md text-sm font-medium transition-colors" onClick={() => router.push('/crm/polizas')}>
             <i className="fa-solid fa-magnifying-glass"></i> Buscar pólizas
           </button>
-          <button className="flex gap-2 items-center px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-md text-sm font-medium transition-colors">
-            <i className="fa-solid fa-gear"></i> Opciones <i className="fa-solid fa-chevron-down text-xs ml-1"></i>
-          </button>
         </div>
       </div>
+
+      {esCotizacion && erroresEnvioPreview.length > 0 && (
+        <div className="mx-6 mt-3 px-4 py-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40">
+          <div className="flex items-start gap-3">
+            <i className="fa-solid fa-triangle-exclamation text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                Esta cotización aún no se puede enviar como póliza activa
+              </p>
+              <p className="text-xs text-amber-800/90 dark:text-amber-200/80 mt-1">
+                Completa los siguientes requisitos antes de enviar:
+              </p>
+              <ul className="mt-2 space-y-1.5">
+                {erroresEnvioPreview.map((error) => (
+                  <li
+                    key={error}
+                    className="flex items-start gap-2 text-sm text-amber-900 dark:text-amber-100"
+                  >
+                    <i className="fa-solid fa-circle-xmark text-red-500 dark:text-red-400 mt-0.5 shrink-0 text-xs" />
+                    <span>{error}</span>
+                  </li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                onClick={() => setEnvioRequisitosOpen(true)}
+                className="mt-3 text-xs font-medium text-amber-800 dark:text-amber-200 underline underline-offset-2 hover:text-amber-950 dark:hover:text-white"
+              >
+                Ver detalle de requisitos
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Dialog open={envioRequisitosOpen} onOpenChange={setEnvioRequisitosOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Requisitos para enviar la póliza</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            La cotización debe cumplir todos estos puntos para pasar a estatus de póliza activa enviada:
+          </p>
+          <ul className="my-4 space-y-2">
+            {erroresEnvioPreview.map((error) => (
+              <li key={error} className="flex items-start gap-2 text-sm">
+                <i className="fa-solid fa-circle-xmark text-red-500 mt-0.5 shrink-0" />
+                <span>{error}</span>
+              </li>
+            ))}
+          </ul>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEnvioRequisitosOpen(false)}>
+              Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="pb-10 flex-1 pt-6 flex-col md:flex-row px-3 flex gap-4">
 
@@ -259,10 +347,7 @@ export default function PolizaDetailsPage() {
                   <div className="flex flex-wrap">
                     <div className="flex gap-2">
                       <button className="items-center w-fit cursor-pointer justify-center rounded-md transition-colors py-2 font-medium text-primary bg-transparent hover:bg-slate-50 dark:hover:bg-slate-700 h-[30px] px-2 text-xs flex gap-2 border border-primary dark:border-primary/50" type="button" onClick={() => setIsBasicInfoModalOpen(true)}>
-                        <i className="fa-solid fa-magnifying-glass"></i>Detalles del plan
-                      </button>
-                      <button className="flex gap-2 items-center w-fit cursor-pointer justify-center rounded-md transition-colors py-2 font-medium bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs" type="button" onClick={() => setIsFinancialModalOpen(true)}>
-                        <i className="fa-duotone fa-edit"></i>Editar
+                        <i className="fa-solid fa-edit"></i>Editar detalles del plan
                       </button>
                     </div>
                   </div>
@@ -332,15 +417,15 @@ export default function PolizaDetailsPage() {
                   </div>
                   <div className="col-span-1 md:col-span-4 flex-col">
                     <div className="text-gray-700 dark:text-gray-300 text-sm font-medium">NPN utilizado en ID del mercado</div>
-                    <div className="text-gray-700 dark:text-white text-sm font-normal break-all">-</div>
+                    <div className="text-gray-700 dark:text-white text-sm font-normal break-all">{poliza.npn_mercado || '-'}</div>
                   </div>
                   <div className="col-span-1 md:col-span-4 flex-col">
                     <div className="text-gray-700 dark:text-gray-300 text-sm font-medium">FFM utilizado en el mercado</div>
-                    <div className="text-gray-700 dark:text-white text-sm font-normal break-all">-</div>
+                    <div className="text-gray-700 dark:text-white text-sm font-normal break-all">{poliza.ffm_mercado || '-'}</div>
                   </div>
                   <div className="col-span-1 md:col-span-4 flex-col">
                     <div className="text-gray-700 dark:text-gray-300 text-sm font-medium">Fecha de cancelación</div>
-                    <div className="text-gray-700 dark:text-white text-sm font-normal">-</div>
+                    <div className="text-gray-700 dark:text-white text-sm font-normal">{formatFechaDisplay(poliza.fecha_cancelacion)}</div>
                   </div>
                   <div className="col-span-1 md:col-span-4 flex-col">
                     <div className="text-gray-700 dark:text-gray-300 text-sm font-medium">Nueva venta / Renovación</div>
@@ -407,40 +492,14 @@ export default function PolizaDetailsPage() {
               </div>
             </div>
 
-            {/* Payment Info */}
-            <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-gray-700 dark:text-white text-base font-semibold">Información de pago</h2>
-                <button
-                  className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md"
-                  type="button"
-                  onClick={() => setIsEditInfoPagoOpen(true)}
-                >
-                  <i className="fa-duotone fa-edit"></i>{infoPago ? 'Editar' : 'Agregar'}
-                </button>
-              </div>
-              <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400 font-medium">Pago recurrente</div>
-                  <div className="text-sm dark:text-white">{infoPago ? (infoPago.pago_recurrente ? 'Sí' : 'No') : '-'}</div>
-                </div>
-                <div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400 font-medium">Fecha del primer pago</div>
-                  <div className="text-sm dark:text-white">{formatFechaDisplay(infoPago?.fecha_primer_pago)}</div>
-                </div>
-                <div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400 font-medium">Día de pago preferido</div>
-                  <div className="text-sm dark:text-white">{infoPago?.dia_pago_preferido ?? '-'}</div>
-                </div>
-              </div>
-            </div>
-
             <PaymentMethodsSection
               polizaId={poliza.id}
+              infoPago={infoPago}
               tarjetas={tarjetasPago}
               cuentas={cuentasBancarias}
               onRefresh={refreshPoliza}
+              onEditInfoPago={() => setIsEditInfoPagoOpen(true)}
+              formatFechaDisplay={formatFechaDisplay}
             />
 
             {/* Notes */}
@@ -459,140 +518,12 @@ export default function PolizaDetailsPage() {
               <UltimaNotaCard notas={polizaNotas} variant="section" />
             </div>
 
-            {/* Doctors */}
-            <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-gray-700 dark:text-white text-base font-semibold">Información del médico principal</h2>
-                <button
-                  className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md"
-                  type="button"
-                  onClick={openAddMedico}
-                >
-                  <i className="fa-duotone fa-plus"></i>
-                  Agregar médico
-                </button>
-              </div>
-              <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
-
-              {medicosPrincipales.length > 0 ? (
-                <div className="space-y-3">
-                  {medicosPrincipales.map((medico) => (
-                    <div
-                      key={medico.id}
-                      className="rounded-lg border border-emerald-100 dark:border-emerald-900/40 bg-gradient-to-br from-emerald-50/80 to-white dark:from-emerald-950/20 dark:to-slate-900/40 p-4"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-                          <i className="fa-solid fa-user-doctor text-lg"></i>
-                        </div>
-                        <div className="min-w-0 flex-1 space-y-2">
-                          <p className="text-sm font-medium text-slate-900 dark:text-white whitespace-pre-wrap">
-                            {medico.nombre}
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            {medico.especializacion ? (
-                              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/80 dark:bg-slate-800 px-2.5 py-1 text-xs text-emerald-800 dark:text-emerald-200 border border-emerald-100 dark:border-emerald-900/50">
-                                <i className="fa-solid fa-stethoscope text-[10px]"></i>
-                                {medico.especializacion}
-                              </span>
-                            ) : null}
-                            {medico.hospital ? (
-                              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/80 dark:bg-slate-800 px-2.5 py-1 text-xs text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                                <i className="fa-solid fa-hospital text-[10px]"></i>
-                                {medico.hospital}
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => openEditMedico(medico)}
-                          className="flex gap-1.5 items-center text-primary hover:text-primary/80 text-xs font-medium shrink-0"
-                        >
-                          <i className="fa-duotone fa-edit"></i>
-                          Editar
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="border border-dashed border-slate-200 dark:border-slate-700 rounded-md py-8 text-center">
-                  <i className="fa-solid fa-user-doctor text-2xl text-emerald-300 dark:text-emerald-800 mb-2 block"></i>
-                  <p className="text-sm font-medium dark:text-white">No hay médicos registrados</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Agrega el médico principal u otros especialistas.</p>
-                </div>
-              )}
-            </div>
-
-            {/* Medications */}
-            <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-gray-700 dark:text-white text-base font-semibold">Medicamentos necesarios</h2>
-                <button
-                  className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md"
-                  type="button"
-                  onClick={openAddMedicamento}
-                >
-                  <i className="fa-duotone fa-plus"></i>
-                  Agregar medicamento
-                </button>
-              </div>
-              <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
-
-              {medicamentosLista.length > 0 ? (
-                <div className="space-y-3">
-                  {medicamentosLista.map((medicamento) => (
-                    <div
-                      key={medicamento.id}
-                      className="relative overflow-hidden rounded-xl border border-violet-100 dark:border-violet-900/40 bg-gradient-to-br from-violet-50 via-white to-indigo-50 dark:from-violet-950/30 dark:via-slate-900 dark:to-indigo-950/20 p-5 shadow-sm"
-                    >
-                      <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-violet-200/30 dark:bg-violet-800/20 blur-2xl" />
-                      <div className="relative flex items-start gap-4">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-violet-600 text-white shadow-md shadow-violet-200 dark:shadow-none">
-                          <i className="fa-solid fa-pills text-xl"></i>
-                        </div>
-                        <div className="min-w-0 flex-1 space-y-3">
-                          <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-violet-600 dark:text-violet-300 mb-1">
-                              Medicamento
-                            </p>
-                            <p className="text-sm font-medium text-slate-900 dark:text-white whitespace-pre-wrap leading-relaxed">
-                              {medicamento.nombre}
-                            </p>
-                          </div>
-                          {medicamento.dosis ? (
-                            <div className="inline-flex items-center gap-2 rounded-lg bg-white/70 dark:bg-slate-800/80 border border-violet-100 dark:border-violet-900/50 px-3 py-2">
-                              <i className="fa-solid fa-syringe text-violet-500 text-xs"></i>
-                              <div>
-                                <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-500 dark:text-violet-300">
-                                  Dosis
-                                </p>
-                                <p className="text-sm text-slate-700 dark:text-slate-200">{medicamento.dosis}</p>
-                              </div>
-                            </div>
-                          ) : null}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => openEditMedicamento(medicamento)}
-                          className="flex gap-1.5 items-center text-primary hover:text-primary/80 text-xs font-medium shrink-0 relative z-10"
-                        >
-                          <i className="fa-duotone fa-edit"></i>
-                          Editar
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="border border-dashed border-violet-200 dark:border-violet-900/40 rounded-xl py-8 text-center bg-violet-50/30 dark:bg-violet-950/10">
-                  <i className="fa-solid fa-pills text-2xl text-violet-300 dark:text-violet-700 mb-2 block"></i>
-                  <p className="text-sm font-medium dark:text-white">No hay medicamentos registrados</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Agrega los medicamentos cubiertos por el seguro.</p>
-                </div>
-              )}
-            </div>
+            <MedicosMedicamentosSection
+              polizaId={poliza.id}
+              medicos={medicosPrincipales}
+              medicamentos={medicamentosLista}
+              onRefresh={refreshPoliza}
+            />
 
             {/* Other policies */}
             <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 p-4">
@@ -679,21 +610,6 @@ export default function PolizaDetailsPage() {
         infoPago={infoPago}
         onSaved={refreshPoliza}
       />
-      <EditMedicoPolizaModal
-        open={medicoModalOpen}
-        onOpenChange={setMedicoModalOpen}
-        polizaId={poliza.id}
-        medico={selectedMedico}
-        onSaved={refreshPoliza}
-      />
-      <EditMedicamentoModal
-        open={medicamentoModalOpen}
-        onOpenChange={setMedicamentoModalOpen}
-        polizaId={poliza.id}
-        medicamento={selectedMedicamento}
-        onSaved={refreshPoliza}
-      />
-      <EditFinancialModal open={isFinancialModalOpen} onOpenChange={setIsFinancialModalOpen} poliza={poliza} />
       <EditPlanDetailsModal
         open={isBasicInfoModalOpen}
         onOpenChange={setIsBasicInfoModalOpen}
@@ -717,37 +633,3 @@ export default function PolizaDetailsPage() {
   </div>
   );
 }
-
-function EditFinancialModal({ open, onOpenChange, poliza }: { open: boolean, onOpenChange: (open: boolean) => void, poliza: any }) {
-  const { toast } = useToast();
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const updates = {
-      prima_mensual: Number(formData.get('prima_mensual')),
-      subsidio: Number(formData.get('subsidio')),
-      costo_poliza: Number(formData.get('costo_poliza')),
-    };
-    try {
-      await api.polizas.patch(poliza.id, updates);
-      toast({ title: "Éxito", description: "Datos financieros actualizados correctamente." });
-      onOpenChange(false);
-    } catch (error) {
-      toast({ title: "Error", description: "No se pudieron actualizar los datos.", variant: "destructive" });
-    }
-  };
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader><DialogTitle>Editar Información Financiera</DialogTitle></DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-2"><Label>Prima Mensual</Label><Input type="number" step="0.01" name="prima_mensual" defaultValue={poliza.prima_mensual} /></div>
-          <div className="grid gap-2"><Label>Subsidio</Label><Input type="number" step="0.01" name="subsidio" defaultValue={poliza.subsidio} /></div>
-          <div className="grid gap-2"><Label>Costo de la Póliza</Label><Input type="number" step="0.01" name="costo_poliza" defaultValue={poliza.costo_poliza} /></div>
-          <DialogFooter><Button type="submit">Guardar</Button></DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-

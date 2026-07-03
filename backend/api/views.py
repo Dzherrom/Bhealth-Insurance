@@ -943,6 +943,83 @@ class PolizaViewSet(viewsets.ModelViewSet):
         serializer = PolizaListSerializer(qs, many=True, context={'request': request})
         return Response(serializer.data)
 
+    @action(detail=True, methods=['get'], url_path='validar-envio')
+    def validar_envio(self, request, pk=None):
+        from .poliza_envio_utils import poliza_is_quote, validate_poliza_for_envio
+
+        poliza = Poliza.objects.select_related('estado', 'info_pago').prefetch_related(
+            'polizacliente_set__cliente',
+            'tarjetas_credito',
+            'cuentas_bancarias',
+        ).get(pk=self.get_object().pk)
+
+        errors = validate_poliza_for_envio(poliza)
+        return Response({
+            'es_cotizacion': poliza_is_quote(poliza),
+            'puede_enviar': len(errors) == 0,
+            'errores': errors,
+        })
+
+    @action(detail=True, methods=['post'], url_path='enviar')
+    def enviar(self, request, pk=None):
+        from .poliza_envio_utils import (
+            build_id_mercado_for_envio,
+            poliza_is_quote,
+            resolve_estado_activo_enviada,
+            validate_poliza_for_envio,
+        )
+
+        poliza = Poliza.objects.select_related('estado', 'info_pago').prefetch_related(
+            'polizacliente_set__cliente',
+            'tarjetas_credito',
+            'cuentas_bancarias',
+        ).get(pk=self.get_object().pk)
+
+        errors = validate_poliza_for_envio(poliza)
+        if errors:
+            return Response(
+                {'detail': 'La póliza no cumple los requisitos para enviarse.', 'errores': errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        estado_anterior = poliza.estado.nombre if poliza.estado_id else None
+        nuevo_estado = resolve_estado_activo_enviada()
+        nuevo_id_mercado = build_id_mercado_for_envio(poliza)
+        hoy = timezone.now().date()
+
+        with transaction.atomic():
+            poliza.estado = nuevo_estado
+            poliza.fecha_envio = hoy
+            if nuevo_id_mercado:
+                poliza.id_mercado = nuevo_id_mercado
+            if poliza.flujo_etapa == 'CAPTURA_ASISTENTE':
+                poliza.flujo_etapa = 'REVISION_MANAGER'
+            poliza.save(update_fields=['estado', 'fecha_envio', 'id_mercado', 'flujo_etapa', 'ultima_actualizacion'])
+
+            HistorialPoliza.objects.create(
+                poliza=poliza,
+                usuario=request.user,
+                accion='EDICION',
+                detalles=(
+                    f"Envío de póliza: {estado_anterior or 'Sin estado'} -> {nuevo_estado.nombre}. "
+                    f"ID mercado: {poliza.id_mercado}."
+                ),
+            )
+            registrar_auditoria_global(
+                usuario=request.user,
+                accion='ENVIO_POLIZA',
+                modelo='Poliza',
+                objeto_id=poliza.id,
+                detalles=f"Póliza {poliza.id_mercado} enviada (cotización -> activa)",
+            )
+
+        serializer = self.get_serializer(poliza)
+        return Response({
+            'detail': 'Póliza enviada correctamente.',
+            'poliza': serializer.data,
+            'es_cotizacion': poliza_is_quote(poliza),
+        })
+
 class NotaViewSet(viewsets.ModelViewSet):
     queryset = Nota.objects.select_related('autor', 'autor__profile').prefetch_related('adjuntos').all()
     serializer_class = NotaSerializer

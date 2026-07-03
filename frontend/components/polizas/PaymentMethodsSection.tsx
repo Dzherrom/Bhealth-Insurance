@@ -27,9 +27,12 @@ import {
 
 interface PaymentMethodsSectionProps {
   polizaId: number;
+  infoPago?: any | null;
   tarjetas: any[];
   cuentas: any[];
   onRefresh: () => void;
+  onEditInfoPago?: () => void;
+  formatFechaDisplay?: (value?: string | null) => string;
 }
 
 function SensitiveValue({
@@ -105,9 +108,12 @@ function SplitEditButton({
 
 export function PaymentMethodsSection({
   polizaId,
+  infoPago,
   tarjetas,
   cuentas,
   onRefresh,
+  onEditInfoPago,
+  formatFechaDisplay = (value) => value || '-',
 }: PaymentMethodsSectionProps) {
   const { toast } = useToast();
   const { isAdmin } = usePermission();
@@ -169,7 +175,39 @@ export function PaymentMethodsSection({
     <>
       <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 p-4 min-w-0 overflow-hidden">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-gray-700 dark:text-white text-base font-semibold">Tarjetas de pago</h2>
+          <h2 className="text-gray-700 dark:text-white text-base font-semibold">Información de pago</h2>
+          {onEditInfoPago ? (
+            <button
+              className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md"
+              type="button"
+              onClick={onEditInfoPago}
+            >
+              <i className="fa-duotone fa-edit" />
+              {infoPago ? 'Editar' : 'Agregar'}
+            </button>
+          ) : null}
+        </div>
+        <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <div className="text-sm text-gray-500 dark:text-gray-400 font-medium">Pago recurrente</div>
+            <div className="text-sm dark:text-white">{infoPago ? (infoPago.pago_recurrente ? 'Sí' : 'No') : '-'}</div>
+          </div>
+          <div>
+            <div className="text-sm text-gray-500 dark:text-gray-400 font-medium">Fecha del primer pago</div>
+            <div className="text-sm dark:text-white">{formatFechaDisplay(infoPago?.fecha_primer_pago)}</div>
+          </div>
+          <div>
+            <div className="text-sm text-gray-500 dark:text-gray-400 font-medium">Día de pago preferido</div>
+            <div className="text-sm dark:text-white">{infoPago?.dia_pago_preferido ?? '-'}</div>
+          </div>
+        </div>
+
+        <hr className="border-slate-200 dark:border-slate-600 mx-2 my-4" />
+
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-gray-700 dark:text-white text-sm font-semibold">Tarjetas de pago</h3>
           <button
             className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md"
             type="button"
@@ -259,11 +297,11 @@ export function PaymentMethodsSection({
             </table>
           </div>
         )}
-      </div>
 
-      <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 p-4 min-w-0 overflow-hidden">
+        <hr className="border-slate-200 dark:border-slate-600 mx-2 my-4" />
+
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-gray-700 dark:text-white text-base font-semibold">Cuentas bancarias</h2>
+          <h3 className="text-gray-700 dark:text-white text-sm font-semibold">Cuentas bancarias</h3>
           <button
             className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md"
             type="button"

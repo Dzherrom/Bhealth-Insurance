@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Calendar, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -126,31 +126,6 @@ export function InfoPagoPoliza({ poliza }: InfoPagoPolizaProps) {
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-xl flex items-center">
-            <Calendar className="w-5 h-5 mr-2" /> Cronograma y formato de pago
-          </CardTitle>
-          <Button variant="outline" onClick={() => setOpenInfoModal(true)}>Editar cronograma</Button>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 bg-slate-50 border rounded-lg">
-              <p className="text-sm font-semibold text-muted-foreground dark:text-gray-400">Pago recurrente</p>
-              <p className="text-lg font-bold">{infoPago?.pago_recurrente ? 'Si' : 'No'}</p>
-            </div>
-            <div className="p-4 bg-slate-50 border rounded-lg">
-              <p className="text-sm font-semibold text-muted-foreground dark:text-gray-400">Fecha 1er pago</p>
-              <p className="text-lg font-bold">{infoPago?.fecha_primer_pago || 'Pendiente'}</p>
-            </div>
-            <div className="p-4 bg-slate-50 border rounded-lg">
-              <p className="text-sm font-semibold text-muted-foreground dark:text-gray-400">Dia preferido</p>
-              <p className="text-lg font-bold">{infoPago?.dia_pago_preferido || 'No definido'}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
         <CardHeader>
           <CardTitle className="text-lg">Tabla de pagos y medios</CardTitle>
           <div className="relative w-full max-w-md">
@@ -191,9 +166,11 @@ export function InfoPagoPoliza({ poliza }: InfoPagoPolizaProps) {
 
       <PaymentMethodsSection
         polizaId={polizaId}
+        infoPago={infoPago}
         tarjetas={tarjetas}
         cuentas={cuentas}
         onRefresh={loadData}
+        onEditInfoPago={() => setOpenInfoModal(true)}
       />
 
       <Dialog open={openInfoModal} onOpenChange={setOpenInfoModal}>

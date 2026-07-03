@@ -631,8 +631,22 @@ class MedicoSerializer(serializers.ModelSerializer):
 class MedicoPolizaSerializer(serializers.ModelSerializer):
     class Meta:
         model = MedicoPoliza
-        fields = ['id', 'poliza', 'nombre', 'especializacion', 'hospital', 'fecha_creacion']
+        fields = ['id', 'poliza', 'nombre', 'especializacion', 'hospital', 'es_principal', 'fecha_creacion']
         read_only_fields = ('fecha_creacion',)
+
+    def _clear_other_principals(self, instance):
+        if instance.es_principal and instance.poliza_id:
+            MedicoPoliza.objects.filter(poliza_id=instance.poliza_id).exclude(pk=instance.pk).update(es_principal=False)
+
+    def create(self, validated_data):
+        instance = super().create(validated_data)
+        self._clear_other_principals(instance)
+        return instance
+
+    def update(self, instance, validated_data):
+        instance = super().update(instance, validated_data)
+        self._clear_other_principals(instance)
+        return instance
 
 class MedicamentoSerializer(serializers.ModelSerializer):
     class Meta:

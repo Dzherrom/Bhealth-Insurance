@@ -29,12 +29,16 @@ export function EditMedicamentoModal({
   const [deleting, setDeleting] = useState(false);
   const [nombre, setNombre] = useState('');
   const [dosis, setDosis] = useState('');
+  const [duracionTratamiento, setDuracionTratamiento] = useState('');
+  const [frecuencia, setFrecuencia] = useState('');
   const isEditing = Boolean(medicamento?.id);
 
   useEffect(() => {
     if (open) {
       setNombre(medicamento?.nombre ?? '');
       setDosis(medicamento?.dosis ?? '');
+      setDuracionTratamiento(medicamento?.duracion_tratamiento ?? '');
+      setFrecuencia(medicamento?.frecuencia ?? '');
     }
   }, [open, medicamento]);
 
@@ -50,6 +54,8 @@ export function EditMedicamentoModal({
         poliza: polizaId,
         nombre: nombre.trim(),
         dosis: dosis.trim() || null,
+        duracion_tratamiento: duracionTratamiento.trim() || null,
+        frecuencia: frecuencia.trim() || null,
         activo: true,
       };
 
@@ -116,6 +122,27 @@ export function EditMedicamentoModal({
               onChange={(e) => setDosis(e.target.value)}
               placeholder="Ej. 10 mg cada 12 horas"
             />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="medicamento_duracion">Duración del tratamiento (opcional)</Label>
+              <Input
+                id="medicamento_duracion"
+                value={duracionTratamiento}
+                onChange={(e) => setDuracionTratamiento(e.target.value)}
+                placeholder="Ej. 6 meses, Indefinido"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="medicamento_frecuencia">Frecuencia (opcional)</Label>
+              <Input
+                id="medicamento_frecuencia"
+                value={frecuencia}
+                onChange={(e) => setFrecuencia(e.target.value)}
+                placeholder="Ej. Diaria"
+              />
+            </div>
           </div>
         </div>
 

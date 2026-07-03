@@ -365,6 +365,7 @@ class MedicoPoliza(models.Model):
     nombre = models.TextField(verbose_name="Nombre / Información del médico")
     especializacion = models.CharField(max_length=255, blank=True, null=True, verbose_name="Especialización")
     hospital = models.CharField(max_length=255, blank=True, null=True, verbose_name="Hospital")
+    es_principal = models.BooleanField(default=False, verbose_name="Médico principal")
     fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de creación")
 
     class Meta:
@@ -716,6 +717,7 @@ class Medicamento(models.Model):
     poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='medicamentos', verbose_name="Póliza")
     nombre = models.CharField(max_length=255, verbose_name="Nombre del Medicamento")
     dosis = models.CharField(max_length=100, blank=True, null=True, verbose_name="Dosis")
+    duracion_tratamiento = models.CharField(max_length=255, blank=True, null=True, verbose_name="Duración del tratamiento")
     frecuencia = models.CharField(max_length=100, blank=True, null=True, verbose_name="Frecuencia")
     fecha_inicio = models.DateField(null=True, blank=True, verbose_name="Fecha de Inicio")
     fecha_fin = models.DateField(null=True, blank=True, verbose_name="Fecha de Fin")

@@ -94,3 +94,71 @@ export async function copyToClipboard(text: string): Promise<boolean> {
 export function monthlyFromAnnual(annual: number): number {
   return annual / 12;
 }
+
+export type PolizaClienteLinkInput = {
+  id?: number;
+  cliente: number;
+  es_solicitante_principal?: boolean;
+  es_aplicante?: boolean;
+  relacion: string;
+  direccion_residencia?: number | null;
+  direccion_postal?: number | null;
+};
+
+export function memberCountsAsApplicant(
+  member: Pick<PolizaClienteLinkInput, 'es_aplicante' | 'es_solicitante_principal'>,
+): boolean {
+  return Boolean(member.es_aplicante || member.es_solicitante_principal);
+}
+
+export function buildPolizaClientesPayload(
+  clientesInfo: PolizaClienteLinkInput[],
+  options?: {
+    updateMemberId?: number;
+    es_aplicante?: boolean;
+    append?: PolizaClienteLinkInput;
+    fallbackDireccionId?: number | null;
+  },
+) {
+  const fallbackDireccionId = options?.fallbackDireccionId ?? null;
+
+  const clientes_data = clientesInfo.map((member) => {
+    const isPrincipal = Boolean(member.es_solicitante_principal);
+    let esAplicante = isPrincipal ? true : Boolean(member.es_aplicante);
+
+    if (options?.updateMemberId != null && member.id === options.updateMemberId && !isPrincipal) {
+      esAplicante = Boolean(options.es_aplicante);
+    }
+
+    return {
+      cliente: member.cliente,
+      es_solicitante_principal: isPrincipal,
+      es_aplicante: esAplicante,
+      relacion: member.relacion,
+      direccion_residencia: member.direccion_residencia || fallbackDireccionId,
+      direccion_postal: member.direccion_postal ?? null,
+    };
+  });
+
+  if (options?.append) {
+    const append = options.append;
+    clientes_data.push({
+      cliente: append.cliente,
+      es_solicitante_principal: Boolean(append.es_solicitante_principal),
+      es_aplicante: Boolean(append.es_aplicante),
+      relacion: append.relacion,
+      direccion_residencia: append.direccion_residencia || fallbackDireccionId,
+      direccion_postal: append.direccion_postal ?? null,
+    });
+  }
+
+  const total_miembros = clientes_data.length;
+  const total_aplicantes = clientes_data.filter(
+    (member) => member.es_aplicante || member.es_solicitante_principal,
+  ).length;
+  const total_dependientes = clientes_data.filter(
+    (member) => !member.es_solicitante_principal && !member.es_aplicante,
+  ).length;
+
+  return { clientes_data, total_miembros, total_aplicantes, total_dependientes };
+}

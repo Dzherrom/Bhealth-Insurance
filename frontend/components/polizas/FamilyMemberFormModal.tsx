@@ -26,6 +26,7 @@ import {
   formDataToClientUpdate,
   type FamilyMemberFormData,
 } from './FamilyMemberPersonalForm';
+import { buildPolizaClientesPayload } from '@/lib/familyMemberUtils';
 
 interface FamilyMemberFormModalProps {
   open: boolean;
@@ -76,7 +77,7 @@ export function FamilyMemberFormModal({
       const data = memberDetailsToFormData(member.cliente_details);
       setForm({
         ...data,
-        esAplicante: Boolean(member.es_aplicante ?? member.es_solicitante_principal),
+        esAplicante: Boolean(member.es_solicitante_principal || member.es_aplicante),
       });
       return;
     }
@@ -100,45 +101,32 @@ export function FamilyMemberFormModal({
 
     setSaving(true);
     try {
+      const principal = clientesInfo.find((m: any) => m.es_solicitante_principal);
+      const direccionId = principal?.direccion_residencia || poliza.direccion_fisica || null;
+
       if (mode === 'edit' && member?.cliente) {
         await api.clientes.patch(member.cliente, formDataToClientUpdate(form));
-        const principal = clientesInfo.find((m: any) => m.es_solicitante_principal);
-        const direccionId = principal?.direccion_residencia || poliza.direccion_fisica || null;
-        const existingClientesData = clientesInfo.map((m: any) => ({
-          cliente: m.cliente,
-          es_solicitante_principal: m.es_solicitante_principal,
-          es_aplicante: m.id === member.id ? form.esAplicante : Boolean(m.es_aplicante),
-          relacion: m.relacion,
-          direccion_residencia: m.direccion_residencia || direccionId,
-          direccion_postal: m.direccion_postal || null,
-        }));
-        await api.polizas.patch(poliza.id, { clientes_data: existingClientesData });
+        const payload = buildPolizaClientesPayload(clientesInfo, {
+          updateMemberId: member.id,
+          es_aplicante: member.es_solicitante_principal ? true : form.esAplicante,
+          fallbackDireccionId: direccionId,
+        });
+        await api.polizas.patch(poliza.id, payload as any);
         toast({ title: 'Miembro actualizado' });
       } else {
-        const principal = clientesInfo.find((m: any) => m.es_solicitante_principal);
-        const direccionId = principal?.direccion_residencia || poliza.direccion_fisica || null;
         const prefix = (relacion || 'miembro').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 20);
         const cliente = await api.clientes.create(buildCreatePayload(form, prefix) as any);
-        const existingClientesData = clientesInfo.map((m: any) => ({
-          cliente: m.cliente,
-          es_solicitante_principal: m.es_solicitante_principal,
-          es_aplicante: Boolean(m.es_aplicante),
-          relacion: m.relacion,
-          direccion_residencia: m.direccion_residencia || direccionId,
-          direccion_postal: m.direccion_postal || null,
-        }));
-        await api.polizas.patch(poliza.id, {
-          clientes_data: [
-            ...existingClientesData,
-            {
-              cliente: cliente.id,
-              es_solicitante_principal: false,
-              es_aplicante: form.esAplicante,
-              relacion,
-              direccion_residencia: direccionId,
-            },
-          ],
+        const payload = buildPolizaClientesPayload(clientesInfo, {
+          fallbackDireccionId: direccionId,
+          append: {
+            cliente: cliente.id,
+            es_solicitante_principal: false,
+            es_aplicante: form.esAplicante,
+            relacion,
+            direccion_residencia: direccionId,
+          },
         });
+        await api.polizas.patch(poliza.id, payload as any);
         toast({ title: 'Miembro agregado', description: getRelacionFamiliarLabel(relacion) });
       }
       onSaved();
@@ -195,7 +183,8 @@ export function FamilyMemberFormModal({
               value={form}
               onChange={setForm}
               requireContact={Boolean(member?.es_solicitante_principal)}
-              showApplicantToggle={!member?.es_solicitante_principal}
+              showApplicantToggle
+              applicantToggleDisabled={Boolean(mode === 'edit' && member?.es_solicitante_principal)}
             />
           )}
         </div>

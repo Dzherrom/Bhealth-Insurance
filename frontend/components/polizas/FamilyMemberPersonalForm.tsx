@@ -116,9 +116,17 @@ interface FamilyMemberPersonalFormProps {
   title?: string;
   requireContact?: boolean;
   showApplicantToggle?: boolean;
+  applicantToggleDisabled?: boolean;
 }
 
-export function FamilyMemberPersonalForm({ value, onChange, title, requireContact = false, showApplicantToggle = true }: FamilyMemberPersonalFormProps) {
+export function FamilyMemberPersonalForm({
+  value,
+  onChange,
+  title,
+  requireContact = false,
+  showApplicantToggle = true,
+  applicantToggleDisabled = false,
+}: FamilyMemberPersonalFormProps) {
   const update = (field: keyof FamilyMemberFormData, fieldValue: string | boolean) => {
     onChange({ ...value, [field]: fieldValue });
   };
@@ -221,15 +229,25 @@ export function FamilyMemberPersonalForm({ value, onChange, title, requireContac
       </div>
 
       {showApplicantToggle ? (
-        <div className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 px-4 py-3">
-          <Label htmlFor="es-aplicante" className="text-sm font-medium">
-            ¿Es este miembro un aplicante?
-          </Label>
-          <Switch
-            id="es-aplicante"
-            checked={value.esAplicante}
-            onCheckedChange={(checked) => update('esAplicante', checked)}
-          />
+        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 px-4 py-3">
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="es-aplicante" className="text-sm font-medium">
+                ¿Es este miembro un aplicante?
+              </Label>
+              {applicantToggleDisabled ? (
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  El titular siempre cuenta como aplicante.
+                </p>
+              ) : null}
+            </div>
+            <Switch
+              id="es-aplicante"
+              checked={value.esAplicante}
+              disabled={applicantToggleDisabled}
+              onCheckedChange={(checked) => update('esAplicante', checked)}
+            />
+          </div>
         </div>
       ) : null}
 

@@ -20,6 +20,7 @@ import {
 } from '@/lib/familyMemberOptions';
 import { X } from 'lucide-react';
 import { FamilyMemberPersonalForm, emptyFamilyMemberForm, type FamilyMemberFormData } from './FamilyMemberPersonalForm';
+import { buildPolizaClientesPayload } from '@/lib/familyMemberUtils';
 
 interface AddFamilyMemberCardProps {
   poliza: any;
@@ -101,24 +102,27 @@ export function AddFamilyMemberCard({ poliza, onClose, onSaved }: AddFamilyMembe
       const cliente = await api.clientes.create(buildClientPayload(form, prefix) as any);
 
       const existingClientesData = (poliza.clientes_info || []).map((m: any) => ({
+        id: m.id,
         cliente: m.cliente,
         es_solicitante_principal: m.es_solicitante_principal,
+        es_aplicante: Boolean(m.es_aplicante),
         relacion: m.relacion,
         direccion_residencia: m.direccion_residencia || direccionId,
         direccion_postal: m.direccion_postal || null,
       }));
 
-      await api.polizas.patch(poliza.id, {
-        clientes_data: [
-          ...existingClientesData,
-          {
-            cliente: cliente.id,
-            es_solicitante_principal: false,
-            relacion,
-            direccion_residencia: direccionId,
-          },
-        ],
+      const payload = buildPolizaClientesPayload(existingClientesData, {
+        fallbackDireccionId: direccionId,
+        append: {
+          cliente: cliente.id,
+          es_solicitante_principal: false,
+          es_aplicante: form.esAplicante,
+          relacion,
+          direccion_residencia: direccionId,
+        },
       });
+
+      await api.polizas.patch(poliza.id, payload);
 
       toast({
         title: 'Miembro agregado',

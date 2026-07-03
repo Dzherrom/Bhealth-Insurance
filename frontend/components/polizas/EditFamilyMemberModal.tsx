@@ -13,22 +13,27 @@ import {
   type FamilyMemberFormData,
 } from './FamilyMemberPersonalForm';
 import { getRelacionFamiliarLabel } from '@/lib/familyMemberOptions';
+import { buildPolizaClientesPayload } from '@/lib/familyMemberUtils';
 
 interface EditFamilyMemberModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   member: any | null;
+  poliza?: any;
   onSaved: () => void;
 }
 
-export function EditFamilyMemberModal({ open, onOpenChange, member, onSaved }: EditFamilyMemberModalProps) {
+export function EditFamilyMemberModal({ open, onOpenChange, member, poliza, onSaved }: EditFamilyMemberModalProps) {
   const { toast } = useToast();
   const [form, setForm] = useState<FamilyMemberFormData>(emptyFamilyMemberForm());
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (open && member?.cliente_details) {
-      setForm(memberDetailsToFormData(member.cliente_details));
+      setForm({
+        ...memberDetailsToFormData(member.cliente_details),
+        esAplicante: Boolean(member.es_solicitante_principal || member.es_aplicante),
+      });
     }
   }, [open, member]);
 
@@ -67,6 +72,19 @@ export function EditFamilyMemberModal({ open, onOpenChange, member, onSaved }: E
     setSaving(true);
     try {
       await api.clientes.patch(member.cliente, formDataToClientUpdate(form));
+
+      if (poliza?.id) {
+        const clientesInfo = poliza.clientes_info || [];
+        const principal = clientesInfo.find((m: any) => m.es_solicitante_principal);
+        const direccionId = principal?.direccion_residencia || poliza.direccion_fisica || null;
+        const payload = buildPolizaClientesPayload(clientesInfo, {
+          updateMemberId: member.id,
+          es_aplicante: isPrincipal ? true : form.esAplicante,
+          fallbackDireccionId: direccionId,
+        });
+        await api.polizas.patch(poliza.id, payload);
+      }
+
       toast({ title: 'Éxito', description: 'Miembro actualizado correctamente.' });
       onSaved();
       onOpenChange(false);
@@ -102,6 +120,8 @@ export function EditFamilyMemberModal({ open, onOpenChange, member, onSaved }: E
             onChange={setForm}
             title="Información personal"
             requireContact={!!member.es_solicitante_principal}
+            showApplicantToggle
+            applicantToggleDisabled={!!member.es_solicitante_principal}
           />
         )}
 

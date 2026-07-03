@@ -29,12 +29,15 @@ import {
   getMemberFullName,
   copyToClipboard,
   monthlyFromAnnual,
+  buildPolizaClientesPayload,
+  memberCountsAsApplicant,
 } from '@/lib/familyMemberUtils';
-import { documentosLegalesApi, ingresosEmpleadorApi, resolveApiMediaUrl } from '@/lib/api';
+import api, { documentosLegalesApi, ingresosEmpleadorApi, resolveApiMediaUrl } from '@/lib/api';
 import { FamilyMemberFormModal } from './FamilyMemberFormModal';
 import { FamilyMemberMigratoryModal } from './FamilyMemberMigratoryModal';
 import { FamilyMemberIngresoModal, type IngresoEmpleadorForm } from './FamilyMemberIngresoModal';
 import { SelectLegalDocumentModal, type DocumentoLegalLink } from './SelectLegalDocumentModal';
+import { Switch } from '@/components/ui/switch';
 
 interface FamilyMembersSectionProps {
   poliza: any;
@@ -46,7 +49,7 @@ function isTitular(member: any): boolean {
 }
 
 function isAplicante(member: any): boolean {
-  return Boolean(member.es_aplicante ?? member.es_solicitante_principal);
+  return memberCountsAsApplicant(member);
 }
 
 function getRelacionBadge(member: any): string {
@@ -133,6 +136,7 @@ export function FamilyMembersSection({ poliza, onRefresh }: FamilyMembersSection
   const [legalDocTipoLabel, setLegalDocTipoLabel] = useState('');
   const [legalDocExisting, setLegalDocExisting] = useState<DocumentoLegalLink | null>(null);
   const [revealedDocNumbers, setRevealedDocNumbers] = useState<Record<string, boolean>>({});
+  const [togglingApplicantId, setTogglingApplicantId] = useState<number | null>(null);
 
   const stats = useMemo(() => {
     const aplicantes = clientesInfo.filter(isAplicante).length;
@@ -183,6 +187,35 @@ export function FamilyMembersSection({ poliza, onRefresh }: FamilyMembersSection
 
   const handleQuickUpdate = (member: any) => {
     openEdit(member);
+  };
+
+  const handleToggleAplicante = async (member: any, checked: boolean) => {
+    if (!poliza?.id || isTitular(member)) return;
+
+    setTogglingApplicantId(member.id);
+    try {
+      const principal = clientesInfo.find((m: any) => m.es_solicitante_principal);
+      const direccionId = principal?.direccion_residencia || poliza.direccion_fisica || null;
+      const payload = buildPolizaClientesPayload(clientesInfo, {
+        updateMemberId: member.id,
+        es_aplicante: checked,
+        fallbackDireccionId: direccionId,
+      });
+      await api.polizas.patch(poliza.id, payload as any);
+      toast({
+        title: checked ? 'Miembro marcado como aplicante' : 'Miembro marcado como no aplicante',
+      });
+      onRefresh();
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo actualizar el estatus de aplicante.',
+        variant: 'destructive',
+      });
+    } finally {
+      setTogglingApplicantId(null);
+    }
   };
 
   const handleSendSms = (member: any) => {
@@ -506,13 +539,22 @@ export function FamilyMembersSection({ poliza, onRefresh }: FamilyMembersSection
                           <DetailField
                             label="¿Aplicante?"
                             value={
-                              isAplicante(member) ? (
-                                <span className="text-green-400 flex items-center gap-1">
-                                  Sí <i className="fa-solid fa-circle-check text-xs" />
+                              isTitular(member) ? (
+                                <span className="text-green-400 flex items-center gap-2">
+                                  Sí
+                                  <Switch checked disabled aria-label="Titular aplicante" />
                                 </span>
                               ) : (
-                                <span className="text-red-400 flex items-center gap-1">
-                                  No <i className="fa-solid fa-circle-xmark text-xs" />
+                                <span className="flex items-center gap-2">
+                                  <Switch
+                                    checked={Boolean(member.es_aplicante)}
+                                    disabled={togglingApplicantId === memberId}
+                                    onCheckedChange={(checked) => handleToggleAplicante(member, checked)}
+                                    aria-label="Marcar como aplicante"
+                                  />
+                                  <span className={member.es_aplicante ? 'text-green-400' : 'text-red-400'}>
+                                    {member.es_aplicante ? 'Sí' : 'No'}
+                                  </span>
                                 </span>
                               )
                             }
