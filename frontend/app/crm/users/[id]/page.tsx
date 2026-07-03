@@ -146,6 +146,9 @@ export default function UserDetailsPage() {
   const [agentNpn, setAgentNpn] = useState('');
   const [agentFfm, setAgentFfm] = useState('');
   const [isSavingAgent, setIsSavingAgent] = useState(false);
+  const [agentPolizas, setAgentPolizas] = useState<any[]>([]);
+  const [agentClientes, setAgentClientes] = useState<any[]>([]);
+  const [loadingPortfolio, setLoadingPortfolio] = useState(false);
   const [form, setForm] = useState<EditProfileForm>({
     firstName: '',
     lastName: '',
@@ -188,6 +191,38 @@ export default function UserDetailsPage() {
     fetchUser();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
+
+  useEffect(() => {
+    const agenteId = user?.profile?.agente;
+    if (!agenteId) {
+      setAgentPolizas([]);
+      setAgentClientes([]);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingPortfolio(true);
+    Promise.all([agentesApi.listPolizas(agenteId), agentesApi.listClientes(agenteId)])
+      .then(([polizas, clientes]) => {
+        if (!cancelled) {
+          setAgentPolizas(Array.isArray(polizas) ? polizas : []);
+          setAgentClientes(Array.isArray(clientes) ? clientes : []);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAgentPolizas([]);
+          setAgentClientes([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingPortfolio(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.profile?.agente]);
 
   const fullName = useMemo(() => {
     if (!user) return '';
@@ -460,6 +495,57 @@ export default function UserDetailsPage() {
             </CardContent>
           </Card>
         )}
+
+        {AGENT_ROLES.has(user.profile?.role || '') && user.profile?.agente ? (
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle>Cartera del agente</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {loadingPortfolio ? (
+                <p className="text-sm text-muted-foreground">Cargando cartera...</p>
+              ) : (
+                <>
+                  <div>
+                    <p className="text-sm font-semibold mb-2">Clientes vinculados ({agentClientes.length})</p>
+                    {agentClientes.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Sin clientes asignados.</p>
+                    ) : (
+                      <ul className="space-y-2 max-h-40 overflow-y-auto">
+                        {agentClientes.map((cliente) => (
+                          <li key={cliente.id} className="text-sm border rounded-md px-3 py-2">
+                            {[cliente.primer_nombre, cliente.apellido_paterno].filter(Boolean).join(' ') || `Cliente #${cliente.id}`}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold mb-2">Pólizas vinculadas ({agentPolizas.length})</p>
+                    {agentPolizas.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Sin pólizas asignadas.</p>
+                    ) : (
+                      <ul className="space-y-2 max-h-48 overflow-y-auto">
+                        {agentPolizas.map((poliza) => (
+                          <li key={poliza.id}>
+                            <button
+                              type="button"
+                              className="w-full text-left text-sm border rounded-md px-3 py-2 hover:bg-muted"
+                              onClick={() => router.push(`/crm/polizas/${poliza.id}`)}
+                            >
+                              <span className="font-medium">{poliza.id_mercado}</span>
+                              <span className="text-muted-foreground"> · {poliza.estado_nombre || 'Sin estatus'}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        ) : null}
 
         <Card>
           <CardHeader>

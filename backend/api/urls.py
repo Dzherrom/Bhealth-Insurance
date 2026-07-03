@@ -9,7 +9,7 @@ from .views import (
     AgenciaViewSet, DireccionViewSet, AgenteViewSet,
     ClienteViewSet, AseguradoraViewSet, PlanViewSet,
     EstadoPolizaViewSet, PolizaViewSet, NotaViewSet, HistorialPolizaViewSet,
-    EtiquetaViewSet, DocumentoViewSet, TareaViewSet, CambioDeVidaViewSet, UserManagementViewSet,
+    EtiquetaViewSet, DocumentoViewSet, CarpetaDocumentoViewSet, TareaViewSet, CambioDeVidaViewSet, UserManagementViewSet,
     ZipCodeLookupView, CitaViewSet, MedicoViewSet, MedicoPolizaViewSet, MedicamentoViewSet, RecordatorioViewSet,
     IngresoEmpleadorViewSet,
     DocumentoLegalClienteViewSet,
@@ -49,6 +49,7 @@ router.register(r'polizas', PolizaViewSet, basename='poliza')
 router.register(r'notas', NotaViewSet)
 router.register(r'historial', HistorialPolizaViewSet)
 router.register(r'etiquetas', EtiquetaViewSet)
+router.register(r'carpetas-documentos', CarpetaDocumentoViewSet, basename='carpeta-documento')
 router.register(r'documentos', DocumentoViewSet)
 router.register(r'tareas', TareaViewSet)
 router.register(r'cambios-de-vida', CambioDeVidaViewSet)

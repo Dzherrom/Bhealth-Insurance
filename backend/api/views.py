@@ -23,7 +23,7 @@ from django.db.models import Sum, Count, F, Prefetch
 from django.db.models.functions import TruncMonth, TruncYear
 from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
-    EstadoPoliza, Poliza, Nota, HistorialPoliza, Etiqueta, Documento, Tarea, CambioDeVida,
+    EstadoPoliza, Poliza, Nota, HistorialPoliza, Etiqueta, Documento, CarpetaDocumento, Tarea, CambioDeVida,
     PolizaViewer, Cita, Medico, Medicamento, MedicoPoliza, Recordatorio, IntentoLoginFallido,
     Contrato, ReporteComision, Notificacion, TarjetaCredito, CuentaBancaria, InfoPago,
     PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal, registrar_auditoria_global, PolizaCliente,
@@ -32,6 +32,15 @@ from .models import (
 )
 from .serializers import *
 from .utils import send_activity_webhook, fetch_location_from_zip
+from .carpeta_utils import ensure_poliza_carpetas
+
+
+def sync_cliente_agente(poliza):
+    if not poliza.agente_id:
+        return
+    principal = poliza.polizacliente_set.filter(es_solicitante_principal=True).select_related('cliente').first()
+    if principal and principal.cliente_id:
+        Cliente.objects.filter(pk=principal.cliente_id).update(agente_id=poliza.agente_id)
 
 
 class PolizaPagination(PageNumberPagination):
@@ -447,11 +456,36 @@ class AgenteViewSet(viewsets.ModelViewSet):
     serializer_class = AgenteSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    @action(detail=True, methods=['get'])
+    def polizas(self, request, pk=None):
+        agente = self.get_object()
+        polizas = Poliza.objects.filter(agente=agente).select_related(
+            'estado', 'plan', 'agente', 'agente_registro', 'info_pago'
+        ).prefetch_related(
+            Prefetch(
+                'polizacliente_set',
+                queryset=PolizaCliente.objects.select_related('cliente').filter(es_solicitante_principal=True),
+            ),
+        ).distinct()
+        serializer = PolizaListSerializer(polizas, many=True, context={'request': request})
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def clientes(self, request, pk=None):
+        from django.db.models import Q
+        agente = self.get_object()
+        clientes = Cliente.objects.filter(
+            Q(agente=agente) | Q(polizas__agente=agente)
+        ).select_related('agente').distinct().order_by('apellido_paterno', 'primer_nombre')
+        serializer = ClienteSerializer(clientes, many=True, context={'request': request})
+        return Response(serializer.data)
+
 class ClienteViewSet(viewsets.ModelViewSet):
     queryset = Cliente.objects.all()
     serializer_class = ClienteSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['agente']
     search_fields = [
         'primer_nombre', 'segundo_nombre', 'apellido_paterno', 'apellido_materno',
         'email', 'ssn', 'telefono',
@@ -660,6 +694,8 @@ class PolizaViewSet(viewsets.ModelViewSet):
                 save_kwargs['plan'] = plan
 
         poliza = serializer.save(**save_kwargs)
+        sync_cliente_agente(poliza)
+        ensure_poliza_carpetas(poliza)
         registrar_auditoria_global(
             usuario=user,
             accion='CREACION_POLIZA',
@@ -671,6 +707,7 @@ class PolizaViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         poliza = serializer.save()
+        sync_cliente_agente(poliza)
         registrar_auditoria_global(
             usuario=self.request.user,
             accion='EDICION_POLIZA',
@@ -1035,19 +1072,71 @@ class NotaViewSet(viewsets.ModelViewSet):
         instance.delete()
 
 class HistorialPolizaViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = HistorialPoliza.objects.all()
+    queryset = HistorialPoliza.objects.select_related('usuario', 'poliza').order_by('-fecha')
     serializer_class = HistorialPolizaSerializer
     permission_classes = [permissions.IsAuthenticated]
     filterset_fields = ['poliza']
 
 class EtiquetaViewSet(viewsets.ModelViewSet):
-    queryset = Etiqueta.objects.all()
+    queryset = Etiqueta.objects.filter(tipo='DOCUMENTO')
     serializer_class = EtiquetaSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['nombre', 'color']
     ordering_fields = ['nombre']
     filterset_fields = ['tipo']
+
+    def get_queryset(self):
+        queryset = Etiqueta.objects.all()
+        tipo = self.request.query_params.get('tipo')
+        if tipo:
+            return queryset.filter(tipo=tipo)
+        return queryset.filter(tipo='DOCUMENTO')
+
+class CarpetaDocumentoViewSet(viewsets.ModelViewSet):
+    queryset = CarpetaDocumento.objects.select_related('poliza').prefetch_related('documentos')
+    serializer_class = CarpetaDocumentoSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filterset_fields = ['poliza']
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        poliza_id = self.request.query_params.get('poliza')
+        if poliza_id:
+            try:
+                poliza = Poliza.objects.get(pk=poliza_id)
+                ensure_poliza_carpetas(poliza)
+            except Poliza.DoesNotExist:
+                pass
+        return queryset
+
+    def perform_create(self, serializer):
+        poliza = serializer.validated_data['poliza']
+        ensure_poliza_carpetas(poliza)
+        nombre = serializer.validated_data['nombre'].strip()
+        if CarpetaDocumento.objects.filter(poliza=poliza, nombre__iexact=nombre).exists():
+            raise ValidationError({'nombre': 'Ya existe una carpeta con ese nombre en esta póliza.'})
+        max_orden = CarpetaDocumento.objects.filter(poliza=poliza).order_by('-orden').values_list('orden', flat=True).first() or 0
+        serializer.save(
+            es_personalizada=True,
+            codigo='',
+            orden=max_orden + 1,
+        )
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        nombre = serializer.validated_data.get('nombre', instance.nombre).strip()
+        if CarpetaDocumento.objects.filter(
+            poliza=instance.poliza,
+            nombre__iexact=nombre,
+        ).exclude(pk=instance.pk).exists():
+            raise ValidationError({'nombre': 'Ya existe una carpeta con ese nombre en esta póliza.'})
+        serializer.save(nombre=nombre)
+
+    def perform_destroy(self, instance):
+        if instance.documentos.exists():
+            raise ValidationError({'detail': 'No se puede eliminar una carpeta que contiene documentos.'})
+        instance.delete()
 
 class DocumentoViewSet(viewsets.ModelViewSet):
     queryset = Documento.objects.all()
@@ -1062,6 +1151,27 @@ class DocumentoViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         poliza = instance.poliza
         instance.delete()
+
+    @action(detail=True, methods=['get'])
+    def preview(self, request, pk=None):
+        import mimetypes
+        from .serializers import can_view_sensitive_data
+
+        documento = self.get_object()
+        if not can_view_sensitive_data(request.user):
+            return Response({'detail': 'No autorizado.'}, status=status.HTTP_403_FORBIDDEN)
+        if not documento.archivo:
+            return Response({'detail': 'Archivo no disponible.'}, status=status.HTTP_404_NOT_FOUND)
+
+        content_type, _ = mimetypes.guess_type(documento.archivo.name)
+        filename = documento.archivo.name.split('/')[-1]
+        response = FileResponse(
+            documento.archivo.open('rb'),
+            content_type=content_type or 'application/octet-stream',
+        )
+        response['Content-Disposition'] = f'inline; filename="{filename}"'
+        response.xframe_options_exempt = True
+        return response
 
 class UserManagementViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()

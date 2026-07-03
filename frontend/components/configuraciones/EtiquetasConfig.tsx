@@ -67,9 +67,9 @@ export function EtiquetasConfig({ tipo, title, description }: EtiquetasConfigPro
   if (loading) return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>;
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+    <div className="space-y-6 min-w-0">
+      <Card className="min-w-0">
+        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle>{title}</CardTitle>
             <CardDescription>{description}</CardDescription>
@@ -78,8 +78,8 @@ export function EtiquetasConfig({ tipo, title, description }: EtiquetasConfigPro
             <Plus className="w-4 h-4 mr-2" /> Nueva Etiqueta
           </Button>
         </CardHeader>
-        <CardContent>
-          <table className="w-full">
+        <CardContent className="overflow-x-auto max-h-[calc(100vh-260px)] overflow-y-auto">
+          <table className="w-full min-w-[480px]">
             <thead className="bg-gray-50 dark:bg-[#0f172a]">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">

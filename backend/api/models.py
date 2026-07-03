@@ -127,6 +127,15 @@ class Cliente(models.Model):
     # Store encrypted
     portal_password = models.CharField(max_length=255, blank=True, null=True, verbose_name="Contraseña Portal Aseguradora")
 
+    agente = models.ForeignKey(
+        Agente,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='clientes',
+        verbose_name='Agente asignado',
+    )
+
     def __str__(self):
         return f"{self.primer_nombre} {self.apellido_paterno}"
 
@@ -343,7 +352,6 @@ class Poliza(models.Model):
     clientes = models.ManyToManyField(Cliente, through='PolizaCliente', related_name='polizas')
     colaboradores = models.ManyToManyField(User, related_name='polizas_colaboracion', blank=True, verbose_name="Colaboradores")
     import_batch = models.ForeignKey(ImportBatch, on_delete=models.SET_NULL, null=True, blank=True, related_name='polizas')
-    etiquetas = models.ManyToManyField('Etiqueta', related_name='polizas_etiquetadas', blank=True, verbose_name="Etiquetas")
 
     notas_comentarios = models.TextField(blank=True, null=True, verbose_name="Notas o Comentarios")
     info_medico_principal = models.TextField(blank=True, null=True, verbose_name="Información del Médico Principal")
@@ -536,6 +544,14 @@ class Documento(models.Model):
         ('RECHAZADO', 'Rechazado'),
     ]
     poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='documentos')
+    carpeta = models.ForeignKey(
+        'CarpetaDocumento',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='documentos',
+        verbose_name='Carpeta',
+    )
     cliente = models.ForeignKey(Cliente, on_delete=models.SET_NULL, null=True, blank=True, related_name='documentos', verbose_name="Cliente")
     archivo = models.FileField(upload_to='documentos_poliza/', verbose_name="Archivo")
     titulo = models.CharField(max_length=255, verbose_name="Título del Documento")
@@ -553,6 +569,36 @@ class Documento(models.Model):
 
     def __str__(self):
         return f"{self.titulo} ({self.poliza})"
+
+
+class CarpetaDocumento(models.Model):
+    poliza = models.ForeignKey(
+        Poliza,
+        on_delete=models.CASCADE,
+        related_name='carpetas_documentos',
+        verbose_name='Póliza',
+    )
+    nombre = models.CharField(max_length=255, verbose_name='Nombre de carpeta')
+    codigo = models.CharField(max_length=50, blank=True, default='', verbose_name='Código interno')
+    es_personalizada = models.BooleanField(default=True, verbose_name='Carpeta personalizada')
+    orden = models.PositiveIntegerField(default=0, verbose_name='Orden')
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de creación')
+
+    class Meta:
+        ordering = ['orden', 'nombre']
+        verbose_name = 'Carpeta de documentos'
+        verbose_name_plural = 'Carpetas de documentos'
+        constraints = [
+            models.UniqueConstraint(fields=['poliza', 'nombre'], name='unique_carpeta_nombre_por_poliza'),
+        ]
+
+    def __str__(self):
+        return f"{self.nombre} ({self.poliza_id})"
+
+    @property
+    def cantidad_documentos(self):
+        return self.documentos.count()
+
 
 class Tarea(models.Model):
     poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='tareas')

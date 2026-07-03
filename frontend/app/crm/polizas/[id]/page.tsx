@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from '@/components/ui/skeleton';
@@ -15,7 +15,6 @@ import { DireccionesPoliza } from '@/components/polizas/DireccionesPoliza';
 import { MetadatosPoliza } from '@/components/polizas/MetadatosPoliza';
 import { CalendarioPrimasPoliza } from '@/components/polizas/CalendarioPrimasPoliza';
 import { NotasChat } from '@/components/notas/NotasChat';
-import { RegistrosActividadModal } from '@/components/polizas/RegistrosActividadModal';
 import { FamilyMembersSection } from '@/components/polizas/FamilyMembersSection';
 import { EditInfoPagoModal } from '@/components/polizas/EditInfoPagoModal';
 import { UltimaNotaCard } from '@/components/polizas/UltimaNotaCard';
@@ -27,6 +26,24 @@ import { formatDireccion, formatFechaDisplay } from '@/components/polizas/poliza
 import { polizaIsQuote, previewPolizaEnvioErrors } from '@/lib/polizaEnvioUtils';
 import { PaymentMethodsSection } from '@/components/polizas/PaymentMethodsSection';
 import { MedicosMedicamentosSection } from '@/components/polizas/MedicosMedicamentosSection';
+import { StatusBadge } from '@/components/polizas/polizaStatusUtils';
+import type { OtraPoliza } from '@/types/polizas';
+
+const EFFECTIVE_YEARS = [2026, 2025, 2024] as const;
+
+function filterOtrasPolizasByYear(
+  items: OtraPoliza[],
+  yearsFilter: Record<number, boolean>,
+): OtraPoliza[] {
+  const activeYears = EFFECTIVE_YEARS.filter((year) => yearsFilter[year]);
+  if (activeYears.length === 0) return items;
+
+  return items.filter((item) => {
+    if (!item.fecha_efectiva) return true;
+    const year = new Date(item.fecha_efectiva).getFullYear();
+    return activeYears.includes(year as (typeof EFFECTIVE_YEARS)[number]);
+  });
+}
 
 const formatCurrency = (amount: string | number) => {
   const numAmount = typeof amount === 'string' ? parseFloat(amount || '0') : amount;
@@ -49,6 +66,31 @@ export default function PolizaDetailsPage() {
   const [isBasicInfoModalOpen, setIsBasicInfoModalOpen] = useState(false);
   const [isEditInfoPagoOpen, setIsEditInfoPagoOpen] = useState(false);
   const [isNotasChatOpen, setIsNotasChatOpen] = useState(false);
+  const [yearsFilter, setYearsFilter] = useState<Record<number, boolean>>({
+    2026: true,
+    2025: true,
+    2024: true,
+  });
+
+  const scrollToPageTop = useCallback(() => {
+    requestAnimationFrame(() => {
+      const scrollContainer = document.querySelector('.crm-content');
+      if (scrollContainer instanceof HTMLElement) {
+        scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      document.getElementById('summary')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, []);
+
+  const handleSectionChange = useCallback(
+    (section: string) => {
+      setActiveSection(section);
+      scrollToPageTop();
+    },
+    [scrollToPageTop],
+  );
 
   useEffect(() => {
     if (params.id) {
@@ -113,6 +155,12 @@ export default function PolizaDetailsPage() {
   const polizaNotas = (poliza as any).notas || [];
   const medicosPrincipales = (poliza as any).medicos_principales ?? [];
   const medicamentosLista = (poliza as any).medicamentos ?? [];
+  const otrasPolizas: OtraPoliza[] = poliza.otras_polizas ?? [];
+  const filteredOtrasPolizas = filterOtrasPolizasByYear(otrasPolizas, yearsFilter);
+
+  const toggleYearFilter = (year: number) => {
+    setYearsFilter((prev) => ({ ...prev, [year]: !prev[year] }));
+  };
 
   const refreshPoliza = () => poliza.id && fetchPolizaById(poliza.id, { silent: true });
 
@@ -275,7 +323,6 @@ export default function PolizaDetailsPage() {
           estado_documento: (poliza as any).estado_documento,
           estado_pago: infoPago?.estado_pago ?? null,
           info_pago_id: infoPago?.id ?? null,
-          etiquetas: poliza.etiquetas,
           prima_mensual: poliza.prima_mensual?.toString() || '0',
           fecha_efectiva: poliza.fecha_efectiva,
           cliente_principal: clientePrincipal ? `${clientePrincipal.cliente_details.primer_nombre} ${clientePrincipal.cliente_details.apellido_paterno}` : 'No asignado'
@@ -287,9 +334,10 @@ export default function PolizaDetailsPage() {
           direccion_facturacion_details: poliza.direccion_facturacion_details,
           documentos: (poliza as any).documentos,
           notas: polizaNotas,
+          historial: (poliza as any).historial,
         }}
         activeSection={activeSection}
-        onSectionChange={setActiveSection}
+        onSectionChange={handleSectionChange}
         onPolizaUpdate={() => poliza.id && fetchPolizaById(poliza.id)}
         onOpenNotasChat={() => setIsNotasChatOpen(true)}
       />
@@ -303,7 +351,7 @@ export default function PolizaDetailsPage() {
           <button className="flex gap-2 items-center cursor-pointer justify-center rounded-md py-2 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 text-primary dark:hover:bg-slate-100 dark:hover:bg-opacity-10 dark:text-primary-300 dark:hover:text-primary-50 h-[30px] px-2 text-xs bg-slate-50 dark:bg-slate-700 w-full hover:bg-primary transition-colors hover:text-white" type="button" title="Familia">
             <i className="lg:text-base fa-solid fa-family"></i>
           </button>
-          <button className="flex gap-2 items-center cursor-pointer justify-center rounded-md py-2 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 text-primary dark:hover:bg-slate-100 dark:hover:bg-opacity-10 dark:text-primary-300 dark:hover:text-primary-50 h-[30px] px-2 text-xs bg-slate-50 dark:bg-slate-700 w-full hover:bg-primary transition-colors hover:text-white" type="button" title="Dirección" onClick={() => setActiveSection('direcciones')}>
+          <button className="flex gap-2 items-center cursor-pointer justify-center rounded-md py-2 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 text-primary dark:hover:bg-slate-100 dark:hover:bg-opacity-10 dark:text-primary-300 dark:hover:text-primary-50 h-[30px] px-2 text-xs bg-slate-50 dark:bg-slate-700 w-full hover:bg-primary transition-colors hover:text-white" type="button" title="Dirección" onClick={() => handleSectionChange('direcciones')}>
             <i className="lg:text-base fa-solid fa-location-arrow"></i>
           </button>
           <button className="flex gap-2 items-center cursor-pointer justify-center rounded-md py-2 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 text-primary dark:hover:bg-slate-100 dark:hover:bg-opacity-10 dark:text-primary-300 dark:hover:text-primary-50 h-[30px] px-2 text-xs bg-slate-50 dark:bg-slate-700 w-full hover:bg-primary transition-colors hover:text-white" type="button" title="Tarjetas">
@@ -445,7 +493,7 @@ export default function PolizaDetailsPage() {
               <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 flex-1 p-4">
                 <div className="flex items-center justify-between mb-2">
                   <h2 className="text-gray-700 dark:text-white text-base font-semibold">Dirección física</h2>
-                  <button className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md" type="button" onClick={() => setActiveSection('direcciones')}>
+                  <button className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md" type="button" onClick={() => handleSectionChange('direcciones')}>
                     <i className="fa-duotone fa-edit"></i>Editar
                   </button>
                 </div>
@@ -461,7 +509,7 @@ export default function PolizaDetailsPage() {
               <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 flex-1 p-4">
                 <div className="flex items-center justify-between mb-2">
                   <h2 className="text-gray-700 dark:text-white text-base font-semibold">Dirección postal</h2>
-                  <button className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md" type="button" onClick={() => setActiveSection('direcciones')}>
+                  <button className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md" type="button" onClick={() => handleSectionChange('direcciones')}>
                     <i className="fa-duotone fa-edit"></i>Editar
                   </button>
                 </div>
@@ -477,7 +525,7 @@ export default function PolizaDetailsPage() {
               <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 flex-1 p-4">
                 <div className="flex items-center justify-between mb-2">
                   <h2 className="text-gray-700 dark:text-white text-base font-semibold">Dirección de facturación</h2>
-                  <button className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md" type="button" onClick={() => setActiveSection('direcciones')}>
+                  <button className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md" type="button" onClick={() => handleSectionChange('direcciones')}>
                     <i className="fa-duotone fa-edit"></i>Editar
                   </button>
                 </div>
@@ -532,9 +580,17 @@ export default function PolizaDetailsPage() {
                 <div className="flex items-center gap-3">
                   <span className="text-sm dark:text-gray-300">Año de efectividad:</span>
                   <div className="flex gap-3 text-sm dark:text-gray-300">
-                    <label className="flex items-center gap-1 cursor-pointer"><input type="checkbox" className="rounded" /> 2026</label>
-                    <label className="flex items-center gap-1 cursor-pointer"><input type="checkbox" className="rounded" /> 2025</label>
-                    <label className="flex items-center gap-1 cursor-pointer"><input type="checkbox" className="rounded" /> 2024</label>
+                    {EFFECTIVE_YEARS.map((year) => (
+                      <label key={year} className="flex items-center gap-1 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="rounded"
+                          checked={yearsFilter[year]}
+                          onChange={() => toggleYearFilter(year)}
+                        />
+                        {year}
+                      </label>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -553,13 +609,52 @@ export default function PolizaDetailsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr>
-                      <td colSpan={6} className="text-center py-10 dark:bg-slate-800">
-                        <i className="fa-solid fa-shield-halved text-2xl text-gray-400 mb-2 block"></i>
-                        <p className="font-medium dark:text-white">No hay registros para mostrar aquí.</p>
-                        <p className="text-xs text-gray-500 mt-1">Por favor, inicie una nueva búsqueda</p>
-                      </td>
-                    </tr>
+                    {filteredOtrasPolizas.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="text-center py-10 dark:bg-slate-800">
+                          <i className="fa-solid fa-shield-halved text-2xl text-gray-400 mb-2 block"></i>
+                          <p className="font-medium dark:text-white">No hay registros para mostrar aquí.</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {otrasPolizas.length > 0
+                              ? 'Ninguna póliza coincide con los años seleccionados.'
+                              : 'Este aplicante no tiene otras pólizas registradas.'}
+                          </p>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredOtrasPolizas.map((item) => (
+                        <tr
+                          key={item.id}
+                          className="border-t border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/30"
+                        >
+                          <td className="px-4 py-3 dark:text-gray-200">{item.agente || '—'}</td>
+                          <td className="px-4 py-3 dark:text-gray-200">{item.cliente || '—'}</td>
+                          <td className="px-4 py-3 dark:text-gray-200">
+                            <div className="font-medium">{item.id_mercado || '—'}</div>
+                            {item.fecha_efectiva ? (
+                              <div className="text-xs text-gray-500 mt-0.5">
+                                Efectiva: {formatFechaDisplay(item.fecha_efectiva)}
+                              </div>
+                            ) : null}
+                          </td>
+                          <td className="px-4 py-3">
+                            <StatusBadge label={item.estado || 'Sin estatus'} />
+                          </td>
+                          <td className="px-4 py-3 dark:text-gray-200">
+                            {item.asignado?.length ? item.asignado.join(', ') : '—'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <button
+                              type="button"
+                              onClick={() => router.push(`/crm/polizas/${item.id}`)}
+                              className="text-xs font-semibold text-primary hover:underline"
+                            >
+                              Ver póliza
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -627,7 +722,6 @@ export default function PolizaDetailsPage() {
           plan: poliza.plan_nombre || '',
           id: String(poliza.id),
           estado: poliza.estado_nombre,
-          etiquetas: poliza.etiquetas,
         }}
       />
   </div>

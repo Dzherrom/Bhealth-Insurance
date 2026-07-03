@@ -28,8 +28,6 @@ const ConfiguracionesPage = () => {
         return <NotificacionesConfig />;
       case 'listado':
         return <ListadoGeneral />;
-      case 'etiquetas-polizas':
-        return <EtiquetasConfig tipo="POLIZA" title="Etiquetas de poliza" description="Configura etiquetas para polizas." />;
       case 'etiquetas-documentos':
         return <EtiquetasConfig tipo="DOCUMENTO" title="Etiquetas de documento" description="Configura etiquetas para documentos." />;
       case 'usuarios-facturados':
@@ -41,16 +39,14 @@ const ConfiguracionesPage = () => {
   };
 
   return (
-    <div className="app-page">
-      <div className="flex space-x-6">
-        {/* Sidebar */}
+    <div className="app-page min-w-0">
+      <div className="flex gap-6 min-w-0">
         <SidebarConfiguraciones
           activeSection={activeSection}
           onSectionChange={handleSectionChange}
         />
 
-        {/* Contenido principal */}
-        <div className="flex-1">
+        <div className="flex-1 min-w-0 overflow-hidden">
           {renderContent()}
         </div>
       </div>

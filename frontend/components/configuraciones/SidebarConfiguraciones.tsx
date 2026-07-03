@@ -6,9 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Building2, 
   Bell, 
-  List, 
-  Tag, 
-  FileText, 
+  List,
+  FileText,
   Users,
   Monitor
 } from 'lucide-react';
@@ -45,12 +44,6 @@ export function SidebarConfiguraciones({
       id: 'listado',
       label: 'Listado',
       icon: List,
-      isActive: false
-    },
-    {
-      id: 'etiquetas-polizas',
-      label: 'Etiquetas de poliza',
-      icon: Tag,
       isActive: false
     },
     {

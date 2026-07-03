@@ -1,6 +1,6 @@
 // Tipos e interfaces para pólizas y gestión de seguros
 
-import { BaseEntity, OptionalBaseEntity, RelacionFamiliar } from "./common";
+import { BaseEntity, OptionalBaseEntity } from "./common";
 import type { Direccion } from "./clientes";
 
 // ===============================
@@ -17,9 +17,9 @@ export interface ClientePolizaData {
   cliente: number;
   es_solicitante_principal: boolean;
   es_aplicante?: boolean;
-  relacion: RelacionFamiliar;
-  direccion_residencia: number;
-  direccion_postal?: number;
+  relacion: string;
+  direccion_residencia?: number | null;
+  direccion_postal?: number | null;
 }
 
 export interface ClientePolizaDetails {
@@ -32,9 +32,8 @@ export interface ClientePolizaDetails {
   };
   es_solicitante_principal: boolean;
   es_aplicante?: boolean;
-  relacion: RelacionFamiliar;
-  direccion_residencia?: number;
-  direccion_postal?: number;
+  relacion: string;
+  direccion_residencia?: number | null;
 }
 
 // ===============================
@@ -83,11 +82,24 @@ export interface PolizaUpdateRequest extends Partial<Omit<PolizaCreateRequest, '
   }>;
   etiquetas_ids?: number[];
   estado_documento?: string | null;
+  total_miembros?: number;
+  total_aplicantes?: number;
+  total_dependientes?: number;
 }
 
 // ===============================
 // INTERFACES DE RESPONSE
 // ===============================
+
+export interface OtraPoliza {
+  id: number;
+  id_mercado: string;
+  fecha_efectiva?: string | null;
+  estado?: string | null;
+  agente?: string | null;
+  cliente?: string | null;
+  asignado?: string[];
+}
 
 export interface PolizaResponse extends BaseEntity {
   id_mercado: string;
@@ -148,6 +160,7 @@ export interface PolizaResponse extends BaseEntity {
   cuentas_bancarias?: Array<Record<string, unknown>>;
   notas?: Array<Record<string, unknown>>;
   documentos?: Array<Record<string, unknown>>;
+  otras_polizas?: OtraPoliza[];
   fecha_creacion?: string;
   fecha_modificacion?: string;
 }

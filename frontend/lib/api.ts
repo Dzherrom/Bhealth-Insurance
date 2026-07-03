@@ -495,16 +495,25 @@ interface Nota extends OptionalBaseEntity {
   fecha_modificacion?: string;
 }
 
-interface Historial extends OptionalBaseEntity {
-  tabla: string;
-  registro_id: number;
+export interface HistorialPoliza extends OptionalBaseEntity {
+  poliza: number;
+  usuario?: number | null;
+  usuario_username?: string;
   accion: string;
-  datos_anteriores?: any;
-  datos_nuevos?: any;
-  usuario: number;
+  accion_display?: string;
+  detalles?: string | null;
   fecha: string;
 }
 
+export interface CarpetaDocumento extends OptionalBaseEntity {
+  poliza: number;
+  nombre: string;
+  codigo?: string;
+  es_personalizada?: boolean;
+  orden?: number;
+  cantidad_documentos?: number;
+  fecha_creacion?: string;
+}
 export interface Etiqueta extends OptionalBaseEntity {
   nombre: string;
   color?: string;
@@ -587,6 +596,16 @@ export const direccionesApi = {
 // 🕴️ Agentes
 export const agentesApi = {
   ...createCrudApi<Agente, AgenteCreate, AgenteUpdate>('agentes'),
+
+  listPolizas: async (agenteId: number | string) => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/agentes/${agenteId}/polizas/`, { method: 'GET' });
+    return handleApiResponse<any[]>(response);
+  },
+
+  listClientes: async (agenteId: number | string) => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/agentes/${agenteId}/clientes/`, { method: 'GET' });
+    return handleApiResponse<any[]>(response);
+  },
 };
 
 // 👥 Clientes
@@ -964,7 +983,35 @@ export const notasApi = {
 };
 
 // 🕰️ Historial (Solo lectura)
-export const historialApi = createReadOnlyApi<Historial>('historial');
+export const historialApi = {
+  ...createReadOnlyApi<HistorialPoliza>('historial'),
+
+  listByPoliza: async (polizaId: number | string): Promise<HistorialPoliza[]> => {
+    const response = await fetchWithAuth(
+      `${API_BASE_URL}/historial/?poliza=${encodeURIComponent(String(polizaId))}`,
+      { method: 'GET' },
+    );
+    const payload = await handleApiResponse<any>(response);
+    if (Array.isArray(payload)) return payload;
+    if (payload?.results && Array.isArray(payload.results)) return payload.results;
+    return [];
+  },
+};
+
+export const carpetasDocumentosApi = {
+  ...createCrudApi<CarpetaDocumento, Partial<CarpetaDocumento>, Partial<CarpetaDocumento>>('carpetas-documentos'),
+
+  listByPoliza: async (polizaId: number | string): Promise<CarpetaDocumento[]> => {
+    const response = await fetchWithAuth(
+      `${API_BASE_URL}/carpetas-documentos/?poliza=${encodeURIComponent(String(polizaId))}`,
+      { method: 'GET' },
+    );
+    const payload = await handleApiResponse<any>(response);
+    if (Array.isArray(payload)) return payload;
+    if (payload?.results && Array.isArray(payload.results)) return payload.results;
+    return [];
+  },
+};
 
 // 🏷️ Etiquetas
 export const etiquetasApi = createCrudApi<Etiqueta>('etiquetas');
@@ -982,6 +1029,20 @@ export const documentosApi = {
     if (Array.isArray(payload)) return payload;
     if (payload?.results && Array.isArray(payload.results)) return payload.results;
     return [];
+  },
+
+  fetchPreviewBlob: async (documentoId: number): Promise<{ blob: Blob; contentType: string }> => {
+    const response = await fetchWithAuth(
+      `${API_BASE_URL}/documentos/${documentoId}/preview/`,
+      { method: 'GET' },
+    );
+    if (!response.ok) {
+      const message = await response.text().catch(() => '');
+      throw new Error(message || 'No se pudo cargar la vista previa');
+    }
+    const contentType = response.headers.get('Content-Type') || 'application/octet-stream';
+    const blob = await response.blob();
+    return { blob, contentType };
   },
 };
 
@@ -1282,6 +1343,7 @@ export const api = {
   notificaciones: notificacionesApi,
   notas: notasApi,
   historial: historialApi,
+  carpetasDocumentos: carpetasDocumentosApi,
   etiquetas: etiquetasApi,
   documentos: documentosApi,
   tiposProducto: tiposProductoApi,

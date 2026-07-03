@@ -5,10 +5,7 @@ import { CambiosDeVidaPanel } from './CambiosDeVidaPanel';
 import { RegistrosActividadModal } from './RegistrosActividadModal';
 import { UltimaNotaCard } from './UltimaNotaCard';
 import { EditEstatusPolizaModal } from './EditEstatusPolizaModal';
-import { EditEtiquetasPolizaModal } from './EditEtiquetasPolizaModal';
 import { EditAgenteAsignadoModal } from './EditAgenteAsignadoModal';
-import { api } from '@/lib/api';
-import { useToast } from '@/hooks/use-toast';
 import {
   formatCurrencyValue,
   formatDireccion,
@@ -18,24 +15,10 @@ import {
 import {
   getEstadoDocumentoLabel,
   getEstadoPagoLabel,
-  RemovableEtiquetaBadge,
   StatusBadge,
 } from './polizaStatusUtils';
 import type { NotaApi } from './notaUtils';
-import { 
-  FileText, 
-  Folder,
-  StickyNote,
-  Bell,
-  FileSignature,
-  DollarSign,
-  ClipboardList,
-  Users,
-  Stethoscope,
-  List,
-  Settings,
-  Menu,
-} from 'lucide-react';
+import { Menu } from 'lucide-react';
 
 interface PolizaResumenProps {
   poliza: {
@@ -55,7 +38,6 @@ interface PolizaResumenProps {
     prima_mensual: string;
     fecha_efectiva: string;
     cliente_principal: string;
-    etiquetas?: { id: number; nombre: string; color?: string }[];
   };
   polizaContext?: {
     clientes_info?: any[];
@@ -64,6 +46,14 @@ interface PolizaResumenProps {
     direccion_facturacion_details?: any;
     documentos?: any[];
     notas?: NotaApi[];
+    historial?: Array<{
+      id?: number;
+      accion: string;
+      accion_display?: string;
+      detalles?: string | null;
+      fecha: string;
+      usuario_username?: string;
+    }>;
   };
   activeSection?: string;
   onSectionChange?: (section: string) => void;
@@ -75,10 +65,7 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
   const [isCambiosVidaOpen, setIsCambiosVidaOpen] = useState(false);
   const [isRegistrosModalOpen, setIsRegistrosModalOpen] = useState(false);
   const [isEstatusModalOpen, setIsEstatusModalOpen] = useState(false);
-  const [isEtiquetasModalOpen, setIsEtiquetasModalOpen] = useState(false);
   const [isAgenteModalOpen, setIsAgenteModalOpen] = useState(false);
-  const [removingEtiquetaId, setRemovingEtiquetaId] = useState<number | null>(null);
-  const { toast } = useToast();
 
   const principalMember = getPrincipalMember(polizaContext?.clientes_info);
   const principalDetails = principalMember?.cliente_details;
@@ -88,31 +75,8 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
     onPolizaUpdate?.();
   };
 
-  const handleEtiquetasUpdated = () => {
-    onPolizaUpdate?.();
-  };
-
   const handleAgenteUpdated = () => {
     onPolizaUpdate?.();
-  };
-
-  const handleRemoveEtiqueta = async (etiquetaId: number) => {
-    if (!poliza.id) return;
-    const currentEtiquetas = poliza.etiquetas || [];
-    const newEtiquetasIds = currentEtiquetas.filter(etq => etq.id !== etiquetaId).map(etq => etq.id);
-
-    setRemovingEtiquetaId(etiquetaId);
-    try {
-      await api.polizas.patch(poliza.id, { etiquetas_ids: newEtiquetasIds });
-      toast({ title: "Éxito", description: "Etiqueta removida." });
-      if (onPolizaUpdate) {
-        onPolizaUpdate({ etiquetas: currentEtiquetas.filter(etq => etq.id !== etiquetaId) });
-      }
-    } catch (error) {
-      toast({ title: "Error", description: "No se pudo remover la etiqueta.", variant: "destructive" });
-    } finally {
-      setRemovingEtiquetaId(null);
-    }
   };
 
   const navItems = [
@@ -120,7 +84,6 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
     { id: 'documentos', icon: <i className="fa-duotone fa-folder"></i>, label: 'Documentos', count: polizaContext?.documentos?.length ?? 0 },
     { id: 'notas', icon: <i className="fa-duotone fa-sticky-note"></i>, label: 'Notas', count: polizaContext?.notas?.length ?? 0, isChat: true },
     { id: 'recordatorios', icon: <i className="fa-duotone fa-bell-on"></i>, label: 'Recordatorios', count: 0 },
-    { id: 'formularios', icon: <i className="fa-duotone fa-file-signature"></i>, label: 'Formularios de Firma', count: 0 },
     { id: 'direcciones', icon: <i className="fa-duotone fa-location-dot"></i>, label: 'Direcciones' },
     { id: 'cambios', icon: <i className="fa-duotone ml-0.5 fa-family"></i>, label: 'Cambios de vida', isPanel: true },
     { id: 'citas', icon: <i className="fa-duotone ml-0.5 fa-user-doctor-hair"></i>, label: 'Citas médicas' },
@@ -232,42 +195,6 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
                     <span className="text-[11px] text-[#64748b] dark:text-slate-400">Pago</span>
                     <StatusBadge label={getEstadoPagoLabel(poliza.estado_pago)} />
                   </div>
-                </div>
-              </div>
-              <div className="relative flex items-center justify-between gap-4 w-full">
-                <hr className="flex-1 mx-2 my-1 dark:border-slate-600 border-slate-100" />
-              </div>
-              <div className="flex flex-col w-full gap-2">
-                <div className="flex justify-between items-center w-full gap-2">
-                  <p className="text-gray-700 dark:text-white text-sm font-medium shrink-0">Etiquetas:</p>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setIsEtiquetasModalOpen(true);
-                    }}
-                    className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
-                  >
-                    <i className="fa-solid fa-edit text-[10px]" />
-                    Editar
-                  </button>
-                </div>
-                <div className="flex flex-col gap-1.5 pl-0.5">
-                  {poliza.etiquetas && poliza.etiquetas.length > 0 ? (
-                    poliza.etiquetas.map((etq) => (
-                      <div key={etq.id} className="flex items-center justify-end">
-                        <RemovableEtiquetaBadge
-                          label={etq.nombre}
-                          color={etq.color}
-                          onRemove={() => handleRemoveEtiqueta(etq.id)}
-                          removing={removingEtiquetaId === etq.id}
-                        />
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-[11px] text-[#64748b] dark:text-slate-400 text-right">Sin etiquetas</p>
-                  )}
                 </div>
               </div>
               <div className="relative flex items-center justify-between gap-4 w-full">
@@ -437,10 +364,11 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
         />
       )}
       
-      <RegistrosActividadModal 
+      <RegistrosActividadModal
         isOpen={isRegistrosModalOpen}
         onClose={() => setIsRegistrosModalOpen(false)}
-        polizaId={poliza.id_mercado}
+        polizaId={String(poliza.id)}
+        historialInicial={polizaContext?.historial as any}
       />
 
       {poliza.id ? (
@@ -465,16 +393,6 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
           agente={poliza.agente}
           agenteNombre={poliza.agente_nombre}
           onUpdated={handleAgenteUpdated}
-        />
-      ) : null}
-
-      {poliza.id != null ? (
-        <EditEtiquetasPolizaModal
-          open={isEtiquetasModalOpen}
-          onOpenChange={setIsEtiquetasModalOpen}
-          polizaId={poliza.id}
-          etiquetas={poliza.etiquetas}
-          onUpdated={handleEtiquetasUpdated}
         />
       ) : null}
     </>

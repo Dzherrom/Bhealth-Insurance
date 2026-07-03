@@ -6,7 +6,7 @@ from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
     EstadoPoliza, Poliza, PolizaCliente, Licencia, Nota, HistorialPoliza,
     NotaAdjunto,
-    Etiqueta, Documento, Tarea, CambioDeVida, UserProfile, TipoProducto,
+    Etiqueta, Documento, CarpetaDocumento, Tarea, CambioDeVida, UserProfile, TipoProducto,
     InfoPago, TarjetaCredito, CuentaBancaria, PolizaViewer, Cita, Medico, Medicamento, MedicoPoliza, Recordatorio,
     Contrato, ReporteComision, ConfiguracionComision, Notificacion, PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal, ConfiguracionNotificacion,
     IngresoEmpleador, DocumentoLegalCliente,
@@ -211,10 +211,22 @@ class AgenciaSerializer(serializers.ModelSerializer):
 
 class AgenteSerializer(serializers.ModelSerializer):
     agencia_nombre = serializers.ReadOnlyField(source='agencia.nombre')
-    
+    total_polizas = serializers.SerializerMethodField()
+    total_clientes = serializers.SerializerMethodField()
+
     class Meta:
         model = Agente
         fields = '__all__'
+
+    def get_total_polizas(self, obj):
+        return obj.polizas.count()
+
+    def get_total_clientes(self, obj):
+        from django.db.models import Q
+        from .models import Cliente
+        return Cliente.objects.filter(
+            Q(agente=obj) | Q(polizas__agente=obj)
+        ).distinct().count()
 
 class IngresoEmpleadorSerializer(serializers.ModelSerializer):
     class Meta:
@@ -279,6 +291,7 @@ class ClienteSerializer(serializers.ModelSerializer):
     direccion_postal_details = DireccionSerializer(source='direccion_postal', read_only=True)
     direccion_facturacion_details = DireccionSerializer(source='direccion_facturacion', read_only=True)
     nombre_completo = serializers.SerializerMethodField()
+    agente_nombre = serializers.ReadOnlyField(source='agente.nombre_completo')
     ingresos_empleador = IngresoEmpleadorSerializer(many=True, read_only=True)
     documentos_legales = serializers.SerializerMethodField()
 
@@ -512,6 +525,35 @@ class EtiquetaSerializer(serializers.ModelSerializer):
         model = Etiqueta
         fields = '__all__'
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        tipo = attrs.get('tipo', getattr(self.instance, 'tipo', 'DOCUMENTO'))
+        if tipo != 'DOCUMENTO':
+            raise serializers.ValidationError({'tipo': 'Solo se permiten etiquetas de documento.'})
+        attrs['tipo'] = 'DOCUMENTO'
+        return attrs
+
+
+class CarpetaDocumentoSerializer(serializers.ModelSerializer):
+    cantidad_documentos = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CarpetaDocumento
+        fields = [
+            'id', 'poliza', 'nombre', 'codigo', 'es_personalizada',
+            'orden', 'fecha_creacion', 'cantidad_documentos',
+        ]
+        read_only_fields = ('codigo', 'fecha_creacion', 'cantidad_documentos')
+
+    def get_cantidad_documentos(self, obj):
+        return obj.cantidad_documentos
+
+    def validate_nombre(self, value):
+        nombre = (value or '').strip()
+        if not nombre:
+            raise serializers.ValidationError('El nombre de la carpeta es obligatorio.')
+        return nombre
+
 class DocumentoSerializer(serializers.ModelSerializer):
     subido_por_username = serializers.ReadOnlyField(source='subido_por.username')
     cliente_nombre = serializers.SerializerMethodField()
@@ -530,6 +572,9 @@ class DocumentoSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         validated_data.setdefault('estado_documento', Documento.ESTADO_DOCUMENTO_CHOICES[0][0])
+        carpeta = validated_data.get('carpeta')
+        if carpeta and not validated_data.get('categoria'):
+            validated_data['categoria'] = carpeta.codigo or 'OTRO'
         return super().create(validated_data)
 
     def to_representation(self, instance):
@@ -680,7 +725,8 @@ class CitaSerializer(serializers.ModelSerializer):
 
 class HistorialPolizaSerializer(serializers.ModelSerializer):
     usuario_username = serializers.ReadOnlyField(source='usuario.username')
-    
+    accion_display = serializers.CharField(source='get_accion_display', read_only=True)
+
     class Meta:
         model = HistorialPoliza
         fields = '__all__'
@@ -887,10 +933,6 @@ class PolizaSerializer(serializers.ModelSerializer):
     # Extras
     otras_polizas = serializers.SerializerMethodField()
     notas = NotaSerializer(many=True, read_only=True)
-    etiquetas = EtiquetaSerializer(many=True, read_only=True)
-    etiquetas_ids = serializers.PrimaryKeyRelatedField(
-        many=True, write_only=True, queryset=Etiqueta.objects.all(), source='etiquetas', required=False
-    )
     documentos = DocumentoSerializer(many=True, read_only=True)
     citas = CitaSerializer(many=True, read_only=True)
     medicamentos = MedicamentoSerializer(many=True, read_only=True)
@@ -920,7 +962,7 @@ class PolizaSerializer(serializers.ModelSerializer):
             'notas_comentarios', 'info_medico_principal', 'medico_especializacion', 'medico_hospital',
             'medicamentos_necesarios', 'medicamentos_dosis',
             'info_pago', 'tarjetas_credito', 'cuentas_bancarias',
-            'otras_polizas', 'notas', 'etiquetas', 'etiquetas_ids', 'documentos', 'citas',
+            'otras_polizas', 'notas', 'documentos', 'citas',
             'medicamentos', 'medicos_principales', 'historial', 'recordatorios', 'transferencias',
             'request_user_role',
             'active_viewers',
@@ -1038,33 +1080,41 @@ class PolizaSerializer(serializers.ModelSerializer):
         return [v.usuario.username for v in viewers]
 
     def get_otras_polizas(self, obj):
-        main_applicant_link = obj.polizacliente_set.filter(es_solicitante_principal=True).first()
-        if main_applicant_link:
-            other_policies = Poliza.objects.filter(clientes=main_applicant_link.cliente).exclude(id=obj.id).distinct()
-            return [
-                {
-                    "id": p.id,
-                    "id_mercado": p.id_mercado,
-                    "estado": p.estado.nombre if p.estado else None,
-                    "agente": p.agente.nombre_completo if p.agente else None,
-                    "cliente": str(main_applicant_link.cliente),
-                    "asignado": [u.username for u in p.colaboradores.all()]
-                } for p in other_policies
-            ]
-        return []
+        main_applicant_link = (
+            obj.polizacliente_set.filter(es_solicitante_principal=True).first()
+            or obj.polizacliente_set.filter(es_aplicante=True).first()
+        )
+        if not main_applicant_link or not main_applicant_link.cliente_id:
+            return []
+
+        other_policies = (
+            Poliza.objects.filter(clientes=main_applicant_link.cliente_id)
+            .exclude(id=obj.id)
+            .select_related('estado', 'agente')
+            .prefetch_related('colaboradores')
+            .distinct()
+        )
+        return [
+            {
+                'id': p.id,
+                'id_mercado': p.id_mercado,
+                'fecha_efectiva': p.fecha_efectiva.isoformat() if p.fecha_efectiva else None,
+                'estado': p.estado.nombre if p.estado else None,
+                'agente': p.agente.nombre_completo if p.agente else None,
+                'cliente': str(main_applicant_link.cliente),
+                'asignado': [u.username for u in p.colaboradores.all()],
+            }
+            for p in other_policies
+        ]
 
     def create(self, validated_data):
         clientes_data = validated_data.pop('clientes_data', [])
         colaboradores = validated_data.pop('colaboradores', [])
-        etiquetas = validated_data.pop('etiquetas', [])
         self._sync_plan(None, validated_data)
         poliza = Poliza.objects.create(**validated_data)
         
         if colaboradores:
             poliza.colaboradores.set(colaboradores)
-
-        if etiquetas:
-            poliza.etiquetas.set(etiquetas)
 
         for client_data in clientes_data:
             PolizaCliente.objects.create(poliza=poliza, **client_data)
@@ -1074,7 +1124,6 @@ class PolizaSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         clientes_data = validated_data.pop('clientes_data', None)
         colaboradores = validated_data.pop('colaboradores', None)
-        etiquetas = validated_data.pop('etiquetas', None)
 
         self._sync_plan(instance, validated_data)
         
@@ -1085,9 +1134,6 @@ class PolizaSerializer(serializers.ModelSerializer):
         
         if colaboradores is not None:
             instance.colaboradores.set(colaboradores)
-
-        if etiquetas is not None:
-            instance.etiquetas.set(etiquetas)
         
         # Update relationships if provided
         if clientes_data is not None:

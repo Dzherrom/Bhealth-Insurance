@@ -95,6 +95,8 @@ export function monthlyFromAnnual(annual: number): number {
   return annual / 12;
 }
 
+import type { PolizaUpdateRequest } from '@/types/polizas';
+
 export type PolizaClienteLinkInput = {
   id?: number;
   cliente: number;
@@ -119,7 +121,7 @@ export function buildPolizaClientesPayload(
     append?: PolizaClienteLinkInput;
     fallbackDireccionId?: number | null;
   },
-) {
+): Pick<PolizaUpdateRequest, 'clientes_data' | 'total_miembros' | 'total_aplicantes' | 'total_dependientes'> {
   const fallbackDireccionId = options?.fallbackDireccionId ?? null;
 
   const clientes_data = clientesInfo.map((member) => {
