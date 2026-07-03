@@ -6,7 +6,7 @@ from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
     EstadoPoliza, Poliza, PolizaCliente, Licencia, Nota, HistorialPoliza,
     NotaAdjunto,
-    Etiqueta, Documento, CarpetaDocumento, Tarea, CambioDeVida, UserProfile, TipoProducto,
+    Etiqueta, Documento, CarpetaDocumento, Tarea, CambioDeVida, UserProfile, Departamento, TipoProducto,
     InfoPago, TarjetaCredito, CuentaBancaria, PolizaViewer, Cita, Medico, Medicamento, MedicoPoliza, Recordatorio,
     Contrato, ReporteComision, ConfiguracionComision, Notificacion, PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal, ConfiguracionNotificacion,
     IngresoEmpleador, DocumentoLegalCliente,
@@ -23,10 +23,17 @@ class FlatFileUploadSerializer(serializers.Serializer):
         return attrs
 
 
-def normalize_role(role):
-    return (role or '').strip().upper()
+class FlatPolicyBatchImportSerializer(serializers.Serializer):
+    headers = serializers.ListField(child=serializers.CharField(allow_blank=True), allow_empty=False)
+    rows = serializers.ListField(child=serializers.ListField(allow_empty=True), allow_empty=False)
+    start_row_index = serializers.IntegerField(required=False, min_value=1, default=2)
 
-AGENT_ROLES = {'ADMIN', 'MANAGER', 'ASISTENTE', 'SHERPA', 'PAGOS', 'CITAS'}
+
+from .roles import AGENT_LINK_ROLES, normalize_role, role_to_jwt_claim
+from .permissions import can_view_sensitive_data
+
+
+AGENT_ROLES = AGENT_LINK_ROLES
 
 
 def sync_profile_agente_credentials(profile):
@@ -62,18 +69,6 @@ def sync_profile_agente_credentials(profile):
     profile.save(update_fields=['agente'])
 
 
-def can_view_sensitive_data(request_user):
-    if not request_user or not request_user.is_authenticated:
-        return False
-    if request_user.is_superuser:
-        return True
-    try:
-        if hasattr(request_user, 'profile'):
-            return normalize_role(request_user.profile.role) in ['ADMIN', 'MANAGER', 'SHERPA']
-    except Exception:
-        pass
-    return False
-
 def get_request_user_role(serializer_instance):
     request = serializer_instance.context.get('request') if hasattr(serializer_instance, 'context') else None
     if not request or not hasattr(request, 'user'):
@@ -82,10 +77,16 @@ def get_request_user_role(serializer_instance):
     if not user or not user.is_authenticated:
         return None
     if user.is_superuser:
-        return 'ADMIN'
+        return 'SUPER_ADMIN'
     if hasattr(user, 'profile'):
-        return user.profile.role
+        return normalize_role(user.profile.role)
     return None
+
+class DepartamentoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Departamento
+        fields = ('id', 'codigo', 'nombre', 'descripcion', 'activo')
+
 
 class NotificacionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -115,7 +116,7 @@ class ProfileDataSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserProfile
-        fields = ('role', 'status', 'avatar', 'telefono', 'npn', 'ssn', 'cliente', 'agente', 'agente_npn', 'agente_ffm', 'settings')
+        fields = ('role', 'status', 'avatar', 'telefono', 'npn', 'ssn', 'cliente', 'agente', 'departamento', 'agente_npn', 'agente_ffm', 'settings')
 
     def get_agente_npn(self, obj):
         if obj.npn:
@@ -835,6 +836,8 @@ class PolizaListSerializer(serializers.ModelSerializer):
             'total_dependientes',
             'cliente_principal',
             'ultima_actualizacion',
+            'archivada',
+            'archivada_en',
         ]
 
     def get_estado_documento_display(self, obj):
@@ -919,6 +922,8 @@ class PolizaSerializer(serializers.ModelSerializer):
     estado_nombre = serializers.ReadOnlyField(source='estado.nombre')
     colaboradores_details = UserSerializer(source='colaboradores', many=True, read_only=True)
     active_viewers = serializers.SerializerMethodField()
+    presence = serializers.SerializerMethodField()
+    archivada_por_nombre = serializers.SerializerMethodField()
 
     # Address Details (fallback to main client addresses when policy addresses are empty)
     direccion_fisica_details = serializers.SerializerMethodField()
@@ -966,9 +971,14 @@ class PolizaSerializer(serializers.ModelSerializer):
             'medicamentos', 'medicos_principales', 'historial', 'recordatorios', 'transferencias',
             'request_user_role',
             'active_viewers',
+            'presence',
+            'archivada',
+            'archivada_en',
+            'archivada_por',
+            'archivada_por_nombre',
             'ultima_actualizacion', 'es_duplicado', 'ultimo_duplicado'
         ]
-        read_only_fields = ('agente_registro', 'agente_registro_nombre')
+        read_only_fields = ('agente_registro', 'agente_registro_nombre', 'archivada', 'archivada_en', 'archivada_por', 'archivada_por_nombre')
 
     def get_request_user_role(self, obj):
         return get_request_user_role(self)
@@ -1073,11 +1083,23 @@ class PolizaSerializer(serializers.ModelSerializer):
         return data
 
     def get_active_viewers(self, obj):
-        from django.utils import timezone
-        import datetime
-        threshold = timezone.now() - datetime.timedelta(seconds=60)
-        viewers = obj.viewers.filter(last_seen__gte=threshold)
-        return [v.usuario.username for v in viewers]
+        from .poliza_presence import get_active_viewers_queryset, serialize_viewer
+        return [serialize_viewer(v) for v in get_active_viewers_queryset(obj)]
+
+    def get_presence(self, obj):
+        request = self.context.get('request')
+        user = request.user if request and request.user.is_authenticated else None
+        if not user:
+            return None
+        from .poliza_presence import build_presence_response
+        return build_presence_response(obj, user)
+
+    def get_archivada_por_nombre(self, obj):
+        if not obj.archivada_por_id:
+            return None
+        user = obj.archivada_por
+        name = f'{user.first_name} {user.last_name}'.strip()
+        return name or user.username
 
     def get_otras_polizas(self, obj):
         main_applicant_link = (
@@ -1197,15 +1219,14 @@ class ZipCodeSerializer(serializers.Serializer):
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @staticmethod
     def _resolve_user_role(user):
-        # Superuser must always map to ADMIN for CRM access in frontend.
         if user.is_superuser:
-            return 'ADMIN'
+            return role_to_jwt_claim('SUPER_ADMIN')
         if hasattr(user, 'profile') and getattr(user.profile, 'role', None):
             role = normalize_role(user.profile.role)
             if role == 'USER' and getattr(user.profile, 'cliente_id', None):
-                return 'CLIENTE'
-            return role
-        return 'USER'
+                return role_to_jwt_claim('CLIENTE')
+            return role_to_jwt_claim(role)
+        return role_to_jwt_claim('USER')
 
     @classmethod
     def _attach_access_claims(cls, access, user):

@@ -29,6 +29,9 @@ import { MedicosMedicamentosSection } from '@/components/polizas/MedicosMedicame
 import { StatusBadge } from '@/components/polizas/polizaStatusUtils';
 import { CopyableValue } from '@/components/polizas/CopyableValue';
 import type { OtraPoliza } from '@/types/polizas';
+import { PolizaEditLockProvider, usePolizaEditLock } from '@/components/polizas/PolizaEditLockContext';
+import { PolizaPresenceBar } from '@/components/polizas/PolizaPresenceBar';
+import { PolizaArchiveActions } from '@/components/polizas/PolizaArchiveActions';
 
 const EFFECTIVE_YEARS = [2026, 2025, 2024] as const;
 
@@ -74,7 +77,7 @@ const formatCurrency = (amount: string | number) => {
   }).format(numAmount);
 };
 
-export default function PolizaDetailsPage() {
+function PolizaDetailsContent() {
   const router = useRouter();
   const params = useParams();
   const { toast } = useToast();
@@ -183,6 +186,7 @@ export default function PolizaDetailsPage() {
   };
 
   const refreshPoliza = () => poliza.id && fetchPolizaById(poliza.id, { silent: true });
+  const { isReadOnly } = usePolizaEditLock();
 
   const esCotizacion = poliza ? polizaIsQuote(poliza) : false;
   const erroresEnvioPreview = poliza ? previewPolizaEnvioErrors(poliza) : [];
@@ -236,11 +240,14 @@ export default function PolizaDetailsPage() {
           </h1>
         </div>
         <div className="flex items-center gap-3">
+          {poliza.id && (
+            <PolizaArchiveActions polizaId={poliza.id} onChanged={refreshPoliza} />
+          )}
           {esCotizacion ? (
             <button
               type="button"
               onClick={handleEnviarPoliza}
-              disabled={enviandoPoliza}
+              disabled={enviandoPoliza || isReadOnly}
               title={
                 !puedeEnviarPoliza
                   ? 'Hay requisitos pendientes. Haz clic para ver el detalle.'
@@ -265,6 +272,10 @@ export default function PolizaDetailsPage() {
             <i className="fa-solid fa-magnifying-glass"></i> Buscar pólizas
           </button>
         </div>
+      </div>
+
+      <div className="mx-6 mt-3">
+        <PolizaPresenceBar />
       </div>
 
       {esCotizacion && erroresEnvioPreview.length > 0 && (
@@ -417,7 +428,7 @@ export default function PolizaDetailsPage() {
                   </div>
                   <div className="flex flex-wrap">
                     <div className="flex gap-2">
-                      <button className="items-center w-fit cursor-pointer justify-center rounded-md transition-colors py-2 font-medium text-primary bg-transparent hover:bg-slate-50 dark:hover:bg-slate-700 h-[30px] px-2 text-xs flex gap-2 border border-primary dark:border-primary/50" type="button" onClick={() => setIsBasicInfoModalOpen(true)}>
+                      <button className="items-center w-fit cursor-pointer justify-center rounded-md transition-colors py-2 font-medium text-primary bg-transparent hover:bg-slate-50 dark:hover:bg-slate-700 h-[30px] px-2 text-xs flex gap-2 border border-primary dark:border-primary/50 disabled:opacity-50 disabled:cursor-not-allowed" type="button" onClick={() => !isReadOnly && setIsBasicInfoModalOpen(true)} disabled={isReadOnly}>
                         <i className="fa-solid fa-edit"></i>Editar detalles del plan
                       </button>
                     </div>
@@ -800,5 +811,16 @@ export default function PolizaDetailsPage() {
         }}
       />
   </div>
+  );
+}
+
+export default function PolizaDetailsPage() {
+  const params = useParams();
+  const polizaId = params.id ? Number(params.id) : null;
+
+  return (
+    <PolizaEditLockProvider polizaId={polizaId}>
+      <PolizaDetailsContent />
+    </PolizaEditLockProvider>
   );
 }

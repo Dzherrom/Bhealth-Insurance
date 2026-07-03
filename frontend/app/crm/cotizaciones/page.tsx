@@ -215,7 +215,7 @@ export default function CotizacionesPage() {
 
         {/* Data Table */}
         <div className="bg-white dark:bg-[#1e293b] rounded-[16px] border border-[#f1f5f9] dark:border-[#334155] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] overflow-visible">
-          <div className="w-full overflow-x-auto pb-[150px]">
+          <div className="w-full overflow-x-auto">
             <table className="w-full border-collapse text-left min-w-[900px]">
               <thead>
                 <tr>

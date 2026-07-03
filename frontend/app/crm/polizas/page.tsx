@@ -7,6 +7,9 @@ import { Poliza, PolizaFilters } from '@/components/polizas/types';
 import { CrearPolizaModal } from '@/components/polizas/formularios/CrearPolizaModal';
 import { useAuthStore } from '@/store/authStore';
 import { StatusBadge, getEstadoDocumentoLabel, getEstadoPagoLabel } from '@/components/polizas/polizaStatusUtils';
+import { useToast } from '@/hooks/use-toast';
+import { usePermission } from '@/hooks/use-permission';
+import { polizasApi } from '@/lib/api';
 
 import {
   Search,
@@ -25,9 +28,13 @@ import {
   Archive,
   ArrowUpDown
 } from 'lucide-react';
+import { PagedNumberPagination } from '@/components/ui/paged-number-pagination';
 
 export default function PolizasPage() {
   const router = useRouter();
+  const { toast } = useToast();
+  const { isManagerOrAbove } = usePermission();
+  const canArchive = isManagerOrAbove;
   const { user, updateSelectedYears } = useAuthStore();
   const {
     polizas: polizasData,
@@ -51,6 +58,7 @@ export default function PolizasPage() {
 
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
 
   const fetchPolizasRef = useRef(fetchPolizas);
   useEffect(() => {
@@ -58,9 +66,13 @@ export default function PolizasPage() {
   }, [fetchPolizas]);
 
   useEffect(() => {
-    fetchPolizasRef.current({ effective_years: selectedYears.length > 0 ? selectedYears : undefined });
+    fetchPolizasRef.current({
+      effective_years: selectedYears.length > 0 ? selectedYears : undefined,
+      incluir_archivadas: showArchived ? '1' : undefined,
+      archivada: showArchived ? '1' : undefined,
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, pageSize, yearsString]);
+  }, [page, pageSize, yearsString, showArchived]);
 
   useEffect(() => {
     const handleClickOutside = () => setOpenDropdownId(null);
@@ -103,7 +115,30 @@ export default function PolizasPage() {
   };
 
   const handleRefresh = async () => {
-    await fetchPolizas({ effective_years: selectedYears });
+    await fetchPolizas({
+      effective_years: selectedYears.length > 0 ? selectedYears : undefined,
+      incluir_archivadas: showArchived ? '1' : undefined,
+      archivada: showArchived ? '1' : undefined,
+    });
+  };
+
+  const handleArchivePoliza = async (e: React.MouseEvent, polizaId: number) => {
+    e.stopPropagation();
+    setOpenDropdownId(null);
+    if (!window.confirm('¿Archivar esta póliza? Permanece en el sistema pero se oculta del listado principal.')) {
+      return;
+    }
+    try {
+      await polizasApi.archivar(polizaId);
+      toast({ title: 'Póliza archivada' });
+      await handleRefresh();
+    } catch (err) {
+      toast({
+        title: 'Error al archivar',
+        description: err instanceof Error ? err.message : 'No se pudo archivar',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleExport = () => {
@@ -209,7 +244,12 @@ export default function PolizasPage() {
 
           <div className="flex justify-between items-center text-[13px]">
             <label className="flex items-center gap-[8px] text-[#0f172a] dark:text-white font-medium cursor-pointer">
-              <input type="checkbox" /> View deleted ones
+              <input
+                type="checkbox"
+                checked={showArchived}
+                onChange={(e) => setShowArchived(e.target.checked)}
+              />
+              Ver archivadas
             </label>
             <div className="text-[#64748b] dark:text-gray-400 font-medium">Resultados: {filteredPolizas.length}</div>
           </div>
@@ -217,7 +257,7 @@ export default function PolizasPage() {
 
         {/* Data Table */}
         <div className="bg-white dark:bg-[#1e293b] rounded-[16px] border border-[#f1f5f9] dark:border-[#334155] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] overflow-visible">
-          <div className="w-full overflow-x-auto pb-[150px]">
+          <div className="w-full overflow-x-auto">
             <table className="w-full border-collapse text-left min-w-[900px]">
               <thead>
                 <tr>
@@ -324,9 +364,15 @@ export default function PolizasPage() {
                                 </button>
                               </li>
                               <li>
-                                <button className="w-full flex items-center gap-[12px] p-[10px_14px] bg-transparent border-none text-[13px] font-semibold text-[#ef4444] cursor-pointer hover:bg-[#fef2f2] text-left">
-                                  <Archive className="w-4 h-4 text-[#ef4444] shrink-0" /> Archive
-                                </button>
+                                {canArchive && !showArchived ? (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleArchivePoliza(e, poliza.id)}
+                                    className="w-full flex items-center gap-[12px] p-[10px_14px] bg-transparent border-none text-[13px] font-semibold text-[#ef4444] cursor-pointer hover:bg-[#fef2f2] text-left"
+                                  >
+                                    <Archive className="w-4 h-4 text-[#ef4444] shrink-0" /> Archivar
+                                  </button>
+                                ) : null}
                               </li>
                             </ul>
                           )}
@@ -342,11 +388,17 @@ export default function PolizasPage() {
         </div>
 
         {/* Pagination Info */}
-        <div className="flex justify-between items-center text-[13px] font-medium text-[#64748b] dark:text-gray-400 bg-white dark:bg-[#1e293b] p-[16px] rounded-[16px] border border-[#f1f5f9] dark:border-[#334155] shadow-[0_4px_6px_-1px_rgba(0,0,0,0.03)]">
+        <div className="flex flex-col gap-[12px] sm:flex-row sm:justify-between sm:items-center text-[13px] font-medium text-[#64748b] dark:text-gray-400 bg-white dark:bg-[#1e293b] p-[16px] rounded-[16px] border border-[#f1f5f9] dark:border-[#334155] shadow-[0_4px_6px_-1px_rgba(0,0,0,0.03)]">
           <span>Página {page} de {totalPages} &bull; Mostrando {filteredPolizas.length} resultados</span>
-          <div className="flex items-center gap-[8px]">
-            <button onClick={() => setPage(page - 1)} disabled={page <= 1 || isLoading} className="border border-[#e2e8f0] dark:border-[#334155] font-semibold text-[#475569] dark:text-gray-300 rounded-[8px] px-[12px] py-[6px] bg-white dark:bg-[#1e293b] hover:bg-[#f8fafc] dark:hover:bg-[#0f172a] dark:bg-[#0f172a] dark:hover:bg-[#0f172a] dark:bg-[#0f172a] disabled:opacity-50 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#e2e8f0]">Anterior</button>
-            <button onClick={() => setPage(page + 1)} disabled={page >= totalPages || isLoading} className="border border-[#e2e8f0] dark:border-[#334155] font-semibold text-[#475569] dark:text-gray-300 rounded-[8px] px-[12px] py-[6px] bg-white dark:bg-[#1e293b] hover:bg-[#f8fafc] dark:hover:bg-[#0f172a] dark:bg-[#0f172a] dark:hover:bg-[#0f172a] dark:bg-[#0f172a] disabled:opacity-50 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#e2e8f0]">Siguiente</button>
+          <div className="flex flex-wrap items-center gap-[8px]">
+            <button onClick={() => setPage(page - 1)} disabled={page <= 1 || isLoading} className="border border-[#e2e8f0] dark:border-[#334155] font-semibold text-[#475569] dark:text-gray-300 rounded-[8px] px-[12px] py-[6px] bg-white dark:bg-[#1e293b] hover:bg-[#f8fafc] dark:hover:bg-[#0f172a] disabled:opacity-50 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#e2e8f0]">Anterior</button>
+            <PagedNumberPagination
+              page={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              disabled={isLoading}
+            />
+            <button onClick={() => setPage(page + 1)} disabled={page >= totalPages || isLoading} className="border border-[#e2e8f0] dark:border-[#334155] font-semibold text-[#475569] dark:text-gray-300 rounded-[8px] px-[12px] py-[6px] bg-white dark:bg-[#1e293b] hover:bg-[#f8fafc] dark:hover:bg-[#0f172a] disabled:opacity-50 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#e2e8f0]">Siguiente</button>
           </div>
         </div>
 

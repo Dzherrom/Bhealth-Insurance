@@ -9,6 +9,8 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 import re
 
+from .roles import DEPARTMENT_CHOICES, ROLE_CHOICES
+
 class Agencia(models.Model):
     # Basic Info
     nombre = models.CharField(max_length=255, verbose_name="Nombre Agencia") # Internal/Display
@@ -353,6 +355,17 @@ class Poliza(models.Model):
     colaboradores = models.ManyToManyField(User, related_name='polizas_colaboracion', blank=True, verbose_name="Colaboradores")
     import_batch = models.ForeignKey(ImportBatch, on_delete=models.SET_NULL, null=True, blank=True, related_name='polizas')
 
+    archivada = models.BooleanField(default=False, verbose_name="Archivada")
+    archivada_en = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de archivado")
+    archivada_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='polizas_archivadas',
+        verbose_name="Archivada por",
+    )
+
     notas_comentarios = models.TextField(blank=True, null=True, verbose_name="Notas o Comentarios")
     info_medico_principal = models.TextField(blank=True, null=True, verbose_name="Información del Médico Principal")
     medico_especializacion = models.CharField(max_length=255, blank=True, null=True, verbose_name="Especialización del Médico")
@@ -411,24 +424,40 @@ class Licencia(models.Model):
     def __str__(self):
         return f"{self.agente} - {self.estado} ({self.anio})"
 
+
+class Departamento(models.Model):
+    """Departamento operativo de la agencia."""
+
+    codigo = models.CharField(max_length=30, choices=DEPARTMENT_CHOICES, unique=True)
+    nombre = models.CharField(max_length=120)
+    descripcion = models.TextField(blank=True, default='')
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "Departamento"
+        verbose_name_plural = "Departamentos"
+        ordering = ['nombre']
+
+    def __str__(self):
+        return self.nombre
+
+
 class UserProfile(models.Model):
-    ROLE_CHOICES = [
-        ('ADMIN', 'Admin'),
-        ('MANAGER', 'Manager'),
-        ('ASISTENTE', 'Asistente'),
-        ('SHERPA', 'Sherpa'),
-        ('PAGOS', 'Pagos'),
-        ('CITAS', 'Citas'),
-        ('CLIENTE', 'Cliente'),
-        ('USER', 'Usuario Básico'),
-    ]
     STATUS_CHOICES = [
         ('ACTIVE', 'Activo'),
         ('INACTIVE', 'Inactivo'),
         ('CANDIDATE', 'Candidato'),
     ]
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='USER')
+    role = models.CharField(max_length=30, choices=ROLE_CHOICES, default='USER')
+    departamento = models.ForeignKey(
+        Departamento,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='usuarios',
+        verbose_name="Departamento",
+    )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ACTIVE', verbose_name="Estatus")
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True, verbose_name="Avatar")
     telefono = models.CharField(max_length=20, null=True, blank=True, verbose_name="Teléfono")
@@ -714,8 +743,17 @@ class CuentaBancaria(models.Model):
         return f"{self.nombre_banco} - {self.titular_cuenta}"
 
 class PolizaViewer(models.Model):
+    MODE_VIEW = 'VIEW'
+    MODE_EDIT = 'EDIT'
+    MODE_CHOICES = [
+        (MODE_VIEW, 'Solo lectura'),
+        (MODE_EDIT, 'Editando'),
+    ]
+
     poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='viewers')
     usuario = models.ForeignKey(User, on_delete=models.CASCADE)
+    mode = models.CharField(max_length=10, choices=MODE_CHOICES, default=MODE_VIEW)
+    opened_at = models.DateTimeField(auto_now_add=True, verbose_name="Primera apertura")
     last_seen = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -855,8 +893,7 @@ class PolizaTransferencia(models.Model):
         return f"{self.poliza.id_mercado}: {self.de_rol} -> {self.a_rol}"
 
 class MatrizPermisoRol(models.Model):
-    ROLE_CHOICES = UserProfile.ROLE_CHOICES
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES)
+    role = models.CharField(max_length=30, choices=ROLE_CHOICES)
     modulo = models.CharField(max_length=100)
     accion = models.CharField(max_length=100)
     permitido = models.BooleanField(default=True)

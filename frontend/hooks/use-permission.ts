@@ -18,8 +18,10 @@ import {
   hasAnyPermission,
   hasAllPermissions,
   hasCRMAccess,
+  isSuperAdmin,
   type Permission,
 } from '@/lib/permissions';
+import { isDepartmentLead } from '@/lib/roles';
 import type { UserRole } from '@/types/auth';
 
 export interface UsePermissionReturn {
@@ -80,9 +82,9 @@ export function usePermission(): UsePermissionReturn {
 
     canAll: (permissions: Permission[]) => hasAllPermissions(isClient ? 'cliente' : role, permissions),
 
-    isAdmin: role === 'admin',
+    isAdmin: isSuperAdmin(role),
 
-    isManagerOrAbove: role === 'admin' || role === 'manager',
+    isManagerOrAbove: isSuperAdmin(role) || isDepartmentLead(role),
 
     isCRMUser: hasCRMAccess(role),
 

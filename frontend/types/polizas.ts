@@ -161,6 +161,14 @@ export interface PolizaResponse extends BaseEntity {
   notas?: Array<Record<string, unknown>>;
   documentos?: Array<Record<string, unknown>>;
   otras_polizas?: OtraPoliza[];
+  archivada?: boolean;
+  archivada_en?: string | null;
+  archivada_por?: number | null;
+  archivada_por_nombre?: string | null;
+  presence?: {
+    viewers: Array<{ user_id: number; display_name: string; mode: string }>;
+    can_edit: boolean;
+  };
   fecha_creacion?: string;
   fecha_modificacion?: string;
 }
@@ -195,6 +203,8 @@ export interface PolizaListResponse {
   total_dependientes?: number;
   ultima_actualizacion?: string;
   cliente_principal?: string;
+  archivada?: boolean;
+  archivada_en?: string | null;
   fecha_creacion?: string;
   fecha_inicio?: string;
   fecha_fin?: string;

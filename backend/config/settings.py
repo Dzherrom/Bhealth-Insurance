@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
-from decouple import config
+from decouple import Config, RepositoryEnv
 from datetime import timedelta
 import os
 import dj_database_url
@@ -19,6 +19,57 @@ from urllib.parse import urlparse
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# ------------------------------------------------------------------------------
+# Environment variables — edit backend/.env (copy from backend/.env.example).
+# python-decouple loads backend/.env when present; otherwise OS env vars (Render).
+# ------------------------------------------------------------------------------
+_ENV_FILE = BASE_DIR / '.env'
+if _ENV_FILE.is_file():
+    config = Config(RepositoryEnv(str(_ENV_FILE)))
+else:
+    from decouple import config  # noqa: E402 — falls back to process environment
+
+
+def _build_databases():
+    """
+    Priority:
+    1. DATABASE_URL (VPS, Render, production)
+    2. DB_NAME + DB_USER + … (optional local PostgreSQL without a URL)
+    3. SQLite file in backend/ (dev fallback when nothing is configured)
+    """
+    database_url = config('DATABASE_URL', default='').strip()
+    if database_url.startswith('postgres'):
+        host = (urlparse(database_url).hostname or '').lower()
+        ssl_require = host not in ('localhost', '127.0.0.1')
+        return {
+            'default': dj_database_url.config(
+                default=database_url,
+                conn_max_age=600,
+                conn_health_checks=True,
+                ssl_require=ssl_require,
+            )
+        }
+
+    db_name = config('DB_NAME', default='').strip()
+    if db_name:
+        return {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': db_name,
+                'USER': config('DB_USER', default='postgres'),
+                'PASSWORD': config('DB_PASSWORD', default=''),
+                'HOST': config('DB_HOST', default='localhost'),
+                'PORT': config('DB_PORT', default='5432'),
+                'OPTIONS': {'client_encoding': 'UTF8'},
+            }
+        }
+
+    return {
+        'default': dj_database_url.config(
+            default=f'sqlite:///{BASE_DIR / "db.sqlite3"}',
+        )
+    }
 
 
 # Quick-start development settings - unsuitable for production
@@ -126,37 +177,18 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-# Database
+# Database — configured via backend/.env (see .env.example)
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+DATABASES = _build_databases()
 
-_database_url = config('DATABASE_URL', default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}")
-_uses_postgres = _database_url.startswith('postgres')
-'''
-#RENDER DATABASE
-DATABASES = {
-    'default': dj_database_url.config(
-        default=_database_url,
-        conn_max_age=600,
-        conn_health_checks=True,
-        ssl_require=_uses_postgres,
-    )
-}
-
-'''
-#LOCAL DATABASE
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'bhealth_db',
-        'USER': 'postgres',
-        'PASSWORD': '1234',
-        'HOST': 'localhost',
-        'PORT': '5432',
-        'OPTIONS': {
-            'client_encoding': 'UTF8',
-        }
-    }
-}
+# HTTPS / reverse-proxy hardening when DEBUG=False (Nginx + Certbot on VPS)
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    _backend_url = config('BACKEND_PUBLIC_URL', default='')
+    if _backend_url.startswith('https'):
+        SESSION_COOKIE_SECURE = True
+        CSRF_COOKIE_SECURE = True
+        SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=True, cast=bool)
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -219,7 +251,6 @@ REST_FRAMEWORK.update({
     'DATETIME_INPUT_FORMATS': ['%m/%d/%Y %H:%M:%S', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S'],
 })
 
-from datetime import timedelta
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),

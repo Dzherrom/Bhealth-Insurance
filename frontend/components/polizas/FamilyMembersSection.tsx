@@ -38,6 +38,7 @@ import { FamilyMemberMigratoryModal } from './FamilyMemberMigratoryModal';
 import { FamilyMemberIngresoModal, type IngresoEmpleadorForm } from './FamilyMemberIngresoModal';
 import { SelectLegalDocumentModal, type DocumentoLegalLink } from './SelectLegalDocumentModal';
 import { Switch } from '@/components/ui/switch';
+import { usePolizaEditLock } from '@/components/polizas/PolizaEditLockContext';
 
 interface FamilyMembersSectionProps {
   poliza: any;
@@ -116,6 +117,7 @@ function DetailField({
 
 export function FamilyMembersSection({ poliza, onRefresh }: FamilyMembersSectionProps) {
   const { toast } = useToast();
+  const { isReadOnly } = usePolizaEditLock();
   const clientesInfo = poliza?.clientes_info || [];
 
   const [search, setSearch] = useState('');
@@ -163,12 +165,14 @@ export function FamilyMembersSection({ poliza, onRefresh }: FamilyMembersSection
   };
 
   const openCreate = () => {
+    if (isReadOnly) return;
     setSelectedMember(null);
     setFormMode('create');
     setFormModalOpen(true);
   };
 
   const openEdit = (member: any) => {
+    if (isReadOnly) return;
     setSelectedMember(member);
     setFormMode('edit');
     setFormModalOpen(true);
@@ -315,9 +319,10 @@ export function FamilyMembersSection({ poliza, onRefresh }: FamilyMembersSection
               Buscar contacto
             </button>
             <button
-              className="flex gap-2 items-center w-fit cursor-pointer justify-center rounded-md transition-colors py-1.5 font-medium bg-primary text-white hover:bg-primary/90 px-2 text-xs"
+              className="flex gap-2 items-center w-fit cursor-pointer justify-center rounded-md transition-colors py-1.5 font-medium bg-primary text-white hover:bg-primary/90 px-2 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
               type="button"
               onClick={openCreate}
+              disabled={isReadOnly}
             >
               <i className="fa-solid fa-plus" />
               Agregar miembro

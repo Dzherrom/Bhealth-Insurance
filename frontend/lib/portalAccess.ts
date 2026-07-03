@@ -1,4 +1,4 @@
-import type { UserRole } from '@/types/auth';
+import { CRM_ROLES, normalizeRoleClaim, hasCRMAccess } from '@/lib/roles';
 
 /** Perfiles del backend que pueden usar el portal si tienen cliente vinculado. */
 const PORTAL_PROFILE_ROLES = new Set(['CLIENTE', 'USER']);
@@ -21,6 +21,11 @@ export function isPortalProfileRole(role?: string | null): boolean {
 
 /** Determina si la cuenta puede usar el portal del cliente. */
 export function canAccessClientPortal(input: PortalAccessInput): boolean {
+  const employeeRole = normalizeRoleClaim(input.role || input.profileRole);
+  if (employeeRole && hasCRMAccess(employeeRole)) {
+    return false;
+  }
+
   if (hasLinkedCliente(input)) {
     return true;
   }
@@ -35,17 +40,12 @@ export function resolvePortalRole(input: PortalAccessInput): UserRole | null {
     return 'cliente';
   }
 
-  const normalized = (input.role || input.profileRole || '').trim().toLowerCase() as UserRole;
-  const crmRoles: UserRole[] = [
-    'admin',
-    'manager',
-    'asistente',
-    'sherpa',
-    'pagos',
-    'citas',
-  ];
+  const normalized = normalizeRoleClaim(input.role || input.profileRole);
+  if (normalized && CRM_ROLES.includes(normalized)) {
+    return normalized;
+  }
 
-  return crmRoles.includes(normalized) ? normalized : null;
+  return null;
 }
 
 export function getClientDashboardPath(): string {

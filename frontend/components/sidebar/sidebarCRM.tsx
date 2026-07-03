@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useSidebar } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
+import { canManageUsers, normalizeRoleClaim } from '@/lib/roles';
 import {
   Home,
   Users,
@@ -83,8 +84,9 @@ const SidebarCRM = ({ onItemClick }: SidebarCRMProps) => {
       ...group,
       items: group.items.filter((item) => {
         if (item.href === '/crm/users') {
-          const normalizedRole = role?.toUpperCase();
-          return normalizedRole === 'ADMIN' || normalizedRole === 'MANAGER';
+          const effectiveRole =
+            normalizeRoleClaim(role) ?? normalizeRoleClaim(user?.profile?.role);
+          return canManageUsers(effectiveRole);
         }
         return true;
       }),

@@ -3,7 +3,7 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, CalendarDays, Clock, Mail, Phone, Shield, User as UserIcon, Pencil } from 'lucide-react';
-import { agentesApi, resolveApiMediaUrl, usersApi } from '@/lib/api';
+import { agentesApi, departamentosApi, resolveApiMediaUrl, usersApi, type Departamento } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +21,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { AGENT_LINK_ROLES, CRM_ROLE_OPTIONS, ROLE_RANK, defaultDepartmentCodeForRole, roleLabel } from '@/lib/roles';
 import { useAuthStore } from '@/store/authStore';
 
 interface ApiUserProfile {
@@ -33,6 +34,7 @@ interface ApiUserProfile {
   agente?: number | null;
   agente_npn?: string | null;
   agente_ffm?: string | null;
+  departamento?: number | null;
 }
 
 interface ApiUser {
@@ -56,35 +58,28 @@ interface EditProfileForm {
   ssn: string;
   role: string;
   status: string;
+  departamento: number | null;
 }
 
-const AGENT_ROLES = new Set(['ADMIN', 'MANAGER', 'ASISTENTE', 'SHERPA', 'PAGOS', 'CITAS']);
+const AGENT_ROLES = AGENT_LINK_ROLES;
+const ROLE_OPTIONS = [...CRM_ROLE_OPTIONS, { value: 'USER', label: 'Usuario' }];
 
-const ROLE_OPTIONS = [
-  { value: 'ADMIN', label: 'Admin' },
-  { value: 'MANAGER', label: 'Manager' },
-  { value: 'ASISTENTE', label: 'Asistente' },
-  { value: 'SHERPA', label: 'Sherpa' },
-  { value: 'PAGOS', label: 'Pagos' },
-  { value: 'CITAS', label: 'Citas' },
-  { value: 'USER', label: 'Usuario' },
-];
+const resolveDepartamentoForRole = (
+  role: string,
+  departments: Departamento[],
+  current?: number | null,
+): number | null => {
+  const code = defaultDepartmentCodeForRole(role);
+  if (!code) return current ?? null;
+  const dept = departments.find((d) => d.codigo === code);
+  return dept?.id ?? current ?? null;
+};
 
 const STATUS_OPTIONS = [
   { value: 'ACTIVE', label: 'Activo' },
   { value: 'INACTIVE', label: 'Inactivo' },
   { value: 'CANDIDATE', label: 'Candidato' },
 ];
-
-const ROLE_RANK: Record<string, number> = {
-  ADMIN: 100,
-  MANAGER: 90,
-  ASISTENTE: 70,
-  SHERPA: 70,
-  PAGOS: 70,
-  CITAS: 70,
-  USER: 10,
-};
 
 const toBackendRole = (role?: string | null): string => {
   if (!role) return 'USER';
@@ -112,10 +107,7 @@ const formatDateTime = (value?: string | null) => {
   });
 };
 
-const mapRoleLabel = (role?: string) => {
-  if (!role) return 'Usuario';
-  return role.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
-};
+const mapRoleLabel = (role?: string) => roleLabel(role);
 
 const mapStatusLabel = (status?: string) => {
   if (!status) return 'Pendiente';
@@ -149,6 +141,7 @@ export default function UserDetailsPage() {
   const [agentPolizas, setAgentPolizas] = useState<any[]>([]);
   const [agentClientes, setAgentClientes] = useState<any[]>([]);
   const [loadingPortfolio, setLoadingPortfolio] = useState(false);
+  const [departments, setDepartments] = useState<Departamento[]>([]);
   const [form, setForm] = useState<EditProfileForm>({
     firstName: '',
     lastName: '',
@@ -158,6 +151,7 @@ export default function UserDetailsPage() {
     ssn: '',
     role: 'USER',
     status: 'ACTIVE',
+    departamento: null,
   });
 
   const fetchUser = async () => {
@@ -176,6 +170,7 @@ export default function UserDetailsPage() {
         ssn: typedData.profile?.ssn || '',
         role: typedData.profile?.role || 'USER',
         status: typedData.profile?.status || 'ACTIVE',
+        departamento: typedData.profile?.departamento ?? null,
       });
       setAgentNpn(typedData.profile?.npn || typedData.profile?.agente_npn || '');
       setAgentFfm(typedData.profile?.agente_ffm || '');
@@ -191,6 +186,10 @@ export default function UserDetailsPage() {
     fetchUser();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
+
+  useEffect(() => {
+    departamentosApi.list().then(setDepartments).catch(() => setDepartments([]));
+  }, []);
 
   useEffect(() => {
     const agenteId = user?.profile?.agente;
@@ -241,6 +240,12 @@ export default function UserDetailsPage() {
   );
 
   const displayAvatar = avatarPreview || resolveApiMediaUrl(user?.profile?.avatar) || undefined;
+
+  const departmentName = useMemo(() => {
+    const deptId = user?.profile?.departamento;
+    if (!deptId) return 'Sin asignar';
+    return departments.find((d) => d.id === deptId)?.nombre ?? 'Sin asignar';
+  }, [user?.profile?.departamento, departments]);
 
   const handleAvatarChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
@@ -299,6 +304,7 @@ export default function UserDetailsPage() {
           telefono: form.phone,
           npn: form.npn.trim() || null,
           ssn: form.ssn.trim() || null,
+          departamento: form.departamento,
         },
       } as any);
 
@@ -393,6 +399,14 @@ export default function UserDetailsPage() {
           </CardHeader>
           <CardContent>
             <p className="text-lg font-semibold">{mapRoleLabel(user.profile?.role || 'USER')}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Departamento</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-lg font-semibold">{departmentName}</p>
           </CardContent>
         </Card>
         <Card>
@@ -561,6 +575,11 @@ export default function UserDetailsPage() {
             </div>
             <Separator />
             <div className="space-y-1">
+              <p className="text-sm text-muted-foreground dark:text-gray-400">Departamento</p>
+              <p className="font-medium">{departmentName}</p>
+            </div>
+            <Separator />
+            <div className="space-y-1">
               <p className="text-sm text-muted-foreground dark:text-gray-400">Estado del perfil</p>
               <p className="font-medium">{mapStatusLabel(user.profile?.status)}</p>
             </div>
@@ -648,12 +667,40 @@ export default function UserDetailsPage() {
                 <select
                   id="role"
                   value={form.role}
-                  onChange={(e) => setForm((prev) => ({ ...prev, role: e.target.value }))}
+                  onChange={(e) => {
+                    const nextRole = e.target.value;
+                    setForm((prev) => ({
+                      ...prev,
+                      role: nextRole,
+                      departamento: resolveDepartamentoForRole(nextRole, departments, prev.departamento),
+                    }));
+                  }}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
                   {allowedRoleOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="departamento">Departamento</Label>
+                <select
+                  id="departamento"
+                  value={form.departamento ?? ''}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      departamento: e.target.value ? Number(e.target.value) : null,
+                    }))
+                  }
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Sin asignar</option>
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.id}>
+                      {dept.nombre}
                     </option>
                   ))}
                 </select>

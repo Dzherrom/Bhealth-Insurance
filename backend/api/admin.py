@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, Poliza, PolizaCliente, EstadoPoliza, Licencia, UserProfile, Nota, HistorialPoliza, Etiqueta, Documento, Tarea, CambioDeVida, PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal
+from .models import Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, Poliza, PolizaCliente, EstadoPoliza, Licencia, UserProfile, Nota, HistorialPoliza, Etiqueta, Documento, Tarea, CambioDeVida, PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal, Departamento
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
 
@@ -40,3 +40,4 @@ admin.site.register(Licencia)
 admin.site.register(PolizaTransferencia)
 admin.site.register(MatrizPermisoRol)
 admin.site.register(AuditoriaGlobal)
+admin.site.register(Departamento)

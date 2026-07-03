@@ -73,9 +73,13 @@ function hasRoleSessionCookie(ctx) {
 
 
 function canAccessCRM(role) {
-
-  return ['admin', 'manager', 'asistente', 'sherpa', 'pagos', 'citas'].includes(role);
-
+  const normalized = (role || '').trim().toLowerCase();
+  const crmRoles = [
+    'super_admin', 'led', 'client_support', 'gestion_resolucion',
+    'health_sherpa', 'agente', 'cobranza', 'recuperacion', 'recepcion', 'soporte_cliente',
+    'admin', 'manager', 'asistente', 'sherpa', 'pagos', 'citas',
+  ];
+  return crmRoles.includes(normalized);
 }
 
 

@@ -263,6 +263,7 @@ class ImportSummary:
     created_dependents: int = 0
     updated_dependents: int = 0
     errors: Optional[List[str]] = None
+    imported_policies: Optional[List[Dict[str, object]]] = None
 
     def to_dict(self) -> Dict[str, object]:
         return {
@@ -272,6 +273,7 @@ class ImportSummary:
             "created_dependents": self.created_dependents,
             "updated_dependents": self.updated_dependents,
             "errors": self.errors or [],
+            "imported_policies": self.imported_policies or [],
         }
 
 
@@ -291,19 +293,26 @@ class FlatPolicyFileService:
 
     def import_file(self, file_obj) -> ImportSummary:
         headers, rows = self._read_file(file_obj)
-        summary = ImportSummary(errors=[])
+        return self.import_rows(headers, rows)
 
-        with transaction.atomic():
-            for row_index, row in enumerate(rows, start=2):
-                if not any(_clean(value) for value in row):
-                    continue
+    def import_rows(
+        self,
+        headers: Sequence[str],
+        rows: Sequence[Sequence[object]],
+        start_row_index: int = 2,
+    ) -> ImportSummary:
+        summary = ImportSummary(errors=[], imported_policies=[])
 
-                summary.processed_rows += 1
-                try:
-                    with transaction.atomic():
-                        self._import_row(headers=headers, row=row, summary=summary)
-                except Exception as exc:  # noqa: BLE001
-                    summary.errors.append(f"Fila {row_index}: {exc}")
+        for row_index, row in enumerate(rows, start=start_row_index):
+            if not any(_clean(value) for value in row):
+                continue
+
+            summary.processed_rows += 1
+            try:
+                with transaction.atomic():
+                    self._import_row(headers=headers, row=row, summary=summary, row_index=row_index)
+            except Exception as exc:  # noqa: BLE001
+                summary.errors.append(f"Fila {row_index}: {exc}")
 
         return summary
 
@@ -398,7 +407,13 @@ class FlatPolicyFileService:
                     return value
         return ""
 
-    def _import_row(self, headers: Sequence[str], row: Sequence[object], summary: ImportSummary) -> None:
+    def _import_row(
+        self,
+        headers: Sequence[str],
+        row: Sequence[object],
+        summary: ImportSummary,
+        row_index: int = 0,
+    ) -> None:
         base_headers = list(headers[:BASE_COLUMNS_COUNT])
         if len(base_headers) < BASE_COLUMNS_COUNT:
             base_headers.extend([""] * (BASE_COLUMNS_COUNT - len(base_headers)))
@@ -480,6 +495,11 @@ class FlatPolicyFileService:
             summary.created_policies += 1
         else:
             summary.updated_policies += 1
+
+        if summary.imported_policies is not None:
+            brief = self._policy_import_brief(policy, "created" if created_policy else "updated")
+            brief["row_index"] = row_index
+            summary.imported_policies.append(brief)
 
         PolizaCliente.objects.update_or_create(
             poliza=policy,
@@ -684,6 +704,38 @@ class FlatPolicyFileService:
 
         policy.save()
         return policy, created
+
+    def _policy_import_brief(self, policy: Poliza, action: str) -> Dict[str, object]:
+        principal_name = ""
+        principal_link = (
+            policy.polizacliente_set.select_related("cliente")
+            .filter(es_solicitante_principal=True)
+            .first()
+        )
+        if principal_link and principal_link.cliente:
+            client = principal_link.cliente
+            principal_name = " ".join(
+                part
+                for part in [
+                    client.primer_nombre,
+                    client.segundo_nombre,
+                    client.apellido_paterno,
+                    client.apellido_materno,
+                ]
+                if part
+            )
+
+        return {
+            "id": policy.id,
+            "id_mercado": policy.id_mercado,
+            "id_miembro": policy.id_miembro,
+            "cliente_principal": principal_name,
+            "agente_nombre": policy.agente.nombre_completo if policy.agente_id else "",
+            "estado_nombre": policy.estado.nombre if policy.estado_id else "",
+            "fecha_efectiva": _format_date(policy.fecha_efectiva),
+            "total_aplicantes": policy.total_aplicantes or 0,
+            "action": action,
+        }
 
     def _build_base_export_row(self, policy: Poliza) -> List[object]:
         principal_link = (

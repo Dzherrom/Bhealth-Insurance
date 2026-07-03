@@ -1,136 +1,141 @@
-                                    Roles y Permisos
+# Roles y Permisos — BHealth Insurance
 
+Arquitectura alineada con los 8 departamentos operativos y los niveles de acceso del ecosistema CRM + Portal Cliente.
 
-ROL 1: ADMIN
+## Departamentos
 
-CONTROL TOTAL DEL SISTEMA
+| Código | Nombre | Función |
+|--------|--------|---------|
+| `RECEPCION` | Recepción | Canalización de llamadas entrantes |
+| `SOPORTE_CLIENTE` | Soporte al Cliente | Retención y seguimiento proactivo |
+| `GESTION_RESOLUCION` | Gestión y Resolución | Bills, incidencias y citas |
+| `AREA_COMERCIAL` | Área Comercial | Ventas nuevas y alta de cuentas cliente |
+| `HEALTH_SHERPA` | Health Sherpa | Inscripción/cambios en marketplace federal |
+| `AGENTES` | Agentes | Inscripciones telefónicas fuera de web |
+| `COBRANZA` | Cobranza | Pagos y fechas de cobro |
+| `RECUPERACION` | Recuperación | Rescate de cartera cancelada/en riesgo |
 
-●	Control de Accesos: Administración total de usuarios, asignación de departamentos y capacidad de finalizar sesiones activas de forma remota por seguridad.
+## Roles del sistema
 
-●	Creador de Roles Dinámicos: Facultad de configurar nuevos perfiles de usuario mediante un Selector de Permisos Granulares (Matriz de Checkboxes).
+| Rol backend | Claim JWT | Departamento por defecto | Descripción |
+|-------------|-----------|--------------------------|-------------|
+| `SUPER_ADMIN` | `super_admin` | — | Control total del sistema |
+| `LED` | `led` | — | Coordinador de departamento |
+| `CLIENT_SUPPORT` | `client_support` | Área Comercial | Captación e inscripción comercial |
+| `GESTION_RESOLUCION` | `gestion_resolucion` | Gestión y Resolución | Citas y postventa |
+| `HEALTH_SHERPA` | `health_sherpa` | Health Sherpa | Sometimiento técnico en marketplace |
+| `AGENTE` | `agente` | Agentes | Procesamiento telefónico |
+| `COBRANZA` | `cobranza` | Cobranza | Conciliación de pagos |
+| `RECUPERACION` | `recuperacion` | Recuperación | Reactivación de cartera |
+| `RECEPCION` | `recepcion` | Recepción | Recepción de llamadas |
+| `SOPORTE_CLIENTE` | `soporte_cliente` | Soporte al Cliente | Retención de clientes |
 
-●	Configuración de Integraciones: Gestión de llaves API y Webhooks para la comunicación con plataformas externas).
+### Migración desde roles legacy
 
-●	Auditoría (Audit Trail): Acceso al historial detallado que registra "Quién, qué, cómo y cuándo" se modificó un dato. Incluye el rastreo de inicios de sesión y logs de errores de entrada.
+| Legacy | Nuevo |
+|--------|-------|
+| `ADMIN` | `SUPER_ADMIN` |
+| `MANAGER` | `LED` |
+| `ASISTENTE` | `CLIENT_SUPPORT` |
+| `SHERPA` | `HEALTH_SHERPA` |
+| `PAGOS` | `COBRANZA` |
+| `CITAS` | `GESTION_RESOLUCION` |
 
-●	Exportación Maestra: Permiso para exportar la base de datos completa con todos los metadatos y campos técnicos en formatos .xlsx
+Fuente de verdad en código: `backend/api/roles.py` y `frontend/lib/roles.ts`.
 
-●	Personalización del Dashboard: Facultad de modificar la interfaz global (añadir/quitar columnas) según las necesidades de la temporada de registros.
+---
 
-●	Centro de Mensajería Global: Editor de Anuncios Prioritarios (Banners) con capacidad de segmentación (elegir qué departamentos ven el aviso).
+## SUPER ADMIN
 
-●	Gestión de Notificaciones Masivas: Envío de alertas técnicas a todo el personal (ej. "Mantenimiento del sistema en 10 minutos").
+Control total y privilegios globales sobre la configuración de la agencia.
 
+- **Control de accesos:** usuarios, departamentos, cierre remoto de sesiones, historial de accesos
+- **Seguridad (planificado):** 2FA obligatorio, bloqueo horario, restricción IP/VPN, timeout de inactividad
+- **Creador de roles dinámicos:** plantillas desde roles existentes + matriz granular (UI pendiente)
+- **Auditoría:** registro de quién, qué, cómo y cuándo
+- **Exportación maestra:** Excel con todos los campos y metadatos
+- **Centro global de mensajería:** banners y notificaciones masivas segmentadas por departamento
 
+---
 
-ROL 2: MANAGER (Líder de Departamento)
-          SUPERVISIÓN OPERATIVA Y GESTIÓN DE FLUJO
-●	Visibilidad Departamental: Capacidad de ver todas las pólizas del sistema, pero con filtros automáticos priorizados según su área (ej. el Manager de Pagos ve primero lo pendiente de cobro, o ve todas las pólizas que tengan una prima).
+## LED (Coordinador de Departamento)
 
-●	Edición de Campos Protegidos: Permiso exclusivo para corregir datos críticos (SSN, Ingresos, Fecha de Nacimiento) que están bloqueados para los Asistentes.
+- Visibilidad de todas las pólizas con priorización departamental
+- Asignación y reequilibrio de trabajo entre el equipo
+- Puntos de experiencia a usuarios bajo supervisión
+- Notificaciones visibles solo para su departamento
+- Edición de campos sensibles (SSN, ingresos, etc.)
+- Acciones masivas y archivado/desarchivado
 
-●	Asignación y Reequilibrio: Capacidad de mover pólizas entre usuarios de su equipo para evitar cuellos de botella.
+---
 
-●	Acciones Masivas: Cambiar el estatus de hasta 50 pólizas simultáneamente (ej. marcar como "CANCELADO a NEW" en bloque).
+## CLIENT SUPPORT (Área Comercial)
 
-●	Archivar y Desarchivar Pólizas: Permiso para Archivar y Desarchivar pólizas de manera individual o masiva 
+- Acompañamiento en tiempo real del llenado de formularios
+- Cartera propia (solo clientes creados por el asistente)
+- Bloqueo de impresión en páginas sensibles
+- Sin acceso a SSN, cuentas bancarias completas ni descarga de documentos
 
-●	Pase de entrega (Transferencia): Botón para aprobar el trabajo de su departamento y enviarlo formalmente al siguiente nivel del flujo.
+---
 
-●	Audit Trail Departamental (Historial de Cambios): Permiso para consultar quién de su equipo o otro departamento realizó la última modificación en una póliza específica. Esto permite identificar errores de capacitación sin necesidad de llamar al Admin.
+## GESTIÓN Y RESOLUCIÓN
 
-●	Poder de dar puntos de experiencias por un buen trabajo realizado a los usuarios bajo su responsabilidad.
+- Gestión de calendario: crear, modificar y reprogramar citas
+- Estatus de citas: Confirmada, Realizada, Cancelada
+- Recordatorios automáticos (SMS, email, app)
+- **Restricción:** no modifica información de la cuenta del cliente
 
-●	Permiso para escribir un texto en un banner que solo su equipo pueda ver como por ejemplo: “Recuerden terminar los cambios de vida”
+---
 
-            ROL 3: ASISTENTE (Ventas e Inscripción)
+## HEALTH SHERPA y AGENTES
 
-            CAPTACIÓN DE CLIENTES Y GESTIÓN
+- Cambio de estatus de pólizas (solo estatus permitidos por Super Admin)
+- Gestión documental: carga/descarga para plataformas gubernamentales
+- Asignación de FFM ID
+- Visibilidad por NPN (solo pólizas asociadas a su NPN)
+- Sin creación de prospectos ni contacto directo con cliente (Sherpa)
 
-●	Creación de Prospectos: Permiso para dar de alta a nuevos clientes en la plataforma y generar los enlaces de invitación para que el cliente cree su cuenta.
+---
 
-●	Acompañamiento en el Registro: Capacidad de visualizar en tiempo real el progreso de los formularios que el cliente está llenando para asistirlo telefónicamente si se detiene en algún paso.
+## COBRANZA
 
-●	Gestión de Cartera Propia: Acceso exclusivo a la lista de clientes que él mismo ha creado, asegurando la privacidad entre asistente de ventas.
+- Estatus de pago: Paid, Pending Payment, Missed Payment
+- Carga de evidencias y comprobantes
+- Historial financiero (notas de pagos)
+- **Restricción:** solo maneja estatus de pagos, no datos personales
 
-●	Comunicación Directa: Permiso para enviar recordatorios automáticos (vía app o notificaciones) a clientes que tienen formularios incompletos.
+---
 
-●	Validación de Etapa en Vivo (Live Checkpoint): Capacidad de recibir y procesar solicitudes de verificación instantáneas enviadas por el cliente desde la app. El asistente actúa como el "filtro de seguridad" que desbloquea el siguiente módulo del formulario una vez confirmada la veracidad de los datos.
+## RECUPERACIÓN, RECEPCIÓN, SOPORTE AL CLIENTE
 
-●	Supervisión de Sesión Activa: Permiso para visualizar el progreso del cliente en tiempo real, permitiendo identificar en qué campo exacto se encuentra el usuario durante la llamada, si es de ser necesario.
+Roles operativos con visibilidad global de pólizas (según matriz) y funciones específicas de su departamento.
 
-●	Campos Sensibles Bloqueados: No puede ver el SSN, CUENTAS BANCARIAS completo ni editar el Campo una vez que la póliza ha sido creada
+---
 
-●	Botón de "Sugerir Corrección": En lugar de editar el dato directamente, el asistente tiene un botón para enviarle una notificación al cliente: "Tu asistente sugiere corregir el campo Apellido", y es el cliente quien realiza el cambio en su propia cuenta.
+## Presencia y bloqueo de edición
 
-●	Prohibición de Descarga (Download Block): El asistente tiene estrictamente restringida la descarga de cualquier archivo o documento subido por el cliente a la plataforma (IDs, comprobantes de ingresos, declaraciones de impuestos, etc.). Solo puede visualizarlo
+- `GET/POST/DELETE /api/polizas/{id}/presence/` — usuarios en línea y bloqueo de edición
+- Un solo editor por póliza (timeout 10 min); los demás ven solo lectura
+- Heartbeat cada 30 s desde el frontend al abrir el detalle
 
-●	Bloqueo de Impresión: La función de impresión del navegador estará restringida para las páginas que contengan documentación e información sensible del cliente.
+## Archivado (sin eliminación)
 
+- `POST /api/polizas/{id}/archivar/` — Super Admin / LED
+- `POST /api/polizas/{id}/desarchivar/`
+- `POST /api/polizas/archivar_lote/` — `{ "ids": [1,2,3] }`
+- `DELETE /api/polizas/{id}/` → **405** (no hay borrado permanente)
+- Listado excluye archivadas por defecto; `?archivada=1` o checkbox «Ver archivadas»
 
 
+## Implementación técnica
 
-ROL 4: SHERPA
-PROCESAMIENTO TÉCNICO Y SOMETIMIENTO (ENLACE CON EL MERCADO)
-●	Sincronización con el Mercado de Salud: Tiene el permiso para realizar el "Submit" (Sometimiento) de la póliza en las plataformas oficiales utilizando los datos del formulario del cliente.
-
-●	Gestión de Estatus: Es el único autorizado para actualizar el estatus técnico de la póliza en el sistema (ej. Submitted, Pending Effectuation, Active, Canceled, etc).
-
-●	Descarga y Transmisión de Documentación: A diferencia del Asistente, el Sherpa sí puede descargar los documentos (IDs, ingresos) para subirlos a las plataformas del gobierno para su verificación de la póliza
-
-●	Asignación de FFM ID y NPN: Debe ingresar el número de folio oficial que genera el gobierno una vez que la póliza es aceptada.
-
-●	Corrección de Datos Técnicos: Puede editar campos que el Mercado de Salud exija corregir (ej. códigos postales, dirección o corrección de nombres etc).
-
-●	Reporte de Errores al Asistente: Si detecta que un expediente está mal, tiene un botón para "Rechazar y Devolver" la póliza al Asistente con una nota explicativa (ej. "Documento de identidad borroso").
-
-●	Creación de Clientes Nuevos: No puede dar de alta prospectos. Su trabajo comienza únicamente cuando recibe un expediente del departamento de Asistentes.
-
-●	Contacto Directo con el Cliente: No tiene acceso a las herramientas de llamada o chat con el cliente; si falta información, debe pedirla a través del Asistente o el Manager.
-
-●	Gestión de Citas: No tiene acceso al módulo de citas médicas, ya que su labor termina cuando la póliza queda legalmente inscrita.
-
-●	Borrado de Registros: Al igual que los demás roles operativos, no puede eliminar pólizas del sistema, solo cambiar su estatus a "Cancelado" o "Inactivo”.
-
-●	Controla y hace seguimiento a las pólizas que tenga asignado por el NPN para cualquier cambio
-
-
-
-ROL 5: PAGOS
-          CONCILIACIÓN FINANCIERA Y SEGUIMIENTO DE EFECTUACIÓN
-●	Gestión de Estatus de Pago: Permiso para marcar pólizas como "Paid" (Pagada), "Pending Payment" (Pago Pendientel) o "Missed Payment" (Pago Fallido).
-
-●	Carga de Comprobantes de Pago: Puede subir capturas de pantalla o recibos de pago que el cliente envíe para demostrar que ya realizó su depósito.
-
-●	Historial Financiero: Permiso para escribir notas en el registro del cliente relacionadas exclusivamente con su historial de pagos (ej. "Cliente solicitó cambio de fecha de cobro").
-
-●	Generación de Alertas de Cancelación: Botón para marcar pólizas en riesgo de ser canceladas por el Mercado de Salud debido a falta de pago, enviando una alerta a la cuenta del cliente.
-
-●	Editar Datos Personales: No tiene permiso para cambiar nombres, SSN o ingresos del cliente. Si detecta un error, debe reportarlo al Manager.
-
-ROL 6: CITAS
-GESTIÓN DE SERVICIOS MÈDICOS Y ATENCIÓN POST-VENTA
-
-●	Gestión de Calendario: Capacidad de ver, crear y modificar citas médicas o administrativas solicitadas por el cliente a través de la app.
-
-●	Confirmación de Citas: Permiso para marcar una cita como "Confirmada", "Realizada" o "Cancelada".
-
-●	Envío de Recordatorios: Botón para enviar notificaciones automáticas (SMS, Email o Push) al cliente con los detalles de su próxima cita.
-
-●	Visualización de Estatus de Póliza: Puede ver si la póliza está "Active (Effectuated)" para asegurar que el cliente tenga cobertura antes de confirmar la cita.
-
-●	Notas de Seguimiento: Registro de comentarios sobre la cita (ej. "Cliente requiere traductor", "Cita movida por solicitud del médico").
-
-●	Editar Datos: No tienen permiso de editar cualquier información de la cuenta del cliente.
-
-
-
-
-“Recomendación, que no tiene nada que ver con los roles” 
-- Cada usuario que pueda ver quien esta en linea en una póliza para asi saber quien esta trabajando en esa póliza
-- evitar espacios extras en las casillas
--verificación de la cuenta del cliente mediante una verificación KYC:En resumen, el término técnico que buscas es verificación facial o verificación biométrica facial, y es la técnica que combina tu selfie o imagen con tu documento de identidad para confirmar tu identidad.
-
-
-
-
+| Capa | Archivo |
+|------|---------|
+| Backend roles | `backend/api/roles.py` |
+| Permisos DRF | `backend/api/permissions.py` |
+| Modelo departamento | `backend/api/models.py` → `Departamento` |
+| Migración | `backend/api/migrations/0074_roles_departamentos.py` |
+| API departamentos | `GET /api/departamentos/` |
+| Frontend roles | `frontend/lib/roles.ts` |
+| Permisos UI | `frontend/lib/permissions.ts` |
+| Matriz dinámica | `MatrizPermisoRol` (tabla en BD) |

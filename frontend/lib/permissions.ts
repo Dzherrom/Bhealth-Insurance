@@ -1,85 +1,121 @@
 /**
  * Sistema de permisos basado en roles (RBAC).
- *
- * Fuente de verdad: Task_roles.md — Matriz de Cumplimiento por Rol.
- * El rol del usuario se obtiene del claim `role` en el JWT access token.
+ * Alineado con la arquitectura operativa BHealth Insurance.
  */
 
 import type { UserRole } from '@/types/auth';
+import {
+  CRM_ROLES,
+  hasCRMAccess as rolesHasCRMAccess,
+  isSuperAdmin,
+  USER_ADMIN_ROLES,
+} from '@/lib/roles';
 
-// ===============================
-// PERMISOS DISPONIBLES
-// ===============================
-
-/**
- * Claves de permiso del sistema. Cada clave representa una funcionalidad
- * descrita en la Matriz de Cumplimiento (Task_roles.md).
- */
 export type Permission =
-  /** Administración Global: gestión de usuarios, roles y configuración del sistema */
   | 'admin_global'
-  /** Configuración de API y Webhooks */
   | 'config_api_webhooks'
-  /** Edición de datos sensibles: SSN, fecha de nacimiento, datos bancarios */
+  | 'manage_users'
+  | 'manage_departments'
+  | 'audit_trail'
+  | 'master_export'
+  | 'global_messaging'
   | 'edit_sensitive_data'
-  /** Acciones masivas sobre pólizas (hasta 50) */
   | 'bulk_actions'
-  /** Creación de prospectos y nuevos clientes */
+  | 'assign_workload'
+  | 'dept_notifications'
   | 'create_prospects'
-  /** Descarga de documentos técnicos de pólizas */
+  | 'live_form_monitoring'
+  | 'own_portfolio_only'
+  | 'block_print'
   | 'download_docs'
-  /** Conciliación de pagos y carga de comprobantes */
+  | 'policy_status_change'
+  | 'assign_ffm_id'
+  | 'npn_scoped_policies'
   | 'payment_reconciliation'
-  /** Gestión de calendario y citas */
+  | 'payment_evidence_upload'
   | 'manage_calendar'
-  /** Lectura del estatus de póliza (vista CRM) */
+  | 'appointment_status'
+  | 'portfolio_recovery'
   | 'read_policy_status'
-  /** Lectura de la póliza propia (portal del cliente) */
   | 'read_own_policy';
 
-// ===============================
-// MATRIZ DE PERMISOS POR ROL
-// ===============================
-
-/**
- * Define exactamente qué puede hacer cada rol.
- * Basado en Task_roles.md — Sección 1: Matriz de Cumplimiento por Rol.
- */
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
-  admin: [
+  super_admin: [
     'admin_global',
     'config_api_webhooks',
+    'manage_users',
+    'manage_departments',
+    'audit_trail',
+    'master_export',
+    'global_messaging',
+    'edit_sensitive_data',
+    'bulk_actions',
+    'assign_workload',
+    'dept_notifications',
+    'create_prospects',
+    'live_form_monitoring',
+    'download_docs',
+    'policy_status_change',
+    'assign_ffm_id',
+    'payment_reconciliation',
+    'payment_evidence_upload',
+    'manage_calendar',
+    'appointment_status',
+    'portfolio_recovery',
+    'read_policy_status',
+  ],
+  led: [
+    'manage_users',
+    'assign_workload',
+    'dept_notifications',
     'edit_sensitive_data',
     'bulk_actions',
     'create_prospects',
     'download_docs',
+    'policy_status_change',
     'payment_reconciliation',
     'manage_calendar',
     'read_policy_status',
   ],
-  manager: [
-    'edit_sensitive_data',
-    'bulk_actions',
+  client_support: [
     'create_prospects',
-    'download_docs',
-    'payment_reconciliation',
+    'live_form_monitoring',
+    'own_portfolio_only',
+    'block_print',
+    'read_policy_status',
+  ],
+  gestion_resolucion: [
     'manage_calendar',
+    'appointment_status',
     'read_policy_status',
   ],
-  asistente: [
-    'create_prospects',
-    'read_policy_status',
-  ],
-  sherpa: [
+  health_sherpa: [
     'download_docs',
+    'policy_status_change',
+    'assign_ffm_id',
+    'npn_scoped_policies',
     'read_policy_status',
   ],
-  pagos: [
+  agente: [
+    'download_docs',
+    'policy_status_change',
+    'assign_ffm_id',
+    'npn_scoped_policies',
+    'read_policy_status',
+  ],
+  cobranza: [
     'payment_reconciliation',
+    'payment_evidence_upload',
     'read_policy_status',
   ],
-  citas: [
-    'manage_calendar',
+  recuperacion: [
+    'portfolio_recovery',
+    'read_policy_status',
+  ],
+  recepcion: [
+    'read_policy_status',
+  ],
+  soporte_cliente: [
     'read_policy_status',
   ],
   cliente: [
@@ -87,62 +123,27 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
 };
 
-// ===============================
-// MAPEO DE RUTAS A ROLES
-// ===============================
+export { CRM_ROLES };
+export const CONFIG_ROLES: UserRole[] = ['super_admin'];
+export const USERS_ADMIN_ROLES: UserRole[] = USER_ADMIN_ROLES;
 
-/** Roles con acceso al panel CRM (cualquier sección) */
-export const CRM_ROLES: UserRole[] = [
-  'admin',
-  'manager',
-  'asistente',
-  'sherpa',
-  'pagos',
-  'citas',
-];
-
-/** Roles que pueden acceder a la sección de Configuraciones */
-export const CONFIG_ROLES: UserRole[] = ['admin'];
-
-/** Roles que pueden acceder a la sección de Usuarios */
-export const USERS_ADMIN_ROLES: UserRole[] = ['admin'];
-
-// ===============================
-// FUNCIONES HELPER
-// ===============================
-
-/**
- * Verifica si un rol tiene un permiso específico.
- * @param role - Rol del usuario autenticado.
- * @param permission - Clave del permiso a verificar.
- * @returns `true` si el rol tiene el permiso, `false` en caso contrario.
- */
 export function hasPermission(role: UserRole | null | undefined, permission: Permission): boolean {
   if (!role) return false;
   return ROLE_PERMISSIONS[role]?.includes(permission) ?? false;
 }
 
-/**
- * Verifica si un rol tiene AL MENOS UNO de los permisos indicados.
- * Útil para mostrar secciones accesibles por múltiples permisos.
- */
 export function hasAnyPermission(role: UserRole | null | undefined, permissions: Permission[]): boolean {
   if (!role) return false;
   return permissions.some((p) => hasPermission(role, p));
 }
 
-/**
- * Verifica si un rol tiene TODOS los permisos indicados.
- */
 export function hasAllPermissions(role: UserRole | null | undefined, permissions: Permission[]): boolean {
   if (!role) return false;
   return permissions.every((p) => hasPermission(role, p));
 }
 
-/**
- * Verifica si el rol tiene acceso al panel CRM.
- */
 export function hasCRMAccess(role: UserRole | null | undefined): boolean {
-  if (!role) return false;
-  return CRM_ROLES.includes(role);
+  return rolesHasCRMAccess(role);
 }
+
+export { isSuperAdmin };

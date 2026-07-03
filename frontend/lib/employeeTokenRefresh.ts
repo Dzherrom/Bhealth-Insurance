@@ -1,4 +1,5 @@
 import { decodeJwtPayload } from '@/lib/jwt';
+import { clearClientAuthStorage } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 
 /** Refrescar el access token 1 minuto antes de expirar */
@@ -8,7 +9,8 @@ const MIN_CHECK_INTERVAL_MS = 15_000;
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
 function isEmployeeRole(role: string | null | undefined): boolean {
-  return Boolean(role && role !== 'cliente');
+  if (!role) return false;
+  return role !== 'cliente';
 }
 
 function clearRefreshTimer() {
@@ -44,7 +46,15 @@ function scheduleNextRefresh(accessToken: string) {
         const newToken = useAuthStore.getState().accessToken;
         if (newToken) scheduleNextRefresh(newToken);
       } catch {
-        // El interceptor de 401 manejará la sesión en la siguiente petición
+        clearRefreshTimer();
+        clearClientAuthStorage();
+        useAuthStore.setState({
+          user: null,
+          accessToken: null,
+          refreshToken: null,
+          role: null,
+          isAuthenticated: false,
+        });
       }
     } else {
       scheduleNextRefresh(state.accessToken);

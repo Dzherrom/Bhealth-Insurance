@@ -3,7 +3,7 @@ from .permissions import IsManagerRole, IsAdminRole, IsPolicyOwnerOrHigher, IsCR
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError, PermissionDenied
 from rest_framework.pagination import PageNumberPagination
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
@@ -29,10 +29,25 @@ from .models import (
     PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal, registrar_auditoria_global, PolizaCliente,
     IngresoEmpleador,
     DocumentoLegalCliente,
+    Departamento,
 )
 from .serializers import *
 from .utils import send_activity_webhook, fetch_location_from_zip
-from .carpeta_utils import ensure_poliza_carpetas
+from .roles import (
+    POLICY_GLOBAL_VIEW_ROLES,
+    POLICY_NPN_SCOPED_ROLES,
+    POLICY_OWN_PORTFOLIO_ROLES,
+    ROLE_RANK,
+    normalize_role,
+)
+from .poliza_presence import (
+    build_presence_response,
+    leave_presence,
+    touch_presence,
+    try_acquire_edit_lock,
+    assert_edit_allowed,
+    cleanup_stale_viewers,
+)
 
 
 def sync_cliente_agente(poliza):
@@ -597,13 +612,13 @@ class PolizaViewSet(viewsets.ModelViewSet):
     pagination_class = PolizaPagination
     permission_classes = [permissions.IsAuthenticated, IsPolicyOwnerOrHigher]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['estado', 'agente', 'plan', 'id_mercado', 'fecha_efectiva']
+    filterset_fields = ['estado', 'agente', 'plan', 'id_mercado', 'fecha_efectiva', 'archivada']
     search_fields = ['id_mercado', 'clientes__primer_nombre', 'clientes__apellido_paterno', 'agente__nombre_completo', 'id_miembro']
     ordering_fields = ['fecha_efectiva', 'ultima_actualizacion', 'created_at']
 
     @staticmethod
     def _normalize_role(role):
-        return (role or '').strip().upper()
+        return normalize_role(role)
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -634,9 +649,9 @@ class PolizaViewSet(viewsets.ModelViewSet):
             return Poliza.objects.none()
         else:
             role = self._normalize_role(user.profile.role)
-            if role in ['ADMIN', 'MANAGER', 'PAGOS', 'SHERPA', 'CITAS']:
+            if role in POLICY_GLOBAL_VIEW_ROLES:
                 queryset = base_queryset
-            elif role in ['ASISTENTE']:
+            elif role in POLICY_NPN_SCOPED_ROLES | POLICY_OWN_PORTFOLIO_ROLES:
                 if user.profile.agente:
                     queryset = base_queryset.filter(agente=user.profile.agente)
                 else:
@@ -654,7 +669,21 @@ class PolizaViewSet(viewsets.ModelViewSet):
         if cliente_id:
             queryset = queryset.filter(clientes__id=cliente_id).distinct()
 
+        if self.action == 'list':
+            incluir_archivadas = self.request.query_params.get('incluir_archivadas')
+            archivada_only = self.request.query_params.get('archivada')
+            if archivada_only in ('1', 'true', 'True'):
+                queryset = queryset.filter(archivada=True)
+            elif incluir_archivadas not in ('1', 'true', 'True'):
+                queryset = queryset.filter(archivada=False)
+
         return queryset
+
+    def destroy(self, request, *args, **kwargs):
+        return Response(
+            {"detail": "Las pólizas no se eliminan permanentemente. Use la acción archivar."},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
 
     def perform_create(self, serializer):
         user = self.request.user
@@ -666,7 +695,7 @@ class PolizaViewSet(viewsets.ModelViewSet):
         if (
             not assigned_agent
             and hasattr(user, 'profile')
-            and self._normalize_role(user.profile.role) in ['ASISTENTE']
+            and self._normalize_role(user.profile.role) in POLICY_OWN_PORTFOLIO_ROLES
             and user.profile.agente
         ):
             assigned_agent = user.profile.agente
@@ -703,11 +732,15 @@ class PolizaViewSet(viewsets.ModelViewSet):
             objeto_id=poliza.id,
             detalles=f"Póliza {poliza.id_mercado} creada"
         )
-            
 
     def perform_update(self, serializer):
+        poliza = self.get_object()
+        if poliza.archivada:
+            raise ValidationError({"detail": "No se puede editar una póliza archivada. Desarchívela primero."})
+        assert_edit_allowed(poliza, self.request.user)
         poliza = serializer.save()
         sync_cliente_agente(poliza)
+        touch_presence(poliza, self.request.user, 'EDIT')
         registrar_auditoria_global(
             usuario=self.request.user,
             accion='EDICION_POLIZA',
@@ -732,7 +765,7 @@ class PolizaViewSet(viewsets.ModelViewSet):
         if not hasattr(request.user, 'profile'):
             return Response({"detail": "Usuario sin perfil."}, status=status.HTTP_403_FORBIDDEN)
         role = self._normalize_role(request.user.profile.role)
-        if role == 'ADMIN':
+        if role == 'SUPER_ADMIN':
             return None
         if not has_matrix_permission(request.user, 'POLIZA_FLUJO', accion):
             return Response({"detail": "Permiso denegado por matriz de permisos."}, status=status.HTTP_403_FORBIDDEN)
@@ -765,7 +798,7 @@ class PolizaViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def pase_a_manager(self, request, pk=None):
-        permiso_error = self._require_role(request, ['ASISTENTE', 'ADMIN', 'MANAGER'])
+        permiso_error = self._require_role(request, ['CLIENT_SUPPORT', 'SUPER_ADMIN', 'LED'])
         if permiso_error:
             return permiso_error
         matrix_error = self._require_matrix_permission(request, 'PASE_A_MANAGER')
@@ -782,8 +815,8 @@ class PolizaViewSet(viewsets.ModelViewSet):
 
         transferencia = self._registrar_transferencia(
             poliza=poliza,
-            de_rol='ASISTENTE',
-            a_rol='MANAGER',
+            de_rol='CLIENT_SUPPORT',
+            a_rol='LED',
             accion='ENTREGA_ASISTENTE_MANAGER',
             nota=nota,
         )
@@ -791,7 +824,7 @@ class PolizaViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def pase_a_sherpa(self, request, pk=None):
-        permiso_error = self._require_role(request, ['MANAGER', 'ADMIN'])
+        permiso_error = self._require_role(request, ['LED', 'SUPER_ADMIN'])
         if permiso_error:
             return permiso_error
         matrix_error = self._require_matrix_permission(request, 'PASE_A_SHERPA')
@@ -808,8 +841,8 @@ class PolizaViewSet(viewsets.ModelViewSet):
 
         transferencia = self._registrar_transferencia(
             poliza=poliza,
-            de_rol='MANAGER',
-            a_rol='SHERPA',
+            de_rol='LED',
+            a_rol='HEALTH_SHERPA',
             accion='APROBACION_MANAGER_SHERPA',
             nota=nota,
         )
@@ -817,7 +850,7 @@ class PolizaViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def devolver_a_asistente(self, request, pk=None):
-        permiso_error = self._require_role(request, ['SHERPA', 'ADMIN', 'MANAGER'])
+        permiso_error = self._require_role(request, ['HEALTH_SHERPA', 'SUPER_ADMIN', 'LED'])
         if permiso_error:
             return permiso_error
         matrix_error = self._require_matrix_permission(request, 'DEVOLVER_A_ASISTENTE')
@@ -837,8 +870,8 @@ class PolizaViewSet(viewsets.ModelViewSet):
 
         transferencia = self._registrar_transferencia(
             poliza=poliza,
-            de_rol='SHERPA',
-            a_rol='ASISTENTE',
+            de_rol='HEALTH_SHERPA',
+            a_rol='CLIENT_SUPPORT',
             accion='DEVOLUCION_SHERPA_ASISTENTE',
             nota=nota,
         )
@@ -846,7 +879,7 @@ class PolizaViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def cerrar_en_sherpa(self, request, pk=None):
-        permiso_error = self._require_role(request, ['SHERPA', 'ADMIN'])
+        permiso_error = self._require_role(request, ['HEALTH_SHERPA', 'SUPER_ADMIN'])
         if permiso_error:
             return permiso_error
         matrix_error = self._require_matrix_permission(request, 'CERRAR_EN_SHERPA')
@@ -863,8 +896,8 @@ class PolizaViewSet(viewsets.ModelViewSet):
 
         transferencia = self._registrar_transferencia(
             poliza=poliza,
-            de_rol='SHERPA',
-            a_rol='SHERPA',
+            de_rol='HEALTH_SHERPA',
+            a_rol='HEALTH_SHERPA',
             accion='CIERRE_SHERPA',
             nota=nota,
         )
@@ -872,36 +905,139 @@ class PolizaViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def heartbeat(self, request, pk=None):
-        """
-        Sends a heartbeat to the configured webhook to indicate user presence.
-        Replaces internal DB tracking to save resources.
-        """
-        poliza = self.get_object()
-        user = request.user
+        """Compatibilidad: delega en presence con modo view."""
+        return self.presence(request, pk=pk)
 
-        # Webhook payload
-        payload = {
-            'event': 'heartbeat',
+    @action(detail=True, methods=['get', 'post', 'delete'], url_path='presence')
+    def presence(self, request, pk=None):
+        poliza = self.get_object()
+
+        if request.method == 'GET':
+            return Response(build_presence_response(poliza, request.user))
+
+        if request.method == 'DELETE':
+            leave_presence(poliza, request.user)
+            return Response({'status': 'left'})
+
+        mode = str(request.data.get('mode', 'view')).strip().lower()
+        if mode == 'edit':
+            acquired, lock_holder = try_acquire_edit_lock(poliza, request.user)
+            if not acquired:
+                payload = build_presence_response(poliza, request.user)
+                payload['detail'] = 'La póliza está siendo editada por otro usuario.'
+                payload['lock_holder'] = lock_holder
+                return Response(payload, status=status.HTTP_409_CONFLICT)
+        else:
+            touch_presence(poliza, request.user, 'VIEW')
+
+        send_activity_webhook({
+            'event': 'policy_presence',
             'policy_id': poliza.id,
             'policy_market_id': poliza.id_mercado,
-            'user_id': user.id,
-            'username': user.username,
-            'timestamp': timezone.now().isoformat()
-        }
-        
-        # Async send
-        send_activity_webhook(payload)
-        
-        current_role = request.user.profile.role if hasattr(request.user, 'profile') else None
-        return Response({'status': 'ok', 'mode': 'webhook', 'request_user_role': current_role})
+            'user_id': request.user.id,
+            'username': request.user.username,
+            'mode': mode,
+            'timestamp': timezone.now().isoformat(),
+        })
+
+        return Response(build_presence_response(poliza, request.user))
 
     @action(detail=True, methods=['get'])
     def active_viewers(self, request, pk=None):
-        """
-        Deprecated: Active viewers are now managed via external webhook system.
-        """
-        current_role = request.user.profile.role if hasattr(request.user, 'profile') else None
-        return Response({"detail": "Active viewers system has been moved to webhooks. Please consult the external activity service.", "request_user_role": current_role}, status=status.HTTP_410_GONE)
+        poliza = self.get_object()
+        return Response(build_presence_response(poliza, request.user))
+
+    @action(detail=True, methods=['post'])
+    def archivar(self, request, pk=None):
+        permiso_error = self._require_role(request, ['SUPER_ADMIN', 'LED'])
+        if permiso_error:
+            return permiso_error
+
+        poliza = self.get_object()
+        if poliza.archivada:
+            return Response({"detail": "La póliza ya está archivada."}, status=status.HTTP_400_BAD_REQUEST)
+
+        nota = request.data.get('nota', '')
+        poliza.archivada = True
+        poliza.archivada_en = timezone.now()
+        poliza.archivada_por = request.user
+        poliza.save(update_fields=['archivada', 'archivada_en', 'archivada_por', 'ultima_actualizacion'])
+
+        cleanup_stale_viewers(poliza.id)
+        leave_presence(poliza, request.user)
+
+        HistorialPoliza.objects.create(
+            poliza=poliza,
+            usuario=request.user,
+            accion='ARCHIVADA',
+            detalles=nota or 'Póliza archivada',
+        )
+        registrar_auditoria_global(
+            usuario=request.user,
+            accion='ARCHIVO_POLIZA',
+            modelo='Poliza',
+            objeto_id=poliza.id,
+            detalles=f"Póliza {poliza.id_mercado} archivada. {nota}".strip(),
+        )
+        return Response(PolizaSerializer(poliza, context={'request': request}).data)
+
+    @action(detail=True, methods=['post'])
+    def desarchivar(self, request, pk=None):
+        permiso_error = self._require_role(request, ['SUPER_ADMIN', 'LED'])
+        if permiso_error:
+            return permiso_error
+
+        poliza = self.get_object()
+        if not poliza.archivada:
+            return Response({"detail": "La póliza no está archivada."}, status=status.HTTP_400_BAD_REQUEST)
+
+        nota = request.data.get('nota', '')
+        poliza.archivada = False
+        poliza.archivada_en = None
+        poliza.archivada_por = None
+        poliza.save(update_fields=['archivada', 'archivada_en', 'archivada_por', 'ultima_actualizacion'])
+
+        HistorialPoliza.objects.create(
+            poliza=poliza,
+            usuario=request.user,
+            accion='DESARCHIVADA',
+            detalles=nota or 'Póliza desarchivada',
+        )
+        registrar_auditoria_global(
+            usuario=request.user,
+            accion='DESARCHIVO_POLIZA',
+            modelo='Poliza',
+            objeto_id=poliza.id,
+            detalles=f"Póliza {poliza.id_mercado} desarchivada. {nota}".strip(),
+        )
+        return Response(PolizaSerializer(poliza, context={'request': request}).data)
+
+    @action(detail=False, methods=['post'])
+    def archivar_lote(self, request):
+        permiso_error = self._require_role(request, ['SUPER_ADMIN', 'LED'])
+        if permiso_error:
+            return permiso_error
+
+        ids = request.data.get('ids') or []
+        if not isinstance(ids, list) or not ids:
+            return Response({"detail": "Proporcione una lista de ids."}, status=status.HTTP_400_BAD_REQUEST)
+
+        archivadas = []
+        for poliza in self.get_queryset().filter(id__in=ids, archivada=False):
+            poliza.archivada = True
+            poliza.archivada_en = timezone.now()
+            poliza.archivada_por = request.user
+            poliza.save(update_fields=['archivada', 'archivada_en', 'archivada_por', 'ultima_actualizacion'])
+            cleanup_stale_viewers(poliza.id)
+            HistorialPoliza.objects.create(
+                poliza=poliza,
+                usuario=request.user,
+                accion='ARCHIVADA',
+                detalles='Archivada en lote',
+            )
+            archivadas.append(poliza.id)
+
+        return Response({'archivadas': archivadas, 'total': len(archivadas)})
 
     @action(detail=True, methods=['get'])
     def download_documents(self, request, pk=None):
@@ -1185,15 +1321,7 @@ class UserManagementViewSet(viewsets.ModelViewSet):
         # Ensure we get users with their profiles
         return User.objects.select_related('profile').all()
 
-    ROLE_RANK = {
-        'ADMIN': 100,
-        'MANAGER': 90,
-        'ASISTENTE': 70,
-        'SHERPA': 70,
-        'PAGOS': 70,
-        'CITAS': 70,
-        'USER': 10,
-    }
+    ROLE_RANK = ROLE_RANK
 
     def _validate_assignable_role(self, request, serializer):
         if request.user.is_superuser:
@@ -1765,6 +1893,12 @@ class LocationLookupView(APIView):
                 return Response({"error": "External service unavailable"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class DepartamentoViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Departamento.objects.filter(activo=True).order_by('nombre')
+    serializer_class = DepartamentoSerializer
+    permission_classes = [permissions.IsAuthenticated, IsCRMNonBasicRole]
+
 
 class MatrizPermisoRolViewSet(viewsets.ModelViewSet):
     queryset = MatrizPermisoRol.objects.all()

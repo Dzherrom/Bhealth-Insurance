@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
-import { authApi } from '@/lib/api';
+import { authApi, resetAuthRefreshState, clearClientAuthStorage } from '@/lib/api';
 import { isTokenExpired, resolveRoleFromLogin } from '@/lib/jwt';
 import {
   clearAuthCookies,
@@ -63,6 +63,7 @@ export const useAuthStore = create<AuthState>()(
           set({ isLoading: true, error: null });
           try {
             const tokens = await authApi.login(data);
+            resetAuthRefreshState();
             const role = resolveRoleFromLogin(
               tokens.access,
               tokens.role,
@@ -169,6 +170,7 @@ export const useAuthStore = create<AuthState>()(
             setAuthCookies(result.access, role);
             set({
               accessToken: result.access,
+              ...(result.refresh ? { refreshToken: result.refresh } : {}),
               role,
             });
           } catch (error) {
@@ -241,6 +243,7 @@ export const useAuthStore = create<AuthState>()(
         onRehydrateStorage: () => (state) => {
           if (state && state.accessToken) {
             if (isTokenExpired(state.accessToken)) {
+              clearClientAuthStorage();
               clearAuthCookies();
               state.user = null;
               state.accessToken = null;

@@ -8,12 +8,16 @@ import { BaseEntity } from "./common";
 
 /** Roles disponibles en el sistema. Deben coincidir con los claims del JWT. */
 export type UserRole =
-  | 'admin'
-  | 'manager'
-  | 'asistente'
-  | 'sherpa'
-  | 'pagos'
-  | 'citas'
+  | 'super_admin'
+  | 'led'
+  | 'client_support'
+  | 'gestion_resolucion'
+  | 'health_sherpa'
+  | 'agente'
+  | 'cobranza'
+  | 'recuperacion'
+  | 'recepcion'
+  | 'soporte_cliente'
   | 'cliente';
 
 // ===============================
@@ -57,6 +61,7 @@ export interface UserProfile {
   agente?: number | null;
   agente_npn?: string | null;
   agente_ffm?: string | null;
+  departamento?: number | null;
   settings?: UserProfileSettings;
 }
 
@@ -80,6 +85,7 @@ export interface AuthTokens {
 
 export interface RefreshTokenResponse {
   access: string;
+  refresh?: string;
   role?: string;
   cliente_id?: number | null;
 }

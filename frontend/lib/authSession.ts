@@ -1,5 +1,6 @@
 import { decodeJwtPayload, resolveRoleClaim } from '@/lib/jwt';
 import { canAccessClientPortal } from '@/lib/portalAccess';
+import { hasCRMAccess } from '@/lib/roles';
 import type { UserRole } from '@/types/auth';
 
 function cookieSuffix(exp?: number): string {
@@ -76,6 +77,11 @@ export function resolveRoleFromProfile(profile?: {
 } | null): UserRole | null {
   if (!profile) return null;
 
+  const roleFromProfile = resolveRoleClaim(profile.role);
+  if (roleFromProfile && hasCRMAccess(roleFromProfile)) {
+    return roleFromProfile;
+  }
+
   if (
     canAccessClientPortal({
       profileRole: profile.role,
@@ -85,7 +91,7 @@ export function resolveRoleFromProfile(profile?: {
     return 'cliente';
   }
 
-  return resolveRoleClaim(profile.role);
+  return roleFromProfile;
 }
 
 export function readPortalAuthState(input: {

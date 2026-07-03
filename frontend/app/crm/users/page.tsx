@@ -7,7 +7,7 @@ import { UsersFilters } from '@/components/users/UsersFilters';
 import BoxComponent from '@/components/boxes/BoxComponent';
 import { UsersList } from '@/components/users/UsersList';
 import { User } from '@/components/users/types';
-import { authApi, resolveApiMediaUrl, usersApi } from '@/lib/api';
+import { authApi, departamentosApi, resolveApiMediaUrl, usersApi, type Departamento } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -21,19 +21,19 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { CRM_ROLE_OPTIONS, ROLE_RANK, canManageUsers, defaultDepartmentCodeForRole, normalizeRoleClaim, roleLabel } from '@/lib/roles';
 import { useAuthStore } from '@/store/authStore';
 
 import { Users, UserCheck, UserX, Clock } from 'lucide-react';
 
 const PAGE_SIZE = 25;
 
-const ROLES_ALLOWED: string[] = ['ADMIN', 'MANAGER'];
-
 interface ApiUserProfile {
   role?: string;
   status?: string;
   avatar?: string | null;
   telefono?: string | null;
+  departamento?: number | null;
 }
 
 interface ApiUser {
@@ -57,6 +57,7 @@ interface CreateUserForm {
   role: string;
   status: string;
   phone: string;
+  departamento: number | null;
 }
 
 interface EditUserForm {
@@ -66,16 +67,8 @@ interface EditUserForm {
   phone: string;
   role: string;
   status: string;
+  departamento: number | null;
 }
-
-const ROLE_OPTIONS = [
-  { value: 'ADMIN', label: 'Admin' },
-  { value: 'MANAGER', label: 'Manager' },
-  { value: 'ASISTENTE', label: 'Asistente' },
-  { value: 'SHERPA', label: 'Sherpa' },
-  { value: 'PAGOS', label: 'Pagos' },
-  { value: 'CITAS', label: 'Citas' },
-];
 
 const STATUS_OPTIONS = [
   { value: 'ACTIVE', label: 'Activo' },
@@ -83,14 +76,17 @@ const STATUS_OPTIONS = [
   { value: 'CANDIDATE', label: 'Candidato' },
 ];
 
-const ROLE_RANK: Record<string, number> = {
-  ADMIN: 100,
-  MANAGER: 90,
-  ASISTENTE: 70,
-  SHERPA: 70,
-  PAGOS: 70,
-  CITAS: 70,
-  USER: 10,
+const ROLE_OPTIONS = CRM_ROLE_OPTIONS;
+
+const resolveDepartamentoForRole = (
+  role: string,
+  departments: Departamento[],
+  current?: number | null,
+): number | null => {
+  const code = defaultDepartmentCodeForRole(role);
+  if (!code) return current ?? null;
+  const dept = departments.find((d) => d.codigo === code);
+  return dept?.id ?? current ?? null;
 };
 
 const toBackendRole = (role?: string | null): string => {
@@ -113,6 +109,8 @@ const normalizeStatus = (rawStatus?: string, isActive?: boolean): string => {
 };
 
 const normalizeRole = (rawRole?: string): string => {
+  const normalized = normalizeRoleClaim(rawRole?.toLowerCase());
+  if (normalized) return normalized;
   if (!rawRole) return 'usuario';
   if (rawRole === 'USER') return 'usuario';
   return rawRole.toLowerCase();
@@ -156,6 +154,7 @@ export default function UsersPage() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<ApiUser | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
+  const [departments, setDepartments] = useState<Departamento[]>([]);
   const [createForm, setCreateForm] = useState<CreateUserForm>({
     username: '',
     email: '',
@@ -165,6 +164,7 @@ export default function UsersPage() {
     role: 'USER',
     status: 'ACTIVE',
     phone: '',
+    departamento: null,
   });
   const [editForm, setEditForm] = useState<EditUserForm>({
     firstName: '',
@@ -173,14 +173,19 @@ export default function UsersPage() {
     phone: '',
     role: 'USER',
     status: 'ACTIVE',
+    departamento: null,
   });
 
   useEffect(() => {
-    const role = currentUser?.profile?.role;
-    if (role && !ROLES_ALLOWED.includes(role)) {
+    const role = normalizeRoleClaim(currentUser?.profile?.role?.toLowerCase());
+    if (role && !canManageUsers(role)) {
       router.push('/crm/dashboard');
     }
   }, [currentUser, router]);
+
+  useEffect(() => {
+    departamentosApi.list().then(setDepartments).catch(() => setDepartments([]));
+  }, []);
 
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
@@ -264,8 +269,8 @@ export default function UsersPage() {
     return `Hace ${diffDays} días`;
   };
   const getRoleBadgeVariant = (role: User['role']) => {
-    if (role === 'admin' || role === 'manager') return 'destructive';
-    if (role === 'asistente' || role === 'sherpa' || role === 'pagos' || role === 'citas') return 'default';
+    if (role === 'super_admin' || role === 'led') return 'destructive';
+    if (['client_support', 'health_sherpa', 'agente', 'cobranza', 'gestion_resolucion'].includes(role)) return 'default';
     if (role === 'cliente' || role === 'usuario') return 'secondary';
     return 'outline';
   };
@@ -283,7 +288,11 @@ export default function UsersPage() {
     setCreateError(null);
     const defaultRole = allowedRoleOptions[0]?.value ?? 'USER';
     setIsCreateModalOpen(true);
-    setCreateForm((prev) => ({ ...prev, role: defaultRole }));
+    setCreateForm((prev) => ({
+      ...prev,
+      role: defaultRole,
+      departamento: resolveDepartamentoForRole(defaultRole, departments, null),
+    }));
   };
 
   const handleOpenEditModal = (id: number) => {
@@ -298,6 +307,7 @@ export default function UsersPage() {
       phone: current.profile?.telefono || '',
       role: current.profile?.role || 'USER',
       status: current.profile?.status || 'ACTIVE',
+      departamento: current.profile?.departamento ?? null,
     });
     setIsEditModalOpen(true);
   };
@@ -321,6 +331,7 @@ export default function UsersPage() {
           role: editForm.role,
           status: editForm.status,
           telefono: editForm.phone,
+          departamento: editForm.departamento,
         },
       } as any);
 
@@ -385,6 +396,7 @@ export default function UsersPage() {
           role: createForm.role,
           status: createForm.status,
           telefono: createForm.phone || '',
+          departamento: createForm.departamento,
         },
       } as any);
 
@@ -399,6 +411,7 @@ export default function UsersPage() {
         role: 'USER',
         status: 'ACTIVE',
         phone: '',
+        departamento: null,
       });
       toast({
         title: 'Usuario creado',
@@ -596,12 +609,40 @@ export default function UsersPage() {
                 <select
                   id="role"
                   value={createForm.role}
-                  onChange={(e) => setCreateForm((prev) => ({ ...prev, role: e.target.value }))}
+                  onChange={(e) => {
+                    const nextRole = e.target.value;
+                    setCreateForm((prev) => ({
+                      ...prev,
+                      role: nextRole,
+                      departamento: resolveDepartamentoForRole(nextRole, departments, prev.departamento),
+                    }));
+                  }}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
                   {allowedRoleOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="departamento">Departamento</Label>
+                <select
+                  id="departamento"
+                  value={createForm.departamento ?? ''}
+                  onChange={(e) =>
+                    setCreateForm((prev) => ({
+                      ...prev,
+                      departamento: e.target.value ? Number(e.target.value) : null,
+                    }))
+                  }
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Sin asignar</option>
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.id}>
+                      {dept.nombre}
                     </option>
                   ))}
                 </select>
@@ -668,9 +709,42 @@ export default function UsersPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="editRole">Rol</Label>
-                <select id="editRole" value={editForm.role} onChange={(e) => setEditForm((prev) => ({ ...prev, role: e.target.value }))} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                <select
+                  id="editRole"
+                  value={editForm.role}
+                  onChange={(e) => {
+                    const nextRole = e.target.value;
+                    setEditForm((prev) => ({
+                      ...prev,
+                      role: nextRole,
+                      departamento: resolveDepartamentoForRole(nextRole, departments, prev.departamento),
+                    }));
+                  }}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
                   {allowedRoleOptions.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editDepartamento">Departamento</Label>
+                <select
+                  id="editDepartamento"
+                  value={editForm.departamento ?? ''}
+                  onChange={(e) =>
+                    setEditForm((prev) => ({
+                      ...prev,
+                      departamento: e.target.value ? Number(e.target.value) : null,
+                    }))
+                  }
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Sin asignar</option>
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.id}>
+                      {dept.nombre}
+                    </option>
                   ))}
                 </select>
               </div>

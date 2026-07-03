@@ -21,9 +21,10 @@ export function isPortalClientSession(ctx: MiddlewareAuthContext): boolean {
   });
 }
 
+import { hasCRMAccess } from '@/lib/roles';
+
 export function canAccessCRM(role: UserRole | null | undefined): boolean {
-  if (!role) return false;
-  return ['admin', 'manager', 'asistente', 'sherpa', 'pagos', 'citas'].includes(role);
+  return hasCRMAccess(role);
 }
 
 function hasRoleSessionCookie(ctx: MiddlewareAuthContext): boolean {

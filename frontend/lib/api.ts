@@ -51,7 +51,52 @@ const normalizeApiBaseUrl = (rawUrl?: string): string => {
 
 export const API_BASE_URL = normalizeApiBaseUrl(process.env.NEXT_PUBLIC_API_URL);
 
-const clearClientAuthStorage = () => {
+// Capturar fetch nativo antes de que AuthInit parchee window.fetch
+const nativeFetch: typeof fetch =
+  typeof window !== 'undefined' ? window.fetch.bind(window) : fetch;
+
+const AUTH_ENDPOINTS_NO_RETRY = ['/login/refresh/', '/login/', '/logout/', '/register/'];
+
+function isAuthEndpointNoRetry(url: string): boolean {
+  return AUTH_ENDPOINTS_NO_RETRY.some((segment) => url.includes(segment));
+}
+
+function redirectToLogin() {
+  if (typeof window === 'undefined') return;
+  const loginPath = window.location.pathname.startsWith('/client')
+    ? '/client'
+    : '/auth/login';
+  if (!window.location.pathname.startsWith(loginPath)) {
+    window.location.href = loginPath;
+  }
+}
+
+function persistRefreshResult(result: RefreshTokenResponse) {
+  if (typeof window === 'undefined') return;
+
+  localStorage.setItem('access_token', result.access);
+  if (result.refresh) {
+    localStorage.setItem('refresh_token', result.refresh);
+  }
+
+  const persistedAuthRaw = localStorage.getItem('auth-storage');
+  if (!persistedAuthRaw) return;
+
+  try {
+    const persistedAuth = JSON.parse(persistedAuthRaw);
+    if (!persistedAuth?.state) return;
+
+    persistedAuth.state.accessToken = result.access;
+    if (result.refresh) {
+      persistedAuth.state.refreshToken = result.refresh;
+    }
+    localStorage.setItem('auth-storage', JSON.stringify(persistedAuth));
+  } catch {
+    // Ignore malformed persisted auth payload.
+  }
+}
+
+export const clearClientAuthStorage = () => {
   if (typeof window === 'undefined') return;
 
   localStorage.removeItem('access_token');
@@ -163,6 +208,19 @@ const handleApiResponse = async <T>(response: Response): Promise<T> => {
   return {} as T;
 };
 
+/** Normaliza respuestas de listado: arreglo plano o paginación DRF { results: [] }. */
+export const normalizeApiList = <T,>(payload: unknown): T[] => {
+  if (Array.isArray(payload)) return payload as T[];
+  if (
+    payload &&
+    typeof payload === 'object' &&
+    Array.isArray((payload as { results?: unknown }).results)
+  ) {
+    return (payload as { results: T[] }).results;
+  }
+  return [];
+};
+
 // =============================================================================
 // 🔐 AUTENTICACIÓN Y PERFIL
 // =============================================================================
@@ -231,18 +289,14 @@ export const authApi = {
       throw new Error('No refresh token available');
     }
 
-    const response = await fetch(`${API_BASE_URL}/login/refresh/`, {
+    const response = await nativeFetch(`${API_BASE_URL}/login/refresh/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh: refreshToken }),
     });
     
     const result = await handleApiResponse<RefreshTokenResponse>(response);
-    
-    // Actualizar token de acceso
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('access_token', result.access);
-    }
+    persistRefreshResult(result);
     
     return result;
   },
@@ -298,18 +352,53 @@ export const authApi = {
 };
 
 let isRefreshing = false;
-let failedQueue: any[] = [];
+let failedQueue: Array<{ resolve: (token: string) => void; reject: (error: unknown) => void }> = [];
+let sessionExpired = false;
+let refreshPromise: Promise<string> | null = null;
 
 const processQueue = (error: unknown, token: string | null = null) => {
-  failedQueue.forEach(prom => {
+  failedQueue.forEach((prom) => {
     if (error) {
       prom.reject(error);
-    } else {
+    } else if (token) {
       prom.resolve(token);
     }
   });
   failedQueue = [];
 };
+
+export const resetAuthRefreshState = () => {
+  sessionExpired = false;
+  refreshPromise = null;
+  isRefreshing = false;
+  failedQueue = [];
+};
+
+async function refreshAccessTokenOnce(): Promise<string> {
+  if (sessionExpired) {
+    throw new Error('Session expired');
+  }
+
+  if (refreshPromise) {
+    return refreshPromise;
+  }
+
+  refreshPromise = authApi
+    .refreshToken()
+    .then((result) => result.access)
+    .catch((error) => {
+      sessionExpired = true;
+      processQueue(error, null);
+      clearClientAuthStorage();
+      redirectToLogin();
+      throw error;
+    })
+    .finally(() => {
+      refreshPromise = null;
+    });
+
+  return refreshPromise;
+}
 
 // Fetch wrapper that injects auth headers and attempts a single token refresh on 401/403.
 export const fetchWithAuth = async (input: RequestInfo, init: RequestInit = {}): Promise<Response> => {
@@ -345,45 +434,44 @@ export const fetchWithAuth = async (input: RequestInfo, init: RequestInit = {}):
   const response = await fetch(input, { ...init, headers });
 
   if (response.status === 401) {
+    if (sessionExpired) {
+      return response;
+    }
+
+    const requestUrl = typeof input === 'string' ? input : input instanceof Request ? input.url : String(input);
+    if (isAuthEndpointNoRetry(requestUrl)) {
+      return response;
+    }
+
     if (isRefreshing) {
-      return new Promise((resolve, reject) => {
-        failedQueue.push({ resolve, reject });
-      })
-      .then(newToken => {
-        const newHeaders = new Headers(init.headers);
-        newHeaders.set('Authorization', `Bearer ${newToken}`);
-        return fetch(input, { ...init, headers: newHeaders });
-      })
-      .catch(err => {
-        return Promise.reject(err);
+      return new Promise<Response>((resolve, reject) => {
+        failedQueue.push({
+          resolve: (newToken: string) => {
+            const newHeaders = new Headers(init.headers);
+            newHeaders.set('Authorization', `Bearer ${newToken}`);
+            resolve(fetch(input, { ...init, headers: newHeaders }));
+          },
+          reject,
+        });
       });
     }
 
     isRefreshing = true;
 
-    return new Promise((resolve, reject) => {
-      authApi.refreshToken()
-        .then(res => {
-          const newHeaders = new Headers(init.headers);
-          newHeaders.set('Authorization', `Bearer ${res.access}`);
-          processQueue(null, res.access);
-          resolve(fetch(input, { ...init, headers: newHeaders }));
-        })
-        .catch(err => {
-          processQueue(err, null);
-          clearClientAuthStorage();
-          if (typeof window !== 'undefined') {
-            const loginPath = window.location.pathname.startsWith('/client')
-              ? '/client'
-              : '/auth/login';
-            window.location.href = loginPath;
-          }
-          reject(err);
-        })
-        .finally(() => {
-          isRefreshing = false;
-        });
-    });
+    return refreshAccessTokenOnce()
+      .then((newToken) => {
+        processQueue(null, newToken);
+        const newHeaders = new Headers(init.headers);
+        newHeaders.set('Authorization', `Bearer ${newToken}`);
+        return fetch(input, { ...init, headers: newHeaders });
+      })
+      .catch((err) => {
+        processQueue(err, null);
+        return Promise.reject(err);
+      })
+      .finally(() => {
+        isRefreshing = false;
+      });
   }
 
   return response;
@@ -400,7 +488,8 @@ const createCrudApi = <T extends OptionalBaseEntity, TCreate = Omit<T, 'id'>, TU
   // Listar todos los registros
   list: async (): Promise<T[]> => {
     const response = await fetchWithAuth(`${API_BASE_URL}/${endpoint}/`, { method: 'GET' });
-    return handleApiResponse<T[]>(response);
+    const payload = await handleApiResponse<unknown>(response);
+    return normalizeApiList<T>(payload);
   },
 
   // Obtener un registro por ID
@@ -471,7 +560,8 @@ const createReadOnlyApi = <T extends OptionalBaseEntity>(endpoint: string) => ({
   // Listar todos los registros
   list: async (): Promise<T[]> => {
     const response = await fetchWithAuth(`${API_BASE_URL}/${endpoint}/`, { method: 'GET' });
-    return handleApiResponse<T[]>(response);
+    const payload = await handleApiResponse<unknown>(response);
+    return normalizeApiList<T>(payload);
   },
 
   // Obtener un registro por ID
@@ -699,6 +789,23 @@ export const aseguradorasApi = createCrudApi<Aseguradora>('aseguradoras');
 // 📄 Planes
 export const planesApi = createCrudApi<Plan>('planes');
 
+// 🏢 Departamentos operativos
+export interface Departamento extends OptionalBaseEntity {
+  codigo: string;
+  nombre: string;
+  descripcion?: string;
+  activo?: boolean;
+}
+
+export const departamentosApi = {
+  list: async (): Promise<Departamento[]> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/departamentos/`);
+    const payload = await handleApiResponse<Departamento[] | PaginatedResponse<Departamento>>(response);
+    if (Array.isArray(payload)) return payload;
+    return payload.results ?? [];
+  },
+};
+
 // 👤 Gestión de Usuarios (CRM)
 export const usersApi = {
   ...createCrudApi<ManagedUser, Partial<ManagedUser>, Partial<ManagedUser>>('users'),
@@ -745,6 +852,24 @@ export const usersApi = {
 export const estadosPolizaApi = createCrudApi<EstadoPoliza>('estados-poliza');
 
 // 📜 Pólizas - Con funciones especializadas
+export interface PolizaPresenceViewer {
+  user_id: number;
+  username: string;
+  display_name: string;
+  mode: 'VIEW' | 'EDIT';
+  last_seen: string;
+  opened_at: string;
+}
+
+export interface PolizaPresenceState {
+  viewers: PolizaPresenceViewer[];
+  edit_lock: PolizaPresenceViewer | null;
+  can_edit: boolean;
+  is_locked_by_other: boolean;
+  detail?: string;
+  lock_holder?: PolizaPresenceViewer;
+}
+
 export const polizasApi = {
   ...createCrudApi<PolizaResponse, PolizaCreate, PolizaUpdate>('polizas'),
 
@@ -853,6 +978,53 @@ export const polizasApi = {
       throw err;
     }
     return response.json();
+  },
+
+  getPresence: async (id: number): Promise<PolizaPresenceState> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/polizas/${id}/presence/`, { method: 'GET' });
+    return handleApiResponse<PolizaPresenceState>(response);
+  },
+
+  presencePing: async (id: number, mode: 'view' | 'edit'): Promise<PolizaPresenceState> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/polizas/${id}/presence/`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ mode }),
+    });
+    if (response.status === 409) {
+      const payload = (await response.json()) as PolizaPresenceState;
+      const err = new Error(payload.detail || 'Conflicto de edición') as Error & {
+        status: number;
+        payload: PolizaPresenceState;
+      };
+      err.status = 409;
+      err.payload = payload;
+      throw err;
+    }
+    return handleApiResponse<PolizaPresenceState>(response);
+  },
+
+  presenceLeave: async (id: number): Promise<void> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/polizas/${id}/presence/`, { method: 'DELETE' });
+    await handleApiResponse(response);
+  },
+
+  archivar: async (id: number, nota?: string): Promise<PolizaResponse> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/polizas/${id}/archivar/`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ nota: nota ?? '' }),
+    });
+    return handleApiResponse<PolizaResponse>(response);
+  },
+
+  desarchivar: async (id: number, nota?: string): Promise<PolizaResponse> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/polizas/${id}/desarchivar/`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ nota: nota ?? '' }),
+    });
+    return handleApiResponse<PolizaResponse>(response);
   },
 };
 
@@ -1190,47 +1362,12 @@ export const resolveApiMediaUrl = (path?: string | null): string | undefined => 
   return `${serverBase}/${path}`;
 };
 
-// Configurar interceptor para renovar token automáticamente
+// Deprecated: fetchWithAuth ya maneja el refresh. Se mantiene como no-op por compatibilidad.
 export const setupTokenInterceptor = () => {
-  // Esta función puede ser llamada en el layout principal
-  // para configurar la renovación automática de tokens
-  if (typeof window !== 'undefined') {
-    const interceptorWindow = window as typeof window & { __bhealthTokenInterceptorSetup?: boolean };
+  if (typeof window === 'undefined') return;
 
-    if (interceptorWindow.__bhealthTokenInterceptorSetup) {
-      return;
-    }
-
-    interceptorWindow.__bhealthTokenInterceptorSetup = true;
-
-    const originalFetch = window.fetch;
-    window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-      const response = await originalFetch(input, init);
-      
-      // Si la respuesta es 401 (no autorizado), intentar renovar el token
-      if (response.status === 401 && response.url.includes(API_BASE_URL)) {
-        try {
-          await authApi.refreshToken();
-          // Reintentar la petición original con el nuevo token
-          const newHeaders = {
-            ...init?.headers,
-            Authorization: `Bearer ${getAuthToken()}`,
-          };
-          return originalFetch(input, { ...init, headers: newHeaders });
-        } catch (error) {
-          // Si la renovación falla, redirigir al login
-          clearClientAuthStorage();
-          const loginPath = window.location.pathname.startsWith('/client')
-            ? '/client'
-            : '/auth/login';
-          window.location.href = loginPath;
-          throw error;
-        }
-      }
-      
-      return response;
-    };
-  }
+  const interceptorWindow = window as typeof window & { __bhealthTokenInterceptorSetup?: boolean };
+  interceptorWindow.__bhealthTokenInterceptorSetup = true;
 };
 
 // Exportar todas las APIs como un objeto principal
@@ -1326,13 +1463,53 @@ export interface FlatPolicyImportSummary {
   created_dependents: number;
   updated_dependents: number;
   errors: string[];
+  imported_policies: FlatImportedPolicy[];
 }
 
+export interface FlatImportedPolicy {
+  id: number;
+  id_mercado: string;
+  id_miembro: string;
+  cliente_principal: string;
+  agente_nombre: string;
+  estado_nombre: string;
+  fecha_efectiva: string;
+  total_aplicantes: number;
+  action: 'created' | 'updated';
+  row_index?: number;
+}
+
+export interface FlatExportFilters {
+  etiqueta?: string;
+  estado?: string;
+  zip_code?: string;
+  aseguradora?: string;
+  tipo_producto?: string;
+  fecha_efectiva_desde?: string;
+  fecha_efectiva_hasta?: string;
+  fecha_creacion_desde?: string;
+  fecha_creacion_hasta?: string;
+  aplicantes_desde?: string;
+  aplicantes_hasta?: string;
+  agente?: string;
+}
+
+const buildFlatExportQuery = (filters?: FlatExportFilters, ids?: number[]) => {
+  const params = new URLSearchParams();
+  if (ids?.length) params.set('ids', ids.join(','));
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && String(value).trim() !== '') {
+        params.set(key, String(value));
+      }
+    });
+  }
+  return params.toString();
+};
+
 export const polizasFlatApi = {
-  exportExcel: async (ids?: number[]): Promise<Blob> => {
-    const params = new URLSearchParams();
-    if (ids?.length) params.set('ids', ids.join(','));
-    const query = params.toString();
+  exportExcel: async (options?: { ids?: number[]; filters?: FlatExportFilters }): Promise<Blob> => {
+    const query = buildFlatExportQuery(options?.filters, options?.ids);
     const response = await fetchWithAuth(
       `${API_BASE_URL}/polizas/flat/export/${query ? `?${query}` : ''}`,
       { method: 'GET' },
@@ -1354,11 +1531,50 @@ export const polizasFlatApi = {
     });
     return handleApiResponse<{ message: string; summary: FlatPolicyImportSummary }>(response);
   },
+
+  importBatch: async (payload: {
+    headers: string[];
+    rows: unknown[][];
+    start_row_index?: number;
+  }): Promise<{ message: string; summary: FlatPolicyImportSummary }> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/polizas/flat/import/batch/`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    return handleApiResponse<{ message: string; summary: FlatPolicyImportSummary }>(response);
+  },
+
+  listPreview: async (
+    params?: { page?: number; page_size?: number } & FlatExportFilters,
+  ): Promise<PaginatedResponse<PolizaListResponse>> => {
+    const searchParams = new URLSearchParams();
+    const page = params?.page ?? 1;
+    const pageSize = params?.page_size ?? 10;
+    searchParams.set('page', String(page));
+    searchParams.set('page_size', String(pageSize));
+
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (key === 'page' || key === 'page_size') return;
+        if (value !== undefined && value !== null && String(value).trim() !== '') {
+          searchParams.set(key, String(value));
+        }
+      });
+    }
+
+    const response = await fetchWithAuth(
+      `${API_BASE_URL}/polizas/flat/preview/?${searchParams.toString()}`,
+      { method: 'GET' },
+    );
+    return handleApiResponse<PaginatedResponse<PolizaListResponse>>(response);
+  },
 };
 
 export const api = {
   auth: authApi,
   users: usersApi,
+  departamentos: departamentosApi,
   agencias: agenciasApi,
   direcciones: direccionesApi,
   agentes: agentesApi,

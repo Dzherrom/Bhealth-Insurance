@@ -19,6 +19,7 @@ from .views import (
     CustomTokenRefreshView,
     CuentaBancariaViewSet, InfoPagoViewSet,
     MatrizPermisoRolViewSet, AuditoriaGlobalViewSet, AuditoriaConsolidadaView,
+    DepartamentoViewSet,
     ConfiguracionComisionViewSet,
     PolizaTransferenciaViewSet, ZohoSignWebhookView,
     ImportarClientesCSVView, ImportarPolizasCSVView, UserPolicyStatsView,
@@ -32,7 +33,12 @@ from .views_portal_cliente import (
     ClienteRegisterView,
 )
 from .views_consent import ConsentRequestViewSet
-from .views_flat_files import FlatPolicyImportView, FlatPolicyExportView
+from .views_flat_files import (
+    FlatPolicyImportView,
+    FlatPolicyExportView,
+    FlatPolicyBatchImportView,
+    FlatPolicyPreviewView,
+)
 from .views_tipos_producto import TipoProductoViewSet
 
 router = DefaultRouter()
@@ -67,13 +73,16 @@ router.register(r'notificaciones', NotificacionViewSet, basename='notificacion')
 router.register(r'tarjetas_credito', TarjetaCreditoViewSet)
 router.register(r'cuentas_bancarias', CuentaBancariaViewSet)
 router.register(r'info_pago', InfoPagoViewSet)
+router.register(r'departamentos', DepartamentoViewSet, basename='departamento')
 router.register(r'matriz-permisos', MatrizPermisoRolViewSet, basename='matriz-permisos')
 router.register(r'auditoria-global', AuditoriaGlobalViewSet, basename='auditoria-global')
 router.register(r'transferencias-poliza', PolizaTransferenciaViewSet, basename='transferencias-poliza')
 router.register(r'consent-requests', ConsentRequestViewSet, basename='consent-requests')
 
 urlpatterns = [
+    path('polizas/flat/preview/', FlatPolicyPreviewView.as_view(), name='flat-policy-preview'),
     path('polizas/flat/import/', FlatPolicyImportView.as_view(), name='flat-policy-import'),
+    path('polizas/flat/import/batch/', FlatPolicyBatchImportView.as_view(), name='flat-policy-import-batch'),
     path('polizas/flat/export/', FlatPolicyExportView.as_view(), name='flat-policy-export'),
     path('polizas/export/', ExportPolizasView.as_view(), name='export_polizas'),
     path('register/', RegisterView.as_view(), name='register'),
