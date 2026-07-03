@@ -10,6 +10,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 import openpyxl
 from django.db import transaction
 from django.http import HttpResponse
+from django.utils import timezone
 
 from ..models import (
     Agencia,
@@ -21,7 +22,140 @@ from ..models import (
     Plan,
     Poliza,
     PolizaCliente,
+    TipoProducto,
 )
+
+# Formato compatible con ejemplo polizas.xlsx: 51 columnas base + 20 bloques de 16 columnas
+BASE_COLUMNS_COUNT = 51
+DEPENDENT_BLOCK_SIZE = 16
+MAX_DEPENDENT_BLOCKS = 20
+
+BASE_HEADERS: List[str] = [
+    "AGENT",
+    "AGENT NPN",
+    "BROKER/AGENCY",
+    "IS APPLICANT",
+    "FULL NAME",
+    "FIRST NAME",
+    "MIDDLE NAME",
+    "LAST NAME",
+    "SECOND LAST NAME",
+    "GENDER",
+    "DATE OF BIRTH",
+    "PHONE",
+    "EMAIL",
+    "ANNUAL INCOME",
+    "MARITAL STATUS",
+    "SSN",
+    "COUNTRY OF BIRTH",
+    "IMMIGRATION STATUS",
+    "IMMIGRATION CATEGORY",
+    "ADDRESS 1",
+    "ADDRESS 2",
+    "CITY",
+    "STATE",
+    "ZIP",
+    "COUNTY",
+    "MAILING ADDRESS 1",
+    "MAILING ADDRESS 2",
+    "MAILING CITY",
+    "MAILING STATE",
+    "MAILING ZIP",
+    "MAILING COUNTY",
+    "CARRIER/ISSUER",
+    "PLAN",
+    "PLAN ID",
+    "MARKETPLACE ID",
+    "MEMBER ID",
+    "APPLICANTS",
+    "POLICY COST",
+    "SUBSIDY",
+    "MONTHLY PREMIUM",
+    "EFFECTIVE DATE",
+    "STATUS",
+    "ASSIGNED TO",
+    "SUBMITTED",
+    "LAST UPDATE",
+    "CANCELLATION DATE",
+    "IS DUPLICATE",
+    "LAST DUPLICATE",
+    "NPN USED IN MARKETPLACE",
+    "FFM USED IN MARKETPLACE",
+    "INTERNAL CODE",
+]
+
+DEPENDENT_HEADERS: List[str] = [
+    "IS APPLICANT",
+    "RELATIONSHIP",
+    "FIRST NAME",
+    "MIDDLE NAME",
+    "LAST NAME",
+    "SECOND LAST NAME",
+    "GENDER",
+    "DATE OF BIRTH",
+    "PHONE",
+    "EMAIL",
+    "ANNUAL INCOME",
+    "MARITAL STATUS",
+    "SSN",
+    "COUNTRY OF BIRTH",
+    "IMMIGRATION STATUS",
+    "IMMIGRATION CATEGORY",
+]
+
+BASE_ALIASES: Dict[str, Sequence[str]] = {
+    "agent": ("AGENT", "AGENT NAME"),
+    "agent_npn": ("AGENT NPN", "NPN"),
+    "agency": ("BROKER/AGENCY", "AGENCY", "BROKER AGENCY"),
+    "is_applicant": ("IS APPLICANT",),
+    "full_name": ("FULL NAME",),
+    "first_name": ("FIRST NAME", "APPLICANT FIRST NAME"),
+    "middle_name": ("MIDDLE NAME",),
+    "last_name": ("LAST NAME",),
+    "second_last_name": ("SECOND LAST NAME",),
+    "gender": ("GENDER",),
+    "dob": ("DATE OF BIRTH", "DOB"),
+    "phone": ("PHONE",),
+    "email": ("EMAIL",),
+    "income": ("ANNUAL INCOME",),
+    "marital_status": ("MARITAL STATUS",),
+    "ssn": ("SSN",),
+    "country_birth": ("COUNTRY OF BIRTH",),
+    "imm_status": ("IMMIGRATION STATUS",),
+    "imm_category": ("IMMIGRATION CATEGORY",),
+    "address_1": ("ADDRESS 1",),
+    "address_2": ("ADDRESS 2",),
+    "city": ("CITY",),
+    "state": ("STATE",),
+    "zip": ("ZIP", "ZIP CODE", "POSTAL CODE"),
+    "county": ("COUNTY",),
+    "mail_address_1": ("MAILING ADDRESS 1",),
+    "mail_address_2": ("MAILING ADDRESS 2",),
+    "mail_city": ("MAILING CITY",),
+    "mail_state": ("MAILING STATE",),
+    "mail_zip": ("MAILING ZIP",),
+    "mail_county": ("MAILING COUNTY",),
+    "carrier": ("CARRIER/ISSUER", "CARRIER", "ISSUER"),
+    "plan_name": ("PLAN", "PLAN NAME"),
+    "plan_id": ("PLAN ID",),
+    "market_id": ("MARKETPLACE ID", "ID MERCADO"),
+    "member_id": ("MEMBER ID", "ID MIEMBRO"),
+    "applicants": ("APPLICANTS",),
+    "policy_cost": ("POLICY COST", "COSTO POLIZA"),
+    "subsidy": ("SUBSIDY", "SUBSIDIO"),
+    "monthly_premium": ("MONTHLY PREMIUM", "PRIMA MENSUAL"),
+    "effective_date": ("EFFECTIVE DATE", "FECHA EFECTIVA"),
+    "status": ("STATUS", "ESTADO"),
+    "assigned_to": ("ASSIGNED TO",),
+    "submitted": ("SUBMITTED", "FECHA ENVIO"),
+    "last_update": ("LAST UPDATE",),
+    "cancellation_date": ("CANCELLATION DATE", "FECHA CANCELACION"),
+    "is_duplicate": ("IS DUPLICATE",),
+    "last_duplicate": ("LAST DUPLICATE",),
+    "npn_market": ("NPN USED IN MARKETPLACE", "NPN MARKET"),
+    "ffm_market": ("FFM USED IN MARKETPLACE", "FFM USED IN MARKET"),
+    "internal_code": ("INTERNAL CODE", "ID INTERNO"),
+}
 
 
 def _clean(value: object) -> str:
@@ -52,14 +186,44 @@ def _parse_date(value: object) -> Optional[datetime.date]:
 
     for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%m-%d-%Y", "%d/%m/%Y"):
         try:
-            return datetime.datetime.strptime(raw, fmt).date()
+            return datetime.datetime.strptime(raw[:10], fmt).date()
         except ValueError:
             continue
 
     try:
-        return datetime.date.fromisoformat(raw)
+        return datetime.date.fromisoformat(raw[:10])
     except ValueError:
         return None
+
+
+def _parse_datetime(value: object) -> Optional[datetime.datetime]:
+    raw = _clean(value)
+    if not raw:
+        return None
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%m/%d/%Y %H:%M:%S", "%Y-%m-%d"):
+        try:
+            parsed = datetime.datetime.strptime(raw, fmt)
+            if timezone.is_naive(parsed):
+                return timezone.make_aware(parsed, timezone.get_current_timezone())
+            return parsed
+        except ValueError:
+            continue
+    date_only = _parse_date(raw)
+    if date_only:
+        return timezone.make_aware(datetime.datetime.combine(date_only, datetime.time.min))
+    return None
+
+
+def _format_date(value: Optional[datetime.date]) -> str:
+    return value.isoformat() if value else ""
+
+
+def _format_datetime(value: Optional[datetime.datetime]) -> str:
+    if not value:
+        return ""
+    if timezone.is_aware(value):
+        value = timezone.localtime(value)
+    return value.strftime("%Y-%m-%d %H:%M:%S")
 
 
 def _split_full_name(full_name: str) -> Tuple[str, str, str, str]:
@@ -87,6 +251,10 @@ def _safe_ssn(value: str) -> str:
     return raw or f"TMP-{uuid.uuid4().hex[:12]}"
 
 
+def _bool_label(value: bool) -> str:
+    return "TRUE" if value else "FALSE"
+
+
 @dataclass
 class ImportSummary:
     processed_rows: int = 0
@@ -108,125 +276,18 @@ class ImportSummary:
 
 
 class FlatPolicyFileService:
-    BASE_COLUMNS_COUNT = 51
-    DEPENDENT_BLOCK_SIZE = 16
+    BASE_COLUMNS_COUNT = BASE_COLUMNS_COUNT
+    DEPENDENT_BLOCK_SIZE = DEPENDENT_BLOCK_SIZE
+    MAX_DEPENDENT_BLOCKS = MAX_DEPENDENT_BLOCKS
+    BASE_HEADERS = BASE_HEADERS
+    DEPENDENT_HEADERS = DEPENDENT_HEADERS
+    BASE_ALIASES = BASE_ALIASES
 
-    BASE_HEADERS: List[str] = [
-        "AGENT",
-        "AGENT NPN",
-        "BROKER/AGENCY",
-        "FULL NAME",
-        "FIRST NAME",
-        "MIDDLE NAME",
-        "LAST NAME",
-        "SECOND LAST NAME",
-        "GENDER",
-        "DATE OF BIRTH",
-        "PHONE",
-        "EMAIL",
-        "ANNUAL INCOME",
-        "MARITAL STATUS",
-        "SSN",
-        "COUNTRY OF BIRTH",
-        "IMMIGRATION STATUS",
-        "IMMIGRATION CATEGORY",
-        "ADDRESS 1",
-        "ADDRESS 2",
-        "CITY",
-        "STATE",
-        "ZIP",
-        "COUNTY",
-        "CARRIER/ISSUER",
-        "PLAN ID",
-        "PLAN NAME",
-        "MEMBER ID",
-        "MARKETPLACE ID",
-        "INTERNAL CODE",
-        "MONTHLY PREMIUM",
-        "SUBSIDY",
-        "POLICY COST",
-        "TOTAL SAVINGS",
-        "EFFECTIVE DATE",
-        "SUBMISSION DATE",
-        "CANCELLATION DATE",
-        "STATUS",
-        "TYPE",
-        "SPECIAL ENROLLMENT REASON",
-        "SPECIAL ENROLLMENT DATE",
-        "FFM USED IN MARKET",
-        "NPN MARKET",
-        "CONSENT STATUS",
-        "POLICY PHYSICAL ADDRESS",
-        "POLICY POSTAL ADDRESS",
-        "POLICY BILLING ADDRESS",
-        "TOTAL MEMBERS",
-        "TOTAL APPLICANTS",
-        "TOTAL DEPENDENTS",
-        "NOTES",
-    ]
-
-    DEPENDENT_HEADERS: List[str] = [
-        "IS APPLICANT",
-        "RELATIONSHIP",
-        "FIRST NAME",
-        "MIDDLE NAME",
-        "LAST NAME",
-        "SECOND LAST NAME",
-        "GENDER",
-        "DATE OF BIRTH",
-        "PHONE",
-        "EMAIL",
-        "ANNUAL INCOME",
-        "MARITAL STATUS",
-        "SSN",
-        "COUNTRY OF BIRTH",
-        "IMMIGRATION STATUS",
-        "IMMIGRATION CATEGORY",
-    ]
-
-    BASE_ALIASES: Dict[str, Sequence[str]] = {
-        "agent": ("AGENT", "AGENT NAME"),
-        "agent_npn": ("AGENT NPN", "NPN", "NPN MARKET"),
-        "agency": ("BROKER/AGENCY", "AGENCY", "BROKER AGENCY"),
-        "full_name": ("FULL NAME",),
-        "first_name": ("FIRST NAME", "APPLICANT FIRST NAME"),
-        "middle_name": ("MIDDLE NAME",),
-        "last_name": ("LAST NAME",),
-        "second_last_name": ("SECOND LAST NAME",),
-        "gender": ("GENDER",),
-        "dob": ("DATE OF BIRTH", "DOB"),
-        "phone": ("PHONE",),
-        "email": ("EMAIL",),
-        "income": ("ANNUAL INCOME",),
-        "marital_status": ("MARITAL STATUS",),
-        "ssn": ("SSN",),
-        "country_birth": ("COUNTRY OF BIRTH",),
-        "imm_status": ("IMMIGRATION STATUS",),
-        "imm_category": ("IMMIGRATION CATEGORY",),
-        "address_1": ("ADDRESS 1",),
-        "address_2": ("ADDRESS 2",),
-        "city": ("CITY",),
-        "state": ("STATE",),
-        "zip": ("ZIP", "ZIP CODE", "POSTAL CODE"),
-        "county": ("COUNTY",),
-        "carrier": ("CARRIER/ISSUER", "CARRIER", "ISSUER"),
-        "plan_id": ("PLAN ID",),
-        "plan_name": ("PLAN NAME",),
-        "member_id": ("MEMBER ID", "ID MIEMBRO"),
-        "market_id": ("MARKETPLACE ID", "ID MERCADO"),
-        "internal_code": ("INTERNAL CODE", "ID INTERNO"),
-        "monthly_premium": ("MONTHLY PREMIUM", "PRIMA MENSUAL"),
-        "subsidy": ("SUBSIDY", "SUBSIDIO"),
-        "policy_cost": ("POLICY COST", "COSTO POLIZA"),
-        "total_savings": ("TOTAL SAVINGS", "TOTAL AHORROS"),
-        "effective_date": ("EFFECTIVE DATE", "FECHA EFECTIVA"),
-        "submission_date": ("SUBMISSION DATE", "FECHA ENVIO"),
-        "cancellation_date": ("CANCELLATION DATE", "FECHA CANCELACION"),
-        "status": ("STATUS", "ESTADO"),
-        "ffm_market": ("FFM USED IN MARKET",),
-        "npn_market": ("NPN MARKET",),
-        "consent_status": ("CONSENT STATUS",),
-    }
+    def build_export_headers(self, dependent_blocks: int = MAX_DEPENDENT_BLOCKS) -> List[str]:
+        headers = list(BASE_HEADERS)
+        for _ in range(dependent_blocks):
+            headers.extend(DEPENDENT_HEADERS)
+        return headers
 
     def import_file(self, file_obj) -> ImportSummary:
         headers, rows = self._read_file(file_obj)
@@ -241,45 +302,65 @@ class FlatPolicyFileService:
                 try:
                     with transaction.atomic():
                         self._import_row(headers=headers, row=row, summary=summary)
-                except Exception as exc:  # noqa: BLE001 - aggregate row-level errors
+                except Exception as exc:  # noqa: BLE001
                     summary.errors.append(f"Fila {row_index}: {exc}")
 
         return summary
 
-    def export_policies_to_csv_response(self, queryset: Iterable[Poliza]) -> HttpResponse:
-        policies = list(
-            queryset
-        )
-        max_dependents = 0
+    def export_policies_to_xlsx_response(self, queryset: Iterable[Poliza]) -> HttpResponse:
+        policies = list(queryset)
+        headers = self.build_export_headers(MAX_DEPENDENT_BLOCKS)
 
-        policy_dependents: Dict[int, List[PolizaCliente]] = {}
+        workbook = openpyxl.Workbook()
+        sheet = workbook.active
+        sheet.title = "Sheet1"
+        sheet.append(headers)
+
         for policy in policies:
-            links = list(
-                policy.polizacliente_set.select_related("cliente").all()
+            dependents = list(
+                policy.polizacliente_set.select_related("cliente")
+                .filter(es_solicitante_principal=False)
             )
-            dependents = [link for link in links if not link.es_solicitante_principal]
-            policy_dependents[policy.id] = dependents
-            max_dependents = max(max_dependents, len(dependents))
+            row = self._build_base_export_row(policy)
+            for block_idx in range(MAX_DEPENDENT_BLOCKS):
+                if block_idx < len(dependents):
+                    row.extend(self._build_dependent_export_row(dependents[block_idx]))
+                else:
+                    row.extend([""] * DEPENDENT_BLOCK_SIZE)
+            sheet.append(row)
 
-        headers = list(self.BASE_HEADERS)
-        for _ in range(max_dependents):
-            headers.extend(self.DEPENDENT_HEADERS)
+        buffer = io.BytesIO()
+        workbook.save(buffer)
+        buffer.seek(0)
+
+        response = HttpResponse(
+            buffer.read(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        response["Content-Disposition"] = 'attachment; filename="polizas_export.xlsx"'
+        return response
+
+    def export_policies_to_csv_response(self, queryset: Iterable[Poliza]) -> HttpResponse:
+        policies = list(queryset)
+        headers = self.build_export_headers(MAX_DEPENDENT_BLOCKS)
 
         response = HttpResponse(content_type="text/csv")
-        response["Content-Disposition"] = 'attachment; filename="polizas_flat_export.csv"'
+        response["Content-Disposition"] = 'attachment; filename="polizas_export.csv"'
 
         writer = csv.writer(response)
         writer.writerow(headers)
 
         for policy in policies:
+            dependents = list(
+                policy.polizacliente_set.select_related("cliente")
+                .filter(es_solicitante_principal=False)
+            )
             row = self._build_base_export_row(policy)
-            for dependent_link in policy_dependents.get(policy.id, []):
-                row.extend(self._build_dependent_export_row(dependent_link))
-
-            expected_len = len(headers)
-            if len(row) < expected_len:
-                row.extend([""] * (expected_len - len(row)))
-
+            for block_idx in range(MAX_DEPENDENT_BLOCKS):
+                if block_idx < len(dependents):
+                    row.extend(self._build_dependent_export_row(dependents[block_idx]))
+                else:
+                    row.extend([""] * DEPENDENT_BLOCK_SIZE)
             writer.writerow(row)
 
         return response
@@ -307,47 +388,43 @@ class FlatPolicyFileService:
         data = [list(row) for row in rows[1:]]
         return headers, data
 
-    def _base_value(self, base_headers: Sequence[str], base_values: Sequence[object], aliases: Sequence[str], index_fallback: Optional[int] = None) -> str:
-        normalized = {_normalize_key(h): idx for idx, h in enumerate(base_headers)}
-
-        for alias in aliases:
+    def _value(self, headers: Sequence[str], values: Sequence[object], key: str) -> str:
+        normalized = {_normalize_key(h): idx for idx, h in enumerate(headers) if h}
+        for alias in BASE_ALIASES.get(key, ()):
             idx = normalized.get(_normalize_key(alias))
-            if idx is not None and idx < len(base_values):
-                value = _clean(base_values[idx])
+            if idx is not None and idx < len(values):
+                value = _clean(values[idx])
                 if value:
                     return value
-
-        if index_fallback is not None and index_fallback < len(base_values):
-            return _clean(base_values[index_fallback])
-
         return ""
 
     def _import_row(self, headers: Sequence[str], row: Sequence[object], summary: ImportSummary) -> None:
-        base_headers = list(headers[: self.BASE_COLUMNS_COUNT])
-        base_values = list(row[: self.BASE_COLUMNS_COUNT])
+        base_headers = list(headers[:BASE_COLUMNS_COUNT])
+        if len(base_headers) < BASE_COLUMNS_COUNT:
+            base_headers.extend([""] * (BASE_COLUMNS_COUNT - len(base_headers)))
+        base_values = list(row[:BASE_COLUMNS_COUNT])
+        if len(base_values) < BASE_COLUMNS_COUNT:
+            base_values.extend([""] * (BASE_COLUMNS_COUNT - len(base_values)))
 
-        agent_name = self._base_value(base_headers, base_values, self.BASE_ALIASES["agent"], index_fallback=0) or "Agente importado"
-        agent_npn = self._base_value(base_headers, base_values, self.BASE_ALIASES["agent_npn"], index_fallback=1) or f"NPN-{uuid.uuid4().hex[:10]}"
-        agency_name = self._base_value(base_headers, base_values, self.BASE_ALIASES["agency"], index_fallback=2) or "Agencia importada"
+        agent_name = self._value(base_headers, base_values, "agent") or "Agente importado"
+        agent_npn = self._value(base_headers, base_values, "agent_npn") or f"NPN-{uuid.uuid4().hex[:10]}"
+        agency_name = self._value(base_headers, base_values, "agency") or "Agencia importada"
 
         agency, _ = Agencia.objects.get_or_create(nombre=agency_name)
         agent, _ = Agente.objects.get_or_create(
             npn=agent_npn,
-            defaults={
-                "nombre_completo": agent_name,
-                "agencia": agency,
-            },
+            defaults={"nombre_completo": agent_name, "agencia": agency},
         )
         if agent.nombre_completo != agent_name or agent.agencia_id != agency.id:
             agent.nombre_completo = agent_name
             agent.agencia = agency
             agent.save(update_fields=["nombre_completo", "agencia"])
 
-        full_name = self._base_value(base_headers, base_values, self.BASE_ALIASES["full_name"], index_fallback=3)
-        first_name = self._base_value(base_headers, base_values, self.BASE_ALIASES["first_name"], index_fallback=4)
-        middle_name = self._base_value(base_headers, base_values, self.BASE_ALIASES["middle_name"], index_fallback=5)
-        last_name = self._base_value(base_headers, base_values, self.BASE_ALIASES["last_name"], index_fallback=6)
-        second_last_name = self._base_value(base_headers, base_values, self.BASE_ALIASES["second_last_name"], index_fallback=7)
+        full_name = self._value(base_headers, base_values, "full_name")
+        first_name = self._value(base_headers, base_values, "first_name")
+        middle_name = self._value(base_headers, base_values, "middle_name")
+        last_name = self._value(base_headers, base_values, "last_name")
+        second_last_name = self._value(base_headers, base_values, "second_last_name")
 
         if full_name and not (first_name and last_name):
             parsed_first, parsed_middle, parsed_last, parsed_second = _split_full_name(full_name)
@@ -361,29 +438,44 @@ class FlatPolicyFileService:
             "segundo_nombre": middle_name or "",
             "apellido_paterno": last_name or "SinApellido",
             "apellido_materno": second_last_name or "",
-            "genero": self._base_value(base_headers, base_values, self.BASE_ALIASES["gender"], index_fallback=8) or "No especificado",
-            "fecha_nacimiento": _parse_date(self._base_value(base_headers, base_values, self.BASE_ALIASES["dob"], index_fallback=9)) or datetime.date(1900, 1, 1),
-            "telefono": self._base_value(base_headers, base_values, self.BASE_ALIASES["phone"], index_fallback=10),
-            "email": _safe_email(self._base_value(base_headers, base_values, self.BASE_ALIASES["email"], index_fallback=11)),
-            "ingreso_anual": _parse_decimal(self._base_value(base_headers, base_values, self.BASE_ALIASES["income"], index_fallback=12)),
-            "estado_civil": self._base_value(base_headers, base_values, self.BASE_ALIASES["marital_status"], index_fallback=13) or "No especificado",
-            "pais_nacimiento": self._base_value(base_headers, base_values, self.BASE_ALIASES["country_birth"], index_fallback=15) or "No especificado",
-            "estado_inmigracion": self._base_value(base_headers, base_values, self.BASE_ALIASES["imm_status"], index_fallback=16) or "No especificado",
-            "categoria_inmigracion": self._base_value(base_headers, base_values, self.BASE_ALIASES["imm_category"], index_fallback=17),
+            "genero": self._value(base_headers, base_values, "gender") or "No especificado",
+            "fecha_nacimiento": _parse_date(self._value(base_headers, base_values, "dob")) or datetime.date(1900, 1, 1),
+            "telefono": self._value(base_headers, base_values, "phone"),
+            "email": _safe_email(self._value(base_headers, base_values, "email")),
+            "ingreso_anual": _parse_decimal(self._value(base_headers, base_values, "income")),
+            "estado_civil": self._value(base_headers, base_values, "marital_status") or "No especificado",
+            "pais_nacimiento": self._value(base_headers, base_values, "country_birth") or "No especificado",
+            "estado_inmigracion": self._value(base_headers, base_values, "imm_status") or "No especificado",
+            "categoria_inmigracion": self._value(base_headers, base_values, "imm_category"),
         }
 
-        principal_ssn = _safe_ssn(self._base_value(base_headers, base_values, self.BASE_ALIASES["ssn"], index_fallback=14))
+        principal_ssn = _safe_ssn(self._value(base_headers, base_values, "ssn"))
         principal = self._upsert_client(principal_data, principal_ssn)
 
-        address = self._build_address_from_base(base_headers, base_values)
-        if address:
-            if principal.direccion_fisica_id != address.id or principal.direccion_postal_id != address.id or principal.direccion_facturacion_id != address.id:
-                principal.direccion_fisica = address
-                principal.direccion_postal = address
-                principal.direccion_facturacion = address
-                principal.save(update_fields=["direccion_fisica", "direccion_postal", "direccion_facturacion"])
+        physical_address = self._build_address(
+            self._value(base_headers, base_values, "address_1"),
+            self._value(base_headers, base_values, "address_2"),
+            self._value(base_headers, base_values, "city"),
+            self._value(base_headers, base_values, "state"),
+            self._value(base_headers, base_values, "zip"),
+            self._value(base_headers, base_values, "county"),
+        )
+        mailing_address = self._build_address(
+            self._value(base_headers, base_values, "mail_address_1"),
+            self._value(base_headers, base_values, "mail_address_2"),
+            self._value(base_headers, base_values, "mail_city"),
+            self._value(base_headers, base_values, "mail_state"),
+            self._value(base_headers, base_values, "mail_zip"),
+            self._value(base_headers, base_values, "mail_county"),
+        )
 
-        policy, created_policy = self._upsert_policy(base_headers, base_values, agent, address)
+        if physical_address:
+            principal.direccion_fisica = physical_address
+            principal.direccion_postal = mailing_address or physical_address
+            principal.direccion_facturacion = physical_address
+            principal.save(update_fields=["direccion_fisica", "direccion_postal", "direccion_facturacion"])
+
+        policy, created_policy = self._upsert_policy(base_headers, base_values, agent, physical_address, mailing_address)
         if created_policy:
             summary.created_policies += 1
         else:
@@ -394,31 +486,34 @@ class FlatPolicyFileService:
             cliente=principal,
             defaults={
                 "es_solicitante_principal": True,
+                "es_aplicante": True,
                 "relacion": "Self",
-                "direccion_residencia": address,
-                "direccion_postal": address,
+                "direccion_residencia": physical_address,
+                "direccion_postal": mailing_address or physical_address,
             },
         )
 
-        dependent_values = list(row[self.BASE_COLUMNS_COUNT :])
-        for idx in range(0, len(dependent_values), self.DEPENDENT_BLOCK_SIZE):
-            block = dependent_values[idx : idx + self.DEPENDENT_BLOCK_SIZE]
-            if len(block) < self.DEPENDENT_BLOCK_SIZE:
+        dependent_values = list(row[BASE_COLUMNS_COUNT:])
+        for idx in range(0, len(dependent_values), DEPENDENT_BLOCK_SIZE):
+            block = dependent_values[idx : idx + DEPENDENT_BLOCK_SIZE]
+            if len(block) < DEPENDENT_BLOCK_SIZE:
                 continue
-            if not any(_clean(v) for v in block):
+            if not any(_clean(v) for v in block[2:]):
                 continue
 
             dep_client, dep_created = self._upsert_dependent(block)
             relation = _clean(block[1]) or "Dependent"
+            is_applicant = _clean(block[0]).upper() in {"TRUE", "YES", "SI", "SÍ", "1"}
 
             PolizaCliente.objects.update_or_create(
                 poliza=policy,
                 cliente=dep_client,
                 defaults={
                     "es_solicitante_principal": False,
+                    "es_aplicante": is_applicant,
                     "relacion": relation,
-                    "direccion_residencia": address,
-                    "direccion_postal": address,
+                    "direccion_residencia": physical_address,
+                    "direccion_postal": mailing_address or physical_address,
                 },
             )
 
@@ -427,32 +522,32 @@ class FlatPolicyFileService:
             else:
                 summary.updated_dependents += 1
 
-    def _build_address_from_base(self, base_headers: Sequence[str], base_values: Sequence[object]) -> Optional[Direccion]:
-        line1 = self._base_value(base_headers, base_values, self.BASE_ALIASES["address_1"], index_fallback=18)
-        city = self._base_value(base_headers, base_values, self.BASE_ALIASES["city"], index_fallback=20)
-        state = self._base_value(base_headers, base_values, self.BASE_ALIASES["state"], index_fallback=21)
-        zip_code = self._base_value(base_headers, base_values, self.BASE_ALIASES["zip"], index_fallback=22)
-
+    def _build_address(
+        self,
+        line1: str,
+        line2: str,
+        city: str,
+        state: str,
+        zip_code: str,
+        county: str,
+    ) -> Optional[Direccion]:
         if not (line1 and city and state and zip_code):
             return None
-
         return Direccion.objects.get_or_create(
             linea1=line1,
-            linea2=self._base_value(base_headers, base_values, self.BASE_ALIASES["address_2"], index_fallback=19),
+            linea2=line2 or "",
             ciudad=city,
             estado=state,
             zip_code=zip_code,
-            condado=self._base_value(base_headers, base_values, self.BASE_ALIASES["county"], index_fallback=23) or "N/A",
+            condado=county or "N/A",
         )[0]
+
+    def _default_tipo_producto(self) -> TipoProducto:
+        return TipoProducto.objects.get_or_create(nombre="Health Insurance (ACA)")[0]
 
     def _upsert_client(self, client_data: Dict[str, object], ssn: str) -> Cliente:
         email = str(client_data.get("email", "")).strip().lower()
-
-        if ssn:
-            client = Cliente.objects.filter(ssn=ssn).first()
-        else:
-            client = None
-
+        client = Cliente.objects.filter(ssn=ssn).first() if ssn else None
         if client is None and email:
             client = Cliente.objects.filter(email=email).first()
 
@@ -471,7 +566,6 @@ class FlatPolicyFileService:
 
         if changed_fields:
             client.save(update_fields=changed_fields)
-
         return client
 
     def _upsert_dependent(self, block: Sequence[object]) -> Tuple[Cliente, bool]:
@@ -490,48 +584,53 @@ class FlatPolicyFileService:
             "estado_inmigracion": _clean(block[14]) or "No especificado",
             "categoria_inmigracion": _clean(block[15]),
         }
-
         ssn = _safe_ssn(_clean(block[12]))
-
         existing = Cliente.objects.filter(ssn=ssn).first() or Cliente.objects.filter(email=dep_data["email"]).first()
         if existing is None:
-            created = Cliente.objects.create(ssn=ssn, **dep_data)
-            return created, True
+            return Cliente.objects.create(ssn=ssn, **dep_data), True
 
         changed: List[str] = []
         for key, value in dep_data.items():
             if value not in (None, "") and getattr(existing, key) != value:
                 setattr(existing, key, value)
                 changed.append(key)
-
         if existing.ssn != ssn and ssn:
             existing.ssn = ssn
             changed.append("ssn")
-
         if changed:
             existing.save(update_fields=changed)
-
         return existing, False
 
-    def _upsert_policy(self, base_headers: Sequence[str], base_values: Sequence[object], agent: Agente, address: Optional[Direccion]) -> Tuple[Poliza, bool]:
-        carrier_name = self._base_value(base_headers, base_values, self.BASE_ALIASES["carrier"], index_fallback=24) or "Sin aseguradora"
-        plan_id = self._base_value(base_headers, base_values, self.BASE_ALIASES["plan_id"], index_fallback=25) or "UNKNOWN"
-        plan_name = self._base_value(base_headers, base_values, self.BASE_ALIASES["plan_name"], index_fallback=26) or plan_id
-        member_id = self._base_value(base_headers, base_values, self.BASE_ALIASES["member_id"], index_fallback=27)
-        market_id = self._base_value(base_headers, base_values, self.BASE_ALIASES["market_id"], index_fallback=28)
-        internal_code = self._base_value(base_headers, base_values, self.BASE_ALIASES["internal_code"], index_fallback=29)
+    def _upsert_policy(
+        self,
+        base_headers: Sequence[str],
+        base_values: Sequence[object],
+        agent: Agente,
+        physical_address: Optional[Direccion],
+        mailing_address: Optional[Direccion],
+    ) -> Tuple[Poliza, bool]:
+        carrier_name = self._value(base_headers, base_values, "carrier") or "Sin aseguradora"
+        plan_id = self._value(base_headers, base_values, "plan_id") or "UNKNOWN"
+        plan_name = self._value(base_headers, base_values, "plan_name") or plan_id
+        member_id = self._value(base_headers, base_values, "member_id")
+        market_id = self._value(base_headers, base_values, "market_id")
+        internal_code = self._value(base_headers, base_values, "internal_code")
 
         insurer, _ = Aseguradora.objects.get_or_create(nombre=carrier_name)
+        default_tipo = self._default_tipo_producto()
         plan, _ = Plan.objects.get_or_create(
             id_plan_aseguradora=plan_id,
             aseguradora=insurer,
-            defaults={"nombre": plan_name},
+            defaults={"nombre": plan_name, "tipo_producto": default_tipo},
         )
+        if plan.tipo_producto_id is None:
+            plan.tipo_producto = default_tipo
+            plan.save(update_fields=["tipo_producto"])
         if plan.nombre != plan_name and plan_name:
             plan.nombre = plan_name
             plan.save(update_fields=["nombre"])
 
-        status_name = self._base_value(base_headers, base_values, self.BASE_ALIASES["status"], index_fallback=37) or "Pendiente"
+        status_name = self._value(base_headers, base_values, "status") or "Pendiente"
         policy_status, _ = EstadoPoliza.objects.get_or_create(nombre=status_name)
 
         lookup = None
@@ -546,7 +645,6 @@ class FlatPolicyFileService:
 
         policy = Poliza.objects.filter(**lookup).first()
         created = policy is None
-
         if policy is None:
             policy = Poliza(**lookup)
 
@@ -557,22 +655,32 @@ class FlatPolicyFileService:
         policy.id_interno = internal_code or policy.id_interno
         policy.agente = agent
         policy.plan = plan
+        policy.aseguradora = insurer
+        policy.nombre_plan = plan_name
         policy.estado = policy_status
-        policy.costo_poliza = _parse_decimal(self._base_value(base_headers, base_values, self.BASE_ALIASES["policy_cost"], index_fallback=32))
-        policy.subsidio = _parse_decimal(self._base_value(base_headers, base_values, self.BASE_ALIASES["subsidy"], index_fallback=31))
-        policy.prima_mensual = _parse_decimal(self._base_value(base_headers, base_values, self.BASE_ALIASES["monthly_premium"], index_fallback=30))
-        policy.total_ahorros = _parse_decimal(self._base_value(base_headers, base_values, self.BASE_ALIASES["total_savings"], index_fallback=33))
-        policy.fecha_efectiva = _parse_date(self._base_value(base_headers, base_values, self.BASE_ALIASES["effective_date"], index_fallback=34))
-        policy.fecha_envio = _parse_date(self._base_value(base_headers, base_values, self.BASE_ALIASES["submission_date"], index_fallback=35)) or datetime.date.today()
-        policy.fecha_cancelacion = _parse_date(self._base_value(base_headers, base_values, self.BASE_ALIASES["cancellation_date"], index_fallback=36))
-        policy.ffm_mercado = self._base_value(base_headers, base_values, self.BASE_ALIASES["ffm_market"], index_fallback=41)
-        policy.npn_mercado = self._base_value(base_headers, base_values, self.BASE_ALIASES["npn_market"], index_fallback=42)
-        policy.estado_consentimiento = self._base_value(base_headers, base_values, self.BASE_ALIASES["consent_status"], index_fallback=43) or policy.estado_consentimiento
+        if not policy.tipo_producto_id:
+            policy.tipo_producto = self._default_tipo_producto()
+        policy.costo_poliza = _parse_decimal(self._value(base_headers, base_values, "policy_cost"))
+        policy.subsidio = _parse_decimal(self._value(base_headers, base_values, "subsidy"))
+        policy.prima_mensual = _parse_decimal(self._value(base_headers, base_values, "monthly_premium"))
+        policy.fecha_efectiva = _parse_date(self._value(base_headers, base_values, "effective_date"))
+        policy.fecha_envio = _parse_date(self._value(base_headers, base_values, "submitted")) or datetime.date.today()
+        policy.fecha_cancelacion = _parse_date(self._value(base_headers, base_values, "cancellation_date"))
+        policy.ffm_mercado = self._value(base_headers, base_values, "ffm_market")
+        policy.npn_mercado = self._value(base_headers, base_values, "npn_market")
+        policy.es_duplicado = self._value(base_headers, base_values, "is_duplicate").upper() in {"TRUE", "YES", "1"}
+        policy.ultimo_duplicado = self._value(base_headers, base_values, "last_duplicate") or policy.ultimo_duplicado
 
-        if address:
-            policy.direccion_fisica = policy.direccion_fisica or address
-            policy.direccion_postal = policy.direccion_postal or address
-            policy.direccion_facturacion = policy.direccion_facturacion or address
+        applicants_raw = self._value(base_headers, base_values, "applicants")
+        if applicants_raw.isdigit():
+            policy.total_aplicantes = int(applicants_raw)
+
+        if physical_address:
+            policy.direccion_fisica = physical_address
+        if mailing_address:
+            policy.direccion_postal = mailing_address
+        elif physical_address:
+            policy.direccion_postal = physical_address
 
         policy.save()
         return policy, created
@@ -585,14 +693,19 @@ class FlatPolicyFileService:
         )
         principal = principal_link.cliente if principal_link else None
         agency_name = policy.agente.agencia.nombre if policy.agente and policy.agente.agencia_id else ""
+        assigned = ", ".join(
+            user.get_full_name() or user.username
+            for user in policy.colaboradores.all()
+        )
 
-        row = [""] * len(self.BASE_HEADERS)
+        row: List[object] = [""] * BASE_COLUMNS_COUNT
         row[0] = policy.agente.nombre_completo if policy.agente else ""
         row[1] = policy.agente.npn if policy.agente else ""
         row[2] = agency_name
+        row[3] = "TRUE"
 
         if principal:
-            row[3] = " ".join(
+            row[4] = " ".join(
                 part
                 for part in [
                     principal.primer_nombre,
@@ -602,70 +715,81 @@ class FlatPolicyFileService:
                 ]
                 if part
             )
-            row[4] = principal.primer_nombre
-            row[5] = principal.segundo_nombre or ""
-            row[6] = principal.apellido_paterno
-            row[7] = principal.apellido_materno or ""
-            row[8] = principal.genero
-            row[9] = principal.fecha_nacimiento.isoformat() if principal.fecha_nacimiento else ""
-            row[10] = principal.telefono
-            row[11] = principal.email
-            row[12] = str(principal.ingreso_anual)
-            row[13] = principal.estado_civil
-            row[14] = principal.ssn
-            row[15] = principal.pais_nacimiento
-            row[16] = principal.estado_inmigracion
-            row[17] = principal.categoria_inmigracion or ""
+            row[5] = principal.primer_nombre
+            row[6] = principal.segundo_nombre or ""
+            row[7] = principal.apellido_paterno
+            row[8] = principal.apellido_materno or ""
+            row[9] = principal.genero
+            row[10] = _format_date(principal.fecha_nacimiento)
+            row[11] = principal.telefono
+            row[12] = principal.email
+            row[13] = float(principal.ingreso_anual or 0)
+            row[14] = principal.estado_civil
+            row[15] = principal.ssn
+            row[16] = principal.pais_nacimiento
+            row[17] = principal.estado_inmigracion
+            row[18] = principal.categoria_inmigracion or ""
 
-            address = principal.direccion_fisica
-            if address:
-                row[18] = address.linea1
-                row[19] = address.linea2 or ""
-                row[20] = address.ciudad
-                row[21] = address.estado
-                row[22] = address.zip_code
-                row[23] = address.condado
+            physical = principal.direccion_fisica or policy.direccion_fisica
+            if physical:
+                row[19] = physical.linea1
+                row[20] = physical.linea2 or ""
+                row[21] = physical.ciudad
+                row[22] = physical.estado
+                row[23] = physical.zip_code
+                row[24] = physical.condado
 
-        row[24] = policy.plan.aseguradora.nombre if policy.plan and policy.plan.aseguradora_id else ""
-        row[25] = policy.plan.id_plan_aseguradora if policy.plan else ""
-        row[26] = policy.plan.nombre if policy.plan else ""
-        row[27] = policy.id_miembro
-        row[28] = policy.id_mercado
-        row[29] = policy.id_interno or ""
-        row[30] = str(policy.prima_mensual)
-        row[31] = str(policy.subsidio)
-        row[32] = str(policy.costo_poliza)
-        row[33] = str(policy.total_ahorros)
-        row[34] = policy.fecha_efectiva.isoformat() if policy.fecha_efectiva else ""
-        row[35] = policy.fecha_envio.isoformat() if policy.fecha_envio else ""
-        row[36] = policy.fecha_cancelacion.isoformat() if policy.fecha_cancelacion else ""
-        row[37] = policy.estado.nombre if policy.estado else ""
-        row[41] = policy.ffm_mercado or ""
-        row[42] = policy.npn_mercado or ""
-        row[43] = policy.estado_consentimiento or ""
-        row[44] = str(policy.direccion_fisica) if policy.direccion_fisica else ""
-        row[45] = str(policy.direccion_postal) if policy.direccion_postal else ""
-        row[46] = str(policy.direccion_facturacion) if policy.direccion_facturacion else ""
-        row[47] = policy.total_miembros
-        row[48] = policy.total_aplicantes
-        row[49] = policy.total_dependientes
+            postal = principal.direccion_postal or policy.direccion_postal
+            if postal:
+                row[25] = postal.linea1
+                row[26] = postal.linea2 or ""
+                row[27] = postal.ciudad
+                row[28] = postal.estado
+                row[29] = postal.zip_code
+                row[30] = postal.condado
 
+        carrier = policy.aseguradora.nombre if policy.aseguradora_id else (
+            policy.plan.aseguradora.nombre if policy.plan and policy.plan.aseguradora_id else ""
+        )
+        row[31] = carrier
+        row[32] = policy.nombre_plan or (policy.plan.nombre if policy.plan else "")
+        row[33] = policy.plan.id_plan_aseguradora if policy.plan else policy.id_plan_cms or ""
+        row[34] = policy.id_mercado
+        row[35] = policy.id_miembro
+        row[36] = policy.total_aplicantes or 1
+        row[37] = float(policy.costo_poliza or 0)
+        row[38] = float(policy.subsidio or 0)
+        row[39] = float(policy.prima_mensual or 0)
+        row[40] = _format_date(policy.fecha_efectiva)
+        row[41] = policy.estado.nombre if policy.estado else ""
+        row[42] = assigned
+        row[43] = _format_datetime(
+            timezone.make_aware(datetime.datetime.combine(policy.fecha_envio, datetime.time.min))
+            if policy.fecha_envio else None
+        )
+        row[44] = _format_datetime(policy.ultima_actualizacion)
+        row[45] = _format_date(policy.fecha_cancelacion)
+        row[46] = _bool_label(bool(policy.es_duplicado))
+        row[47] = policy.ultimo_duplicado or ""
+        row[48] = policy.npn_mercado or ""
+        row[49] = policy.ffm_mercado or ""
+        row[50] = policy.id_interno or ""
         return row
 
     def _build_dependent_export_row(self, dependent_link: PolizaCliente) -> List[object]:
         dep = dependent_link.cliente
         return [
-            "NO",
+            _bool_label(bool(dependent_link.es_aplicante)),
             dependent_link.relacion or "Dependent",
             dep.primer_nombre,
             dep.segundo_nombre or "",
             dep.apellido_paterno,
             dep.apellido_materno or "",
             dep.genero,
-            dep.fecha_nacimiento.isoformat() if dep.fecha_nacimiento else "",
+            _format_date(dep.fecha_nacimiento),
             dep.telefono,
             dep.email,
-            str(dep.ingreso_anual),
+            float(dep.ingreso_anual or 0),
             dep.estado_civil,
             dep.ssn,
             dep.pais_nacimiento,

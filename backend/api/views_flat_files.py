@@ -4,20 +4,20 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Poliza
+from .permissions import IsManagerRole
 from .serializers import FlatFileUploadSerializer
 from .services.flat_policy_file_service import FlatPolicyFileService
 
 
 class FlatPolicyImportView(APIView):
     """
-    Importa pólizas denormalizadas desde CSV/Excel.
+    Importa pólizas desde CSV/Excel con el formato plano (ejemplo polizas.xlsx).
 
-    Estructura esperada:
-    - Primeras 51 columnas para agente/titular/póliza.
-    - Luego bloques repetidos de 16 columnas por dependiente.
+    - 51 columnas base (agente, titular, póliza, direcciones).
+    - Bloques repetidos de 16 columnas por dependiente.
     """
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsManagerRole]
     parser_classes = [MultiPartParser]
 
     def post(self, request, *args, **kwargs):
@@ -28,7 +28,7 @@ class FlatPolicyImportView(APIView):
         service = FlatPolicyFileService()
         try:
             summary = service.import_file(file_obj)
-        except Exception as exc:  # noqa: BLE001 - report import errors in API response
+        except Exception as exc:  # noqa: BLE001
             return Response(
                 {"detail": f"Error al procesar archivo: {exc}"},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -45,24 +45,27 @@ class FlatPolicyImportView(APIView):
 
 class FlatPolicyExportView(APIView):
     """
-    Exporta pólizas al formato plano denormalizado de CSV.
+    Exporta pólizas al formato plano compatible con ejemplo polizas.xlsx.
 
     Query params opcionales:
     - ids=1,2,3 para exportar solo pólizas específicas.
+    - export_format=xlsx (default) | csv
     """
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsManagerRole]
 
     def get(self, request, *args, **kwargs):
         queryset = Poliza.objects.select_related(
             "agente__agencia",
             "plan__aseguradora",
+            "aseguradora",
             "estado",
             "direccion_fisica",
             "direccion_postal",
             "direccion_facturacion",
         ).prefetch_related(
             "polizacliente_set__cliente",
+            "colaboradores",
         )
 
         ids_param = request.query_params.get("ids", "").strip()
@@ -76,5 +79,13 @@ class FlatPolicyExportView(APIView):
                 )
             queryset = queryset.filter(id__in=ids)
 
+        export_format = (
+            request.query_params.get("export_format")
+            or request.query_params.get("file_type")
+            or "xlsx"
+        ).lower()
         service = FlatPolicyFileService()
-        return service.export_policies_to_csv_response(queryset)
+
+        if export_format == "csv":
+            return service.export_policies_to_csv_response(queryset)
+        return service.export_policies_to_xlsx_response(queryset)

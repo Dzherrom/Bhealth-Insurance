@@ -3,13 +3,14 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
+import {
   Building2, 
   Bell, 
   List,
   FileText,
   Users,
-  Monitor
+  Monitor,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 interface SidebarConfiguracionesProps {
@@ -56,6 +57,12 @@ export function SidebarConfiguraciones({
       id: 'usuarios-facturados',
       label: 'Usuarios facturados',
       icon: Users,
+      isActive: false
+    },
+    {
+      id: 'polizas-excel',
+      label: 'Importar / Exportar pólizas',
+      icon: FileSpreadsheet,
       isActive: false
     }
   ];

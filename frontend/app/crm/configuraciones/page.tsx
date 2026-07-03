@@ -11,6 +11,7 @@ import {
   ListadoGeneral,
 } from '@/components/configuraciones';
 import { EtiquetasConfig } from '@/components/configuraciones/EtiquetasConfig';
+import { PolizasExcelConfig } from '@/components/configuraciones/PolizasExcelConfig';
 
 const ConfiguracionesPage = () => {
   const [activeSection, setActiveSection] = useState('agencia');
@@ -32,6 +33,8 @@ const ConfiguracionesPage = () => {
         return <EtiquetasConfig tipo="DOCUMENTO" title="Etiquetas de documento" description="Configura etiquetas para documentos." />;
       case 'usuarios-facturados':
         return <UsuariosFacturadosConfig />;
+      case 'polizas-excel':
+        return <PolizasExcelConfig />;
       case 'agencia':
       default:
         return <AgenciaConfig />;

@@ -1319,6 +1319,43 @@ export const recordatoriosApi = {
   },
 };
 
+export interface FlatPolicyImportSummary {
+  processed_rows: number;
+  created_policies: number;
+  updated_policies: number;
+  created_dependents: number;
+  updated_dependents: number;
+  errors: string[];
+}
+
+export const polizasFlatApi = {
+  exportExcel: async (ids?: number[]): Promise<Blob> => {
+    const params = new URLSearchParams();
+    if (ids?.length) params.set('ids', ids.join(','));
+    const query = params.toString();
+    const response = await fetchWithAuth(
+      `${API_BASE_URL}/polizas/flat/export/${query ? `?${query}` : ''}`,
+      { method: 'GET' },
+    );
+    if (!response.ok) {
+      const message = await response.text().catch(() => '');
+      throw new Error(message || 'No se pudo exportar las pólizas');
+    }
+    return response.blob();
+  },
+
+  importFile: async (file: File): Promise<{ message: string; summary: FlatPolicyImportSummary }> => {
+    const formData = new FormData();
+    formData.append('archivo', file);
+    const response = await fetchWithAuth(`${API_BASE_URL}/polizas/flat/import/`, {
+      method: 'POST',
+      body: formData,
+      headers: getAuthHeadersWithoutContentType(),
+    });
+    return handleApiResponse<{ message: string; summary: FlatPolicyImportSummary }>(response);
+  },
+};
+
 export const api = {
   auth: authApi,
   users: usersApi,
@@ -1330,6 +1367,7 @@ export const api = {
   planes: planesApi,
   estadosPoliza: estadosPolizaApi,
   polizas: polizasApi,
+  polizasFlat: polizasFlatApi,
   tareas: tareasApi,
   cambiosDeVida: cambiosDeVidaApi,
   portalCliente: portalClienteApi,

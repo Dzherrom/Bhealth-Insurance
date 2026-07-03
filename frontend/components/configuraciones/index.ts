@@ -14,3 +14,4 @@ export * from './UsuariosFacturadosConfig';
 export * from './ListadoGeneral';
 
 export * from './AgenciaConfig';
+export { PolizasExcelConfig } from './PolizasExcelConfig';
