@@ -1,0 +1,29 @@
+# Lumina Insurance — Next.js frontend
+#
+# Install on VPS:
+#   sudo cp deploy/systemd/lumina-frontend.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable lumina-frontend
+#   sudo systemctl start lumina-frontend
+#
+# Build first: cd frontend && npm ci && npm run build
+# Set frontend/.env.production → NEXT_PUBLIC_API_URL=http://YOUR_IP_OR_DOMAIN/api
+
+[Unit]
+Description=Lumina Insurance Next.js Frontend
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/Bhealth-Insurance/frontend
+Environment=NODE_ENV=production
+Environment=PORT=3000
+ExecStart=/usr/bin/npm run start
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
