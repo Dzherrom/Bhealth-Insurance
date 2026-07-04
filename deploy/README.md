@@ -244,3 +244,179 @@ sudo systemctl restart lumina-frontend
 ## Renombrar a Lumina
 
 Los nombres de servicio (`lumina-backend`, `lumina-frontend`) y nginx (`lumina-insurance`) son solo etiquetas del SO. **No cambian** módulos Django, tablas de DB ni imports del código.
+
+---
+
+# Pasos 11 en adelante
+
+## Paso 11 — Verificación completa
+
+Ejecuta el script de comprobación (después de `git pull`):
+
+```bash
+chmod +x deploy/scripts/verify-deploy.sh
+bash deploy/scripts/verify-deploy.sh
+```
+
+### Checklist manual
+
+| # | Qué probar | Cómo |
+|---|-----------|------|
+| 1 | Servicios activos | `sudo systemctl status lumina-backend lumina-frontend nginx` |
+| 2 | Backend local | `curl -I http://127.0.0.1:8000/api/` |
+| 3 | Admin Django | `curl -I http://2.25.68.83/admin/` → no 502 |
+| 4 | Frontend público | Abrir `http://2.25.68.83/auth/login` |
+| 5 | Login CRM | Usuario `lumina-admin` + contraseña del `.env` |
+| 6 | Puertos cerrados | `:3000` y `:8000` no accesibles desde fuera |
+| 7 | DevTools (F12) | Login llama a `http://2.25.68.83/api/login/` (no Render) |
+
+### Si algo falla
+
+```bash
+sudo journalctl -u lumina-backend -n 30 --no-pager
+sudo journalctl -u lumina-frontend -n 30 --no-pager
+sudo nginx -t
+```
+
+---
+
+## Paso 12 — Fail2ban (protección SSH)
+
+```bash
+sudo apt install -y fail2ban
+sudo cp deploy/fail2ban/jail.local /etc/fail2ban/jail.local
+sudo systemctl enable fail2ban
+sudo systemctl restart fail2ban
+sudo fail2ban-client status sshd
+```
+
+Tras **3 intentos fallidos de SSH en 10 minutos**, la IP se bloquea **1 hora**.
+
+Desbloquear tu IP si te quedas fuera (desde consola Hostinger):
+
+```bash
+sudo fail2ban-client set sshd unbanip TU_IP_PUBLICA
+```
+
+---
+
+## Paso 13 — Backups automáticos de PostgreSQL
+
+```bash
+sudo mkdir -p /var/backups/lumina
+sudo chown deploy:deploy /var/backups/lumina
+chmod +x deploy/scripts/backup-db.sh
+
+# Prueba manual
+bash deploy/scripts/backup-db.sh
+ls -lh /var/backups/lumina/
+```
+
+Cron diario (como `deploy`):
+
+```bash
+crontab -e
+```
+
+Añade:
+
+```cron
+0 3 * * * /var/www/Bhealth-Insurance/deploy/scripts/backup-db.sh >> /var/backups/lumina/backup.log 2>&1
+```
+
+Restaurar un backup (emergencia):
+
+```bash
+gunzip -c /var/backups/lumina/lumina_db_YYYYMMDD_HHMMSS.sql.gz | psql "$DATABASE_URL"
+```
+
+---
+
+## Paso 14 — Actualizaciones de seguridad del SO
+
+```bash
+sudo apt install -y unattended-upgrades
+sudo dpkg-reconfigure -plow unattended-upgrades
+```
+
+Revisión mensual manual:
+
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo reboot   # solo si el kernel se actualizó
+```
+
+---
+
+## Paso 15 — Script de deploy futuro (git pull → rebuild)
+
+Tras cada `git push` desde tu PC:
+
+```bash
+chmod +x deploy/scripts/update-app.sh
+bash deploy/scripts/update-app.sh
+bash deploy/scripts/verify-deploy.sh
+```
+
+---
+
+## Paso 16 — Dominio + HTTPS (cuando lo tengas)
+
+1. Registro **A** en DNS → `2.25.68.83`
+2. Actualizar `backend/.env`:
+
+```env
+BACKEND_PUBLIC_URL=https://tu-dominio.com
+FRONTEND_ORIGINS=https://tu-dominio.com
+ALLOWED_HOSTS=tu-dominio.com,2.25.68.83
+```
+
+3. Actualizar `frontend/.env.production`:
+
+```env
+NEXT_PUBLIC_API_URL=https://tu-dominio.com/api
+```
+
+4. SSL:
+
+```bash
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d tu-dominio.com
+```
+
+5. Rebuild + restart:
+
+```bash
+bash deploy/scripts/update-app.sh
+```
+
+6. Probar: `https://tu-dominio.com/auth/login`
+
+---
+
+## Paso 17 — Mantenimiento Hostinger
+
+| Tarea | Frecuencia |
+|-------|------------|
+| `verify-deploy.sh` | Tras cada deploy |
+| Revisar logs backend | Semanal |
+| Backup manual extra antes de migraciones grandes | Según necesidad |
+| Rotar `SECRET_KEY` / contraseñas si hubo filtración | Inmediato |
+| Snapshot VPS en hPanel | Antes de cambios grandes |
+
+---
+
+## Resumen final
+
+| Paso | Estado |
+|------|--------|
+| 7 Backend Gunicorn | ✅ |
+| 8 Frontend Next.js | ✅ |
+| 9 Nginx | ✅ |
+| 10 Firewall UFW | ⬜ confirmar |
+| 11 Verificación | ⬜ `verify-deploy.sh` |
+| 12 Fail2ban | ⬜ |
+| 13 Backups DB | ⬜ |
+| 14 unattended-upgrades | ⬜ |
+| 15 update-app.sh | ⬜ |
+| 16 HTTPS + dominio | ⬜ cuando tengas dominio |

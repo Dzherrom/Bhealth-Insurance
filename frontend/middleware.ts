@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { decodeJwtPayload, extractRoleFromToken, isTokenExpired, resolveRoleClaim } from './lib/jwt';
 import { resolveMiddlewareRedirect } from './lib/middlewareAccess';
+import { getPublicOrigin } from './lib/requestOrigin';
 import type { UserRole } from './types/auth';
 
 function readCookieToken(request: NextRequest): string | undefined {
@@ -36,6 +37,11 @@ function resolveRequestRole(request: NextRequest, token?: string): UserRole | nu
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const publicOrigin = getPublicOrigin(request);
+
+  if (pathname === '/' || pathname === '/auth') {
+    return NextResponse.redirect(new URL('/auth/login', publicOrigin));
+  }
 
   if (pathname === '/client') {
     return NextResponse.next();
@@ -56,12 +62,12 @@ export function middleware(request: NextRequest) {
   });
 
   if (redirectPath) {
-    return NextResponse.redirect(new URL(redirectPath, request.url));
+    return NextResponse.redirect(new URL(redirectPath, publicOrigin));
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/crm/:path*', '/client/:path*', '/auth/login'],
+  matcher: ['/', '/auth', '/crm/:path*', '/client/:path*', '/auth/login'],
 };
