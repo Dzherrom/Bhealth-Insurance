@@ -1,4 +1,5 @@
 import { CRM_ROLES, normalizeRoleClaim, hasCRMAccess } from '@/lib/roles';
+import type { UserRole } from '@/types/auth';
 
 /** Perfiles del backend que pueden usar el portal si tienen cliente vinculado. */
 const PORTAL_PROFILE_ROLES = new Set(['CLIENTE', 'USER']);

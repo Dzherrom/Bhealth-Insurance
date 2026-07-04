@@ -6,24 +6,33 @@
 #   sudo systemctl enable lumina-frontend
 #   sudo systemctl start lumina-frontend
 #
-# Build first: cd frontend && npm ci && npm run build
-# Set frontend/.env.production → NEXT_PUBLIC_API_URL=http://YOUR_IP_OR_DOMAIN/api
+# REQUIRED before start (as deploy, NOT as www-data):
+#   cd /var/www/Bhealth-Insurance/frontend
+#   npm ci && npm run build
+#   sudo chown -R www-data:www-data /var/www/Bhealth-Insurance/frontend
+#
+# Logs: sudo journalctl -u lumina-frontend -n 50 --no-pager
 
 [Unit]
 Description=Lumina Insurance Next.js Frontend
 After=network.target
 
 [Service]
+Type=simple
 User=www-data
 Group=www-data
 WorkingDirectory=/var/www/Bhealth-Insurance/frontend
 Environment=NODE_ENV=production
 Environment=PORT=3000
-ExecStart=/usr/bin/npm run start
+Environment=HOSTNAME=127.0.0.1
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=HOME=/var/www/Bhealth-Insurance/frontend
+ExecStart=/usr/bin/node /var/www/Bhealth-Insurance/frontend/node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3000
 Restart=always
 RestartSec=5
-NoNewPrivileges=true
-PrivateTmp=true
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lumina-frontend
 
 [Install]
 WantedBy=multi-user.target
