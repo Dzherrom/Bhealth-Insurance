@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { decodeJwtPayload, extractRoleFromToken, isTokenExpired, resolveRoleClaim } from './lib/jwt';
 import { resolveMiddlewareRedirect } from './lib/middlewareAccess';
-import { getPublicOrigin } from './lib/requestOrigin';
+import { buildRedirectUrl } from './lib/requestOrigin';
 import type { UserRole } from './types/auth';
 
 function readCookieToken(request: NextRequest): string | undefined {
@@ -31,16 +31,24 @@ function resolveRequestRole(request: NextRequest, token?: string): UserRole | nu
     return 'cliente';
   }
 
-  const roleCookie = request.cookies.get('user_role')?.value;
+  const roleCookieRaw = request.cookies.get('user_role')?.value;
+  let roleCookie = roleCookieRaw;
+  if (roleCookieRaw) {
+    try {
+      roleCookie = decodeURIComponent(roleCookieRaw);
+    } catch {
+      roleCookie = roleCookieRaw;
+    }
+  }
+
   return resolveRoleClaim(roleCookie);
 }
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const publicOrigin = getPublicOrigin(request);
 
   if (pathname === '/' || pathname === '/auth') {
-    return NextResponse.redirect(new URL('/auth/login', publicOrigin));
+    return NextResponse.redirect(buildRedirectUrl(request, '/auth/login'));
   }
 
   if (pathname === '/client') {
@@ -58,11 +66,12 @@ export function middleware(request: NextRequest) {
     hasValidToken,
     portalClientCookie: request.cookies.get('portal_client')?.value,
     userRoleCookie: request.cookies.get('user_role')?.value,
+    authSessionCookie: request.cookies.get('auth_session')?.value,
     jwtClienteId: payload?.cliente_id ?? null,
   });
 
   if (redirectPath) {
-    return NextResponse.redirect(new URL(redirectPath, publicOrigin));
+    return NextResponse.redirect(buildRedirectUrl(request, redirectPath));
   }
 
   return NextResponse.next();

@@ -50,6 +50,19 @@ Causas frecuentes:
 ```bash
 cd /var/www/Bhealth-Insurance/frontend
 npm ci && npm run build
+```
+
+**Importante — evitar redirects a `localhost:3000`:**
+
+Crea `frontend/.env.production` antes del build:
+
+```env
+NEXT_PUBLIC_SITE_URL=http://2.25.68.83
+```
+
+Sin esto, el middleware puede redirigir a `localhost:3000` detrás de Nginx.
+
+```bash
 sudo chown -R www-data:www-data /var/www/Bhealth-Insurance/frontend
 sudo cp deploy/systemd/lumina-frontend.service /etc/systemd/system/
 sudo systemctl daemon-reload

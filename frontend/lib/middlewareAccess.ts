@@ -6,6 +6,7 @@ export interface MiddlewareAuthContext {
   role?: UserRole | null;
   portalClientCookie?: string | null;
   userRoleCookie?: string | null;
+  authSessionCookie?: string | null;
   jwtClienteId?: number | null;
 }
 
@@ -27,8 +28,18 @@ export function canAccessCRM(role: UserRole | null | undefined): boolean {
   return hasCRMAccess(role);
 }
 
+function decodeCookieValue(value?: string | null): string | null {
+  if (!value) return null;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 function hasRoleSessionCookie(ctx: MiddlewareAuthContext): boolean {
-  return Boolean(ctx.userRoleCookie?.trim() || ctx.portalClientCookie === '1');
+  const role = decodeCookieValue(ctx.userRoleCookie);
+  return Boolean(role?.trim() || ctx.portalClientCookie === '1' || ctx.authSessionCookie === '1');
 }
 
 export function resolveMiddlewareRedirect(
@@ -41,7 +52,10 @@ export function resolveMiddlewareRedirect(
   if (pathname.startsWith('/crm')) {
     if (portalClient) return '/client/dashboard';
     if (canAccessCRM(ctx.role) && hasSessionHint) return null;
-    if (!ctx.hasValidToken || !canAccessCRM(ctx.role)) return '/auth/login';
+    // JWT válido pero rol aún no parseado: dejar pasar si hay sesión CRM en cookie
+    if (ctx.hasValidToken && hasSessionHint && ctx.role == null) return null;
+    if (!hasSessionHint) return '/auth/login';
+    if (!canAccessCRM(ctx.role)) return '/auth/login';
     return null;
   }
 

@@ -18,7 +18,11 @@ const CLIENT_PORTAL_MESSAGE =
 
 function hardRedirect(path: string) {
   void waitForSessionCookies().then(() => {
-    window.location.replace(path);
+    if (typeof window === 'undefined') return;
+    const target = path.startsWith('http')
+      ? path
+      : `${window.location.origin}${path.startsWith('/') ? path : `/${path}`}`;
+    window.location.replace(target);
   });
 }
 
