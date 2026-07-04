@@ -25,9 +25,10 @@ WorkingDirectory=/var/www/Bhealth-Insurance/frontend
 Environment=NODE_ENV=production
 Environment=PORT=3000
 Environment=HOSTNAME=127.0.0.1
+Environment=HOST=127.0.0.1
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Environment=HOME=/var/www/Bhealth-Insurance/frontend
-ExecStart=/usr/bin/node /var/www/Bhealth-Insurance/frontend/node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3000
+ExecStart=/usr/bin/node /var/www/Bhealth-Insurance/frontend/node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3000
 Restart=always
 RestartSec=5
 StandardOutput=journal
@@ -36,3 +37,4 @@ SyslogIdentifier=lumina-frontend
 
 [Install]
 WantedBy=multi-user.target
+

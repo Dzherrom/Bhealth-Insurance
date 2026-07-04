@@ -71,6 +71,8 @@ sudo systemctl restart lumina-frontend
 
 ## Paso 9 — Nginx
 
+Incluye `/api/`, `/admin/` (Django admin) y `/static/` (Whitenoise).
+
 ```bash
 sudo cp deploy/nginx/lumina-insurance.conf /etc/nginx/sites-available/lumina-insurance
 sudo ln -sf /etc/nginx/sites-available/lumina-insurance /etc/nginx/sites-enabled/
@@ -79,12 +81,76 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
+## Paso 10 — Firewall (cerrar puertos 3000 y 8000)
+
+Solo deben ser públicos **22** (SSH), **80** y **443** (Nginx).
+
+```bash
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow OpenSSH
+sudo ufw allow 'Nginx Full'
+sudo ufw deny 3000/tcp
+sudo ufw deny 8000/tcp
+sudo ufw enable
+sudo ufw status verbose
+```
+
+También revisa el **firewall del panel Hostinger** (solo 22, 80, 443).
+
+## Frontend solo en localhost (127.0.0.1)
+
+Si `ss -tlnp` muestra `*:3000`, el servicio no está limitado a localhost. Aplica el unit file actualizado:
+
+```bash
+sudo cp deploy/systemd/lumina-frontend.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl restart lumina-frontend
+sudo ss -tlnp | grep 3000
+# debe mostrar: 127.0.0.1:3000
+```
+
+## CRM super-admin (SUPER_ADMIN)
+
+Crea usuario Django + rol CRM. Añade en `backend/.env`:
+
+```env
+DJANGO_SUPERUSER_USERNAME=lumina-admin
+DJANGO_SUPERUSER_EMAIL=admin@tu-dominio.com
+DJANGO_SUPERUSER_PASSWORD=ContraseñaSegura123!
+```
+
+En el VPS:
+
+```bash
+cd /var/www/Bhealth-Insurance/backend
+source ../venv/bin/activate
+python manage.py ensure_crm_admin
+```
+
+| Acceso | URL |
+|--------|-----|
+| CRM (login empleados) | `http://2.25.68.83/auth/login` |
+| Django admin | `http://2.25.68.83/admin/` |
+
+Para resetear contraseña de un usuario existente:
+
+```bash
+python manage.py ensure_crm_admin --update-password
+```
+
 ## Comprobar
 
 ```bash
 curl -I http://127.0.0.1:8000/api/
 curl -I http://127.0.0.1:3000/
+curl -I http://2.25.68.83/
 curl -I http://2.25.68.83/api/
+curl -I http://2.25.68.83/admin/
+
+# Desde tu PC — deben fallar (timeout / refused) si el firewall está bien:
+curl --connect-timeout 5 http://2.25.68.83:3000
+curl --connect-timeout 5 http://2.25.68.83:8000
 ```
 
 ## Renombrar a Lumina
