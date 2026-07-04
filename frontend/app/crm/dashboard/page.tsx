@@ -28,7 +28,7 @@ import { useAuthStore } from "@/store/authStore";
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   (process.env.NODE_ENV === "production"
-    ? "https://bhealth-insurance.onrender.com/api"
+    ? "/api"
     : "http://127.0.0.1:8000/api");
 const USA_GEO_URL = "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json";
 

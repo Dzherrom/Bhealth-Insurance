@@ -22,13 +22,35 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # ------------------------------------------------------------------------------
 # Environment variables — edit backend/.env (copy from backend/.env.example).
-# python-decouple loads backend/.env when present; otherwise OS env vars (Render).
+# systemd (lumina-backend.service) also loads backend/.env via EnvironmentFile.
+# OS environment variables take precedence over the file (important for gunicorn).
 # ------------------------------------------------------------------------------
 _ENV_FILE = BASE_DIR / '.env'
-if _ENV_FILE.is_file():
-    config = Config(RepositoryEnv(str(_ENV_FILE)))
-else:
-    from decouple import config  # noqa: E402 — falls back to process environment
+
+
+def _env(key, default=None, cast=None):
+    """Read env var from process environment first, then backend/.env."""
+    raw = os.environ.get(key)
+    if raw is None and _ENV_FILE.is_file():
+        try:
+            file_cfg = Config(RepositoryEnv(str(_ENV_FILE)))
+            return file_cfg(key, default=default, cast=cast)
+        except (PermissionError, OSError):
+            pass
+    if raw is None:
+        if cast is bool:
+            if default is not None:
+                return default
+            return False
+        return default
+    if cast is bool:
+        return str(raw).strip().lower() in ('1', 'true', 'yes', 'on')
+    if cast is not None:
+        return cast(raw)
+    return raw
+
+
+config = _env
 
 
 def _build_databases():
@@ -104,6 +126,15 @@ FRONTEND_ORIGINS = list(dict.fromkeys(FRONTEND_ORIGINS))
 
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 
+# Optional: ALLOWED_HOSTS=2.25.68.83,srv1781611.hstgr.cloud,tu-dominio.com
+_extra_hosts = config('ALLOWED_HOSTS', default='')
+if _extra_hosts:
+    ALLOWED_HOSTS.extend([
+        host.strip()
+        for host in _extra_hosts.split(',')
+        if host.strip()
+    ])
+
 backend_public_url = config('BACKEND_PUBLIC_URL', default='')
 if backend_public_url:
     backend_hostname = urlparse(backend_public_url).hostname
@@ -119,13 +150,22 @@ RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
+ALLOWED_HOSTS = list(dict.fromkeys(ALLOWED_HOSTS))
+
 CORS_ALLOWED_ORIGINS = FRONTEND_ORIGINS
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https://.*\.vercel\.app$",
 ]
 CORS_ALLOW_CREDENTIALS = True
 
-CSRF_TRUSTED_ORIGINS = FRONTEND_ORIGINS + ["https://*.vercel.app"]
+# CSRF: only valid full origins (scheme + host). Wildcards are not supported by Django.
+CSRF_TRUSTED_ORIGINS = [
+    origin for origin in FRONTEND_ORIGINS
+    if origin.startswith('http://') or origin.startswith('https://')
+]
+if backend_public_url and backend_public_url not in CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS.append(backend_public_url)
+CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(CSRF_TRUSTED_ORIGINS))
 
 
 # Application definition

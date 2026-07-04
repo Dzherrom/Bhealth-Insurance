@@ -142,15 +142,85 @@ python manage.py ensure_crm_admin --update-password
 ## Comprobar
 
 ```bash
+# Backend debe estar activo (si falla → 502 en /admin/ y /api/)
+sudo systemctl status lumina-backend
 curl -I http://127.0.0.1:8000/api/
+curl -I http://127.0.0.1:8000/admin/
+
 curl -I http://127.0.0.1:3000/
 curl -I http://2.25.68.83/
 curl -I http://2.25.68.83/api/
 curl -I http://2.25.68.83/admin/
+```
 
-# Desde tu PC — deben fallar (timeout / refused) si el firewall está bien:
-curl --connect-timeout 5 http://2.25.68.83:3000
-curl --connect-timeout 5 http://2.25.68.83:8000
+## Troubleshooting — 502 Bad Gateway en /admin/ o Failed to fetch
+
+### Arquitectura (el frontend NO habla con PostgreSQL)
+
+```
+Navegador → Nginx :80 → Next.js :3000   (páginas)
+Navegador → Nginx :80 → Gunicorn :8000  (/api/, /admin/)
+Gunicorn → PostgreSQL localhost:5432    (solo Django)
+```
+
+**502** = Nginx no alcanza Gunicorn en `127.0.0.1:8000`. No es CORS ni CSRF.
+
+```bash
+sudo systemctl status lumina-backend
+sudo journalctl -u lumina-backend -n 50 --no-pager
+sudo ss -tlnp | grep 8000
+```
+
+Arrancar o reiniciar backend:
+
+```bash
+sudo cp deploy/systemd/lumina-backend.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable lumina-backend
+sudo systemctl restart lumina-backend
+```
+
+Probar DB manualmente:
+
+```bash
+cd /var/www/Bhealth-Insurance/backend
+source ../venv/bin/activate
+python manage.py migrate
+python manage.py check
+```
+
+### Failed to fetch en login
+
+1. **Backend caído** → arreglar lumina-backend (arriba).
+2. **Frontend apuntando a Render** → rebuild con `/api` relativo o `NEXT_PUBLIC_API_URL=http://2.25.68.83/api`.
+3. **CORS/ALLOWED_HOSTS** → en `backend/.env`:
+
+```env
+BACKEND_PUBLIC_URL=http://2.25.68.83
+FRONTEND_ORIGINS=http://2.25.68.83
+ALLOWED_HOSTS=2.25.68.83,srv1781611.hstgr.cloud
+```
+
+```bash
+sudo systemctl restart lumina-backend
+```
+
+4. **Permisos `.env`** (gunicorn como www-data):
+
+```bash
+sudo chown deploy:www-data /var/www/Bhealth-Insurance/backend/.env
+sudo chmod 640 /var/www/Bhealth-Insurance/backend/.env
+```
+
+### Rebuild frontend tras cambios de API
+
+```bash
+sudo chown -R deploy:deploy /var/www/Bhealth-Insurance/frontend
+cd /var/www/Bhealth-Insurance/frontend
+git pull
+npm run build
+sudo chown -R www-data:www-data /var/www/Bhealth-Insurance/frontend
+sudo systemctl restart lumina-frontend
 ```
 
 ## Renombrar a Lumina
