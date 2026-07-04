@@ -61,12 +61,30 @@ sudo systemctl status lumina-frontend
 ### Actualizar frontend en el futuro
 
 ```bash
+# git pull falla si frontend pertenece a www-data — recuperar ownership primero:
 sudo chown -R deploy:deploy /var/www/Bhealth-Insurance/frontend
-cd /var/www/Bhealth-Insurance/frontend
+cd /var/www/Bhealth-Insurance
 git pull
+cd frontend
 npm ci && npm run build
 sudo chown -R www-data:www-data /var/www/Bhealth-Insurance/frontend
 sudo systemctl restart lumina-frontend
+```
+
+### Actualizar todo el repo (backend + frontend)
+
+```bash
+sudo chown -R deploy:deploy /var/www/Bhealth-Insurance
+cd /var/www/Bhealth-Insurance
+git pull
+source venv/bin/activate
+pip install -r requirements.txt
+cd backend && python manage.py migrate && python manage.py collectstatic --noinput
+cd ../frontend && npm ci && npm run build
+sudo chown -R www-data:www-data /var/www/Bhealth-Insurance/frontend
+sudo chown -R www-data:www-data /var/www/Bhealth-Insurance/backend/media
+sudo chown -R www-data:www-data /var/www/Bhealth-Insurance/backend/staticfiles
+sudo systemctl restart lumina-backend lumina-frontend
 ```
 
 ## Paso 9 — Nginx

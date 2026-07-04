@@ -34,7 +34,10 @@ def _env(key, default=None, cast=None):
     if raw is None and _ENV_FILE.is_file():
         try:
             file_cfg = Config(RepositoryEnv(str(_ENV_FILE)))
-            return file_cfg(key, default=default, cast=cast)
+            kwargs = {'default': default}
+            if cast is not None:
+                kwargs['cast'] = cast
+            return file_cfg(key, **kwargs)
         except (PermissionError, OSError):
             pass
     if raw is None:
