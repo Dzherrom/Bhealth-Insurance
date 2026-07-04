@@ -74,7 +74,8 @@ echo
 echo "-- ports that should NOT be public --"
 for port in 3000 8000; do
   code="$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 3 "http://${PUBLIC_IP}:${port}/" 2>/dev/null || echo '000')"
-  if [[ "${code}" == "000" ]]; then
+  code="${code//[^0-9]/}"
+  if [[ -z "${code}" || "${code}" == "000" ]]; then
     ok "port ${port} not reachable from outside (good)"
   else
     fail "port ${port} is reachable from outside (HTTP ${code}) — close in UFW"

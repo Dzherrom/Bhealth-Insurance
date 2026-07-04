@@ -228,7 +228,7 @@ class Command(BaseCommand):
             poliza.total_dependientes = dependientes
             poliza.save(update_fields=["total_miembros", "total_aplicantes", "total_dependientes"])
 
-            if etiquetas_poliza:
+            if etiquetas_poliza and hasattr(poliza, 'etiquetas'):
                 poliza.etiquetas.set(random.sample(etiquetas_poliza, k=random.randint(1, min(3, len(etiquetas_poliza)))))
 
             colaboradores = random.sample(staff_users, k=random.randint(1, min(3, len(staff_users))))

@@ -13,6 +13,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from api.models import UserProfile
+from config.settings import _env
 
 
 DEFAULT_USERNAME = 'lumina-admin'
@@ -49,7 +50,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         username = (options['username'] or DEFAULT_USERNAME).strip()
         email = (options['email'] or DEFAULT_EMAIL).strip()
-        password = options['password'] or DEFAULT_PASSWORD
+        password = (options['password'] or _env('DJANGO_SUPERUSER_PASSWORD') or DEFAULT_PASSWORD)
         update_password = bool(options['update_password'])
 
         if not username or not password:
