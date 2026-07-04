@@ -108,9 +108,10 @@ export const useAuthStore = create<AuthState>()(
               setAuthCookies(accessToken, role);
             }
 
-            set({ user: profileData, role, isLoading: false });
+            set({ user: profileData, role: role ?? currentRole, isLoading: false });
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Error al obtener el perfil';
+            // Mantener sesión y rol del JWT aunque /profile/ falle (red no bloquea redirect).
             set({ error: errorMessage, isLoading: false });
           }
         },

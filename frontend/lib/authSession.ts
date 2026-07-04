@@ -52,12 +52,13 @@ export function waitForSessionCookies(): Promise<void> {
   if (typeof document === 'undefined') return Promise.resolve();
 
   return new Promise((resolve) => {
-    const deadline = Date.now() + 500;
+    const deadline = Date.now() + 1500;
     const tick = () => {
       const hasRole = document.cookie.includes('user_role=');
       const hasPortal = document.cookie.includes('portal_client=1');
       const hasSession = document.cookie.includes('auth_session=1');
-      if ((hasRole || hasPortal) && hasSession) {
+      const hasToken = document.cookie.includes('access_token=');
+      if (((hasRole || hasPortal) && hasSession) || (hasToken && hasSession)) {
         resolve();
         return;
       }

@@ -22,10 +22,16 @@ export function isPortalClientSession(ctx: MiddlewareAuthContext): boolean {
   });
 }
 
-import { hasCRMAccess } from '@/lib/roles';
+import { hasCRMAccess, normalizeRoleClaim } from '@/lib/roles';
 
 export function canAccessCRM(role: UserRole | null | undefined): boolean {
   return hasCRMAccess(role);
+}
+
+/** Rol efectivo: JWT/cookie parseada o user_role de sesión ligera. */
+export function resolveEffectiveRole(ctx: MiddlewareAuthContext): UserRole | null {
+  if (ctx.role) return ctx.role;
+  return normalizeRoleClaim(decodeCookieValue(ctx.userRoleCookie));
 }
 
 function decodeCookieValue(value?: string | null): string | null {
@@ -48,20 +54,19 @@ export function resolveMiddlewareRedirect(
 ): string | null {
   const portalClient = isPortalClientSession(ctx);
   const hasSessionHint = ctx.hasValidToken || hasRoleSessionCookie(ctx);
+  const effectiveRole = resolveEffectiveRole(ctx);
 
   if (pathname.startsWith('/crm')) {
     if (portalClient) return '/client/dashboard';
-    if (canAccessCRM(ctx.role) && hasSessionHint) return null;
-    // JWT válido pero rol aún no parseado: dejar pasar si hay sesión CRM en cookie
-    if (ctx.hasValidToken && hasSessionHint && ctx.role == null) return null;
+    if (canAccessCRM(effectiveRole) && hasSessionHint) return null;
     if (!hasSessionHint) return '/auth/login';
-    if (!canAccessCRM(ctx.role)) return '/auth/login';
+    if (!canAccessCRM(effectiveRole)) return '/auth/login';
     return null;
   }
 
   if (pathname === '/auth/login') {
     if (portalClient && hasSessionHint) return '/client/dashboard';
-    if (canAccessCRM(ctx.role) && hasSessionHint) return '/crm/dashboard';
+    if (canAccessCRM(effectiveRole) && hasSessionHint) return '/crm/dashboard';
     return null;
   }
 
@@ -75,7 +80,7 @@ export function resolveMiddlewareRedirect(
     if (!ctx.hasValidToken) return '/client';
 
     if (!portalClient) {
-      if (canAccessCRM(ctx.role)) return '/crm/dashboard';
+      if (canAccessCRM(effectiveRole)) return '/crm/dashboard';
       return '/client';
     }
     return null;

@@ -11,18 +11,34 @@ import {
   getPortalAuthSnapshot,
 } from '@/lib/portalAccess';
 import { getHomePathForUser } from '@/lib/routing';
+import { hasCRMAccess } from '@/lib/roles';
 import { useAuthStore } from '@/store/authStore';
 
 const CLIENT_PORTAL_MESSAGE =
   'Esta cuenta es de cliente. Debes iniciar sesión en el portal de clientes.';
 
+function resolvePostLoginPath(
+  role: ReturnType<typeof useAuthStore.getState>['role'],
+  user: ReturnType<typeof useAuthStore.getState>['user'],
+): string | null {
+  const destination = getHomePathForUser(role, user);
+  if (destination) return destination;
+  if (role && hasCRMAccess(role)) return '/crm/dashboard';
+  return null;
+}
+
 function hardRedirect(path: string) {
+  if (typeof window === 'undefined') return;
+  const target = path.startsWith('http')
+    ? path
+    : `${window.location.origin}${path.startsWith('/') ? path : `/${path}`}`;
+  // Cookies se escriben de forma síncrona en login(); navegar de inmediato.
+  window.location.replace(target);
+  // Respaldo por si el navegador aplaza la navegación (p. ej. pestaña en segundo plano).
   void waitForSessionCookies().then(() => {
-    if (typeof window === 'undefined') return;
-    const target = path.startsWith('http')
-      ? path
-      : `${window.location.origin}${path.startsWith('/') ? path : `/${path}`}`;
-    window.location.replace(target);
+    if (window.location.pathname !== path.split('?')[0]) {
+      window.location.replace(target);
+    }
   });
 }
 
@@ -44,8 +60,8 @@ export default function LoginPage() {
       return;
     }
 
-    const destination = getHomePathForUser(role, user);
-    if (destination?.startsWith('/crm')) {
+    const destination = resolvePostLoginPath(role, user);
+    if (destination) {
       hardRedirect(destination);
     }
   }, [isAuthenticated, role, user]);
@@ -68,10 +84,12 @@ export default function LoginPage() {
         return;
       }
 
-      const destination = getHomePathForUser(state.role, state.user);
+      const destination = resolvePostLoginPath(state.role, state.user);
       if (destination) {
         hardRedirect(destination);
+        return;
       }
+      setSubmitError('Sesión iniciada, pero no se pudo determinar el destino. Recarga la página.');
     } catch (loginError) {
       const message = loginError instanceof Error ? loginError.message : 'Error al iniciar sesión';
       setSubmitError(message);
