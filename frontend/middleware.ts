@@ -27,6 +27,12 @@ function resolveRequestRole(request: NextRequest, token?: string): UserRole | nu
     if (payload?.cliente_id) return 'cliente';
   }
 
+  const hasSession = request.cookies.get('auth_session')?.value === '1';
+  if (token && hasSession) {
+    const roleFromToken = extractRoleFromToken(token);
+    if (roleFromToken) return roleFromToken;
+  }
+
   if (request.cookies.get('portal_client')?.value === '1') {
     return 'cliente';
   }

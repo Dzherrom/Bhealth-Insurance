@@ -1,3 +1,4 @@
+import { extractRoleFromToken } from '@/lib/jwt';
 import type { UserRole } from '@/types/auth';
 import { canAccessClientPortal } from '@/lib/portalAccess';
 
@@ -31,7 +32,17 @@ export function canAccessCRM(role: UserRole | null | undefined): boolean {
 /** Rol efectivo: JWT/cookie parseada o user_role de sesión ligera. */
 export function resolveEffectiveRole(ctx: MiddlewareAuthContext): UserRole | null {
   if (ctx.role) return ctx.role;
-  return normalizeRoleClaim(decodeCookieValue(ctx.userRoleCookie));
+
+  const fromRoleCookie = normalizeRoleClaim(decodeCookieValue(ctx.userRoleCookie));
+  if (fromRoleCookie) return fromRoleCookie;
+
+  // Con auth_session=1, inferir rol del JWT aunque el edge considere el token expirado.
+  if (ctx.authSessionCookie === '1' && ctx.token) {
+    const fromToken = extractRoleFromToken(ctx.token);
+    if (fromToken) return fromToken;
+  }
+
+  return null;
 }
 
 function decodeCookieValue(value?: string | null): string | null {
@@ -58,7 +69,9 @@ export function resolveMiddlewareRedirect(
 
   if (pathname.startsWith('/crm')) {
     if (portalClient) return '/client/dashboard';
+    const hasCrmTokenSession = Boolean(ctx.token && ctx.authSessionCookie === '1');
     if (canAccessCRM(effectiveRole) && hasSessionHint) return null;
+    if (hasCrmTokenSession && hasSessionHint && !portalClient) return null;
     if (!hasSessionHint) return '/auth/login';
     if (!canAccessCRM(effectiveRole)) return '/auth/login';
     return null;

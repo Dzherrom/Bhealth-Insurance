@@ -1,4 +1,5 @@
-// Importar tipos organizados
+import { isTokenExpired } from '@/lib/jwt';
+import { hasAuthSessionCookie, readLiveRefreshToken } from '@/lib/authSession';
 import {
   ApiResponse,
   AuthTokens,
@@ -61,14 +62,15 @@ function isAuthEndpointNoRetry(url: string): boolean {
   return AUTH_ENDPOINTS_NO_RETRY.some((segment) => url.includes(segment));
 }
 
-function redirectToLogin() {
+function redirectToLogin(reason?: 'session_expired') {
   if (typeof window === 'undefined') return;
   const loginPath = window.location.pathname.startsWith('/client')
     ? '/client'
     : '/auth/login';
-  if (!window.location.pathname.startsWith(loginPath)) {
-    window.location.href = loginPath;
-  }
+  if (window.location.pathname.startsWith(loginPath)) return;
+
+  const suffix = reason === 'session_expired' ? '?reason=session_expired' : '';
+  window.location.href = `${loginPath}${suffix}`;
 }
 
 function persistRefreshResult(result: RefreshTokenResponse) {
@@ -355,6 +357,36 @@ let isRefreshing = false;
 let failedQueue: Array<{ resolve: (token: string) => void; reject: (error: unknown) => void }> = [];
 let sessionExpired = false;
 let refreshPromise: Promise<string> | null = null;
+let authGraceUntil = 0;
+
+function readAuthGraceUntil(): number {
+  if (typeof window === 'undefined') return 0;
+
+  if (!authGraceUntil) {
+    const raw = sessionStorage.getItem('auth_grace_until');
+    if (raw) authGraceUntil = Number(raw) || 0;
+  }
+
+  if (authGraceUntil && Date.now() >= authGraceUntil) {
+    authGraceUntil = 0;
+    sessionStorage.removeItem('auth_grace_until');
+  }
+
+  return authGraceUntil;
+}
+
+function isInAuthGracePeriod(): boolean {
+  return Date.now() < readAuthGraceUntil();
+}
+
+/** Evita logout forzado justo tras login (race rehidratación / refresh paralelo). */
+export const armAuthGracePeriod = (ms = 15000) => {
+  authGraceUntil = Date.now() + ms;
+  if (typeof window !== 'undefined') {
+    sessionStorage.setItem('auth_grace_until', String(authGraceUntil));
+  }
+  resetAuthRefreshState();
+};
 
 const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue.forEach((prom) => {
@@ -389,8 +421,17 @@ async function refreshAccessTokenOnce(): Promise<string> {
     .catch((error) => {
       sessionExpired = true;
       processQueue(error, null);
-      clearClientAuthStorage();
-      redirectToLogin();
+
+      if (isInAuthGracePeriod()) {
+        throw error;
+      }
+
+      const token = getAuthToken();
+      const canRetryLater = hasAuthSessionCookie() || Boolean(readLiveRefreshToken());
+      if ((!token || isTokenExpired(token)) && !canRetryLater) {
+        clearClientAuthStorage();
+        redirectToLogin('session_expired');
+      }
       throw error;
     })
     .finally(() => {
@@ -398,6 +439,13 @@ async function refreshAccessTokenOnce(): Promise<string> {
     });
 
   return refreshPromise;
+}
+
+/** Refresh centralizado (fetchWithAuth + authStore comparten la misma promesa). */
+export const refreshAccessTokenShared = (): Promise<string> => refreshAccessTokenOnce();
+
+if (typeof window !== 'undefined') {
+  readAuthGraceUntil();
 }
 
 // Fetch wrapper that injects auth headers and attempts a single token refresh on 401/403.

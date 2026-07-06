@@ -1,5 +1,4 @@
 import { decodeJwtPayload } from '@/lib/jwt';
-import { clearClientAuthStorage } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 
 /** Refrescar el access token 1 minuto antes de expirar */
@@ -47,14 +46,6 @@ function scheduleNextRefresh(accessToken: string) {
         if (newToken) scheduleNextRefresh(newToken);
       } catch {
         clearRefreshTimer();
-        clearClientAuthStorage();
-        useAuthStore.setState({
-          user: null,
-          accessToken: null,
-          refreshToken: null,
-          role: null,
-          isAuthenticated: false,
-        });
       }
     } else {
       scheduleNextRefresh(state.accessToken);

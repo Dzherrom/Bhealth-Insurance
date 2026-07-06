@@ -1,11 +1,16 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
-import { authApi, resetAuthRefreshState, clearClientAuthStorage } from '@/lib/api';
-import { isTokenExpired, resolveRoleFromLogin } from '@/lib/jwt';
+import { authApi, resetAuthRefreshState, clearClientAuthStorage, refreshAccessTokenShared } from '@/lib/api';
+import { isTokenExpired, resolveRoleFromLogin, resolveRoleFromAccessToken } from '@/lib/jwt';
 import {
   clearAuthCookies,
+  hasAuthSessionCookie,
+  persistAuthSnapshot,
+  readLiveAccessToken,
+  readLiveRefreshToken,
   resolveRoleFromProfile,
   setAuthCookies,
+  syncServerSessionCookies,
 } from '@/lib/authSession';
 import { resolvePortalRole } from '@/lib/portalAccess';
 import type { User, LoginData, RegisterData, UserRole } from '@/types';
@@ -33,6 +38,67 @@ export interface AuthState {
 }
 
 let settingsUpdateTimeout: NodeJS.Timeout;
+
+function syncPersistedAuthState(get: () => AuthState): void {
+  const state = get();
+  persistAuthSnapshot({
+    accessToken: state.accessToken,
+    refreshToken: state.refreshToken,
+    user: state.user,
+    role: state.role,
+    isAuthenticated: state.isAuthenticated,
+  });
+}
+
+function reconcileHydratedAuthState(state: AuthState | undefined): Partial<AuthState> | null {
+  if (typeof window === 'undefined' || !state) return null;
+
+  const liveAccess = readLiveAccessToken();
+  const liveRefresh = readLiveRefreshToken();
+  const hasSessionCookie = hasAuthSessionCookie();
+
+  if (liveAccess) {
+    const role = state.role ?? resolveRoleFromAccessToken(liveAccess);
+    setAuthCookies(liveAccess, role);
+    return {
+      accessToken: liveAccess,
+      refreshToken: liveRefresh ?? state.refreshToken,
+      role,
+      isAuthenticated: true,
+    };
+  }
+
+  if (state.accessToken && !isTokenExpired(state.accessToken)) {
+    const role = state.role ?? resolveRoleFromAccessToken(state.accessToken);
+    setAuthCookies(state.accessToken, role);
+    return {
+      accessToken: state.accessToken,
+      refreshToken: liveRefresh ?? state.refreshToken,
+      role,
+      isAuthenticated: true,
+    };
+  }
+
+  // Con cookie de sesión o refresh token vivo, no borrar (evita logout ~1s tras login).
+  if (hasSessionCookie || liveRefresh || state.refreshToken) {
+    return null;
+  }
+
+  if (!state.accessToken || isTokenExpired(state.accessToken)) {
+    clearClientAuthStorage();
+    clearAuthCookies();
+    return {
+      user: null,
+      accessToken: null,
+      refreshToken: null,
+      role: null,
+      isAuthenticated: false,
+      error: null,
+    };
+  }
+
+  return null;
+}
 
 function mergeRole(
   tokenRole: UserRole | null,
@@ -84,6 +150,7 @@ export const useAuthStore = create<AuthState>()(
             if (accessToken && finalRole) {
               setAuthCookies(accessToken, finalRole);
             }
+            syncPersistedAuthState(get);
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Error al iniciar sesión';
             set({
@@ -109,6 +176,7 @@ export const useAuthStore = create<AuthState>()(
             }
 
             set({ user: profileData, role: role ?? currentRole, isLoading: false });
+            syncPersistedAuthState(get);
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Error al obtener el perfil';
             // Mantener sesión y rol del JWT aunque /profile/ falle (red no bloquea redirect).
@@ -160,20 +228,19 @@ export const useAuthStore = create<AuthState>()(
 
         refreshAccessToken: async () => {
           try {
-            const result = await authApi.refreshToken();
-            const tokenRole = resolveRoleFromLogin(
-              result.access,
-              result.role,
-              result.cliente_id,
-            );
+            const access = await refreshAccessTokenShared();
+            const refresh = readLiveRefreshToken();
+            const tokenRole = resolveRoleFromLogin(access, null, null);
             const profileRole = resolveRoleFromProfile(get().user?.profile);
             const role = mergeRole(tokenRole, profileRole, get().user?.profile?.cliente);
-            setAuthCookies(result.access, role);
+            setAuthCookies(access, role);
             set({
-              accessToken: result.access,
-              ...(result.refresh ? { refreshToken: result.refresh } : {}),
+              accessToken: access,
+              ...(refresh ? { refreshToken: refresh } : {}),
               role,
+              isAuthenticated: true,
             });
+            syncPersistedAuthState(get);
           } catch (error) {
             console.error('Error al refrescar token:', error);
             throw error;
@@ -242,21 +309,11 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: state.isAuthenticated,
         }),
         onRehydrateStorage: () => (state) => {
-          if (state && state.accessToken) {
-            if (isTokenExpired(state.accessToken)) {
-              clearClientAuthStorage();
-              clearAuthCookies();
-              state.user = null;
-              state.accessToken = null;
-              state.refreshToken = null;
-              state.role = null;
-              state.isAuthenticated = false;
-              state.error = null;
-            } else {
-              setAuthCookies(state.accessToken, state.role);
-            }
+          const patch = reconcileHydratedAuthState(state);
+          if (patch && state) {
+            Object.assign(state, patch);
           }
-          state && (state.hasHydrated = true);
+          if (state) state.hasHydrated = true;
         },
       }
     ),
@@ -266,9 +323,26 @@ export const useAuthStore = create<AuthState>()(
 
 if (typeof window !== 'undefined') {
   const finishHydration = () => {
-    const { accessToken, role, isAuthenticated } = useAuthStore.getState();
-    if (isAuthenticated && accessToken && !isTokenExpired(accessToken)) {
-      setAuthCookies(accessToken, role);
+    const patch = reconcileHydratedAuthState(useAuthStore.getState());
+    if (patch) {
+      useAuthStore.setState(patch);
+      if (patch.accessToken && patch.isAuthenticated) {
+        void syncServerSessionCookies(patch.accessToken, patch.role ?? null);
+      }
+    } else if (hasAuthSessionCookie()) {
+      const liveAccess = readLiveAccessToken();
+      const liveRefresh = readLiveRefreshToken();
+      if (liveAccess) {
+        const role =
+          useAuthStore.getState().role ?? resolveRoleFromAccessToken(liveAccess);
+        useAuthStore.setState({
+          accessToken: liveAccess,
+          refreshToken: liveRefresh,
+          role,
+          isAuthenticated: true,
+        });
+        void syncServerSessionCookies(liveAccess, role);
+      }
     }
     useAuthStore.setState({ hasHydrated: true });
   };

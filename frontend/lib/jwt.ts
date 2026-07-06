@@ -86,7 +86,8 @@ export function resolveRoleFromLogin(
 
 export function isTokenExpired(token: string): boolean {
   const payload = decodeJwtPayload(token);
-  if (!payload?.exp) return true;
+  // Sin claim exp no asumir expirado (evita borrar sesiones válidas si falla el decode).
+  if (!payload?.exp) return false;
   return Date.now() >= payload.exp * 1000;
 }
 

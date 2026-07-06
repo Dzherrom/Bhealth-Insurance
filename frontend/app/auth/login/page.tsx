@@ -4,7 +4,13 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import LoginUser from '@/components/auth/loginUser';
 import SplitLoginLayout from '@/components/auth/SplitLoginLayout';
-import { readPortalAuthState, waitForSessionCookies } from '@/lib/authSession';
+import {
+  persistAuthSnapshot,
+  setAuthCookies,
+  syncServerSessionCookies,
+  waitForSessionCookies,
+} from '@/lib/authSession';
+import { armAuthGracePeriod, resetAuthRefreshState } from '@/lib/api';
 import {
   canUseEmployeeLogin,
   getClientDashboardPath,
@@ -27,27 +33,66 @@ function resolvePostLoginPath(
   return null;
 }
 
-function hardRedirect(path: string) {
+async function establishSessionAndRedirect(path: string) {
   if (typeof window === 'undefined') return;
+
+  const state = useAuthStore.getState();
+  if (!state.accessToken) {
+    throw new Error('No hay token de acceso tras el login.');
+  }
+
+  persistAuthSnapshot({
+    accessToken: state.accessToken,
+    refreshToken: state.refreshToken,
+    user: state.user,
+    role: state.role,
+    isAuthenticated: state.isAuthenticated,
+  });
+
+  const synced = await syncServerSessionCookies(state.accessToken, state.role);
+  if (!synced) {
+    setAuthCookies(state.accessToken, state.role);
+    const cookiesReady = await waitForSessionCookies(true);
+    if (!cookiesReady) {
+      throw new Error(
+        'No se guardaron las cookies de sesión. Desactiva el bloqueo de cookies para este sitio e intenta de nuevo.',
+      );
+    }
+  }
+
+  resetAuthRefreshState();
+  armAuthGracePeriod();
+
   const target = path.startsWith('http')
     ? path
     : `${window.location.origin}${path.startsWith('/') ? path : `/${path}`}`;
-  // Cookies se escriben de forma síncrona en login(); navegar de inmediato.
   window.location.replace(target);
-  // Respaldo por si el navegador aplaza la navegación (p. ej. pestaña en segundo plano).
-  void waitForSessionCookies().then(() => {
-    if (window.location.pathname !== path.split('?')[0]) {
-      window.location.replace(target);
-    }
-  });
 }
 
 export default function LoginPage() {
-  const { login, logout, isLoading, isAuthenticated, role, user, error, clearError } = useAuthStore();
+  const { login, logout, isLoading, isAuthenticated, hasHydrated, role, user, error, clearError } =
+    useAuthStore();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [hydrationReady, setHydrationReady] = useState(
+    () => typeof window !== 'undefined' && useAuthStore.persist.hasHydrated(),
+  );
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (hydrationReady) return;
+
+    if (useAuthStore.persist.hasHydrated()) {
+      setHydrationReady(true);
+      return;
+    }
+
+    return useAuthStore.persist.onFinishHydration(() => {
+      setHydrationReady(true);
+    });
+  }, [hydrationReady]);
+
+  // Sesión ya activa: redirigir solo tras rehidratación (evita race con Zustand persist).
+  useEffect(() => {
+    if (!hydrationReady || !isAuthenticated) return;
 
     const snapshot = getPortalAuthSnapshot({
       role,
@@ -56,17 +101,22 @@ export default function LoginPage() {
     });
 
     if (!canUseEmployeeLogin(snapshot)) {
-      hardRedirect(getClientDashboardPath());
+      void establishSessionAndRedirect(getClientDashboardPath());
       return;
     }
 
     const destination = resolvePostLoginPath(role, user);
     if (destination) {
-      hardRedirect(destination);
+      void establishSessionAndRedirect(destination);
     }
-  }, [isAuthenticated, role, user]);
+  }, [hydrationReady, isAuthenticated, role, user]);
 
   const handleLogin = async (data: { username: string; password: string }) => {
+    if (!hydrationReady) {
+      setSubmitError('Cargando sesión, intenta de nuevo en un momento.');
+      return;
+    }
+
     setSubmitError(null);
     try {
       await login({ username: data.username, password: data.password });
@@ -86,7 +136,7 @@ export default function LoginPage() {
 
       const destination = resolvePostLoginPath(state.role, state.user);
       if (destination) {
-        hardRedirect(destination);
+        await establishSessionAndRedirect(destination);
         return;
       }
       setSubmitError('Sesión iniciada, pero no se pudo determinar el destino. Recarga la página.');
@@ -98,6 +148,11 @@ export default function LoginPage() {
   };
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('reason') === 'session_expired') {
+      setSubmitError('Tu sesión expiró. Inicia sesión nuevamente.');
+      return;
+    }
     clearError();
     setSubmitError(null);
   }, [clearError]);
@@ -105,6 +160,18 @@ export default function LoginPage() {
   useEffect(() => {
     if (error) setSubmitError(error);
   }, [error]);
+
+  if (!hydrationReady) {
+    return (
+      <SplitLoginLayout
+        variant="employee"
+        title="Gestión profesional de pólizas"
+        subtitle="Accede al CRM para administrar clientes, cotizaciones, cambios de vida y operaciones del equipo."
+      >
+        <div className="py-12 text-center text-sm text-[#64748b]">Preparando acceso...</div>
+      </SplitLoginLayout>
+    );
+  }
 
   return (
     <SplitLoginLayout
