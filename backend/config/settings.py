@@ -220,9 +220,21 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-# Database — configured via backend/.env (see .env.example)
+# Database — PostgreSQL local para pruebas de desarrollo
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-DATABASES = _build_databases()
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'bhealth_db',
+        'USER': 'postgres',
+        'PASSWORD': '1234',
+        'HOST': 'localhost',
+        'PORT': '5432',
+        'OPTIONS': {
+            'client_encoding': 'UTF8',
+        },
+    }
+}
 
 # HTTPS / reverse-proxy hardening when DEBUG=False (Nginx + Certbot on VPS)
 if not DEBUG:

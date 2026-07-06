@@ -768,7 +768,10 @@ class RecordatorioSerializer(serializers.ModelSerializer):
     class Meta:
         model = Recordatorio
         fields = '__all__'
-        read_only_fields = ('notificado', 'fecha_notificacion', 'fecha_creacion', 'creado_por')
+        read_only_fields = ('notificado', 'fecha_notificacion', 'fecha_creacion', 'creado_por', 'titulo')
+        extra_kwargs = {
+            'usuario_notificar': {'required': False, 'allow_null': True},
+        }
 
     def _build_titulo(self, validated_data):
         from .recordatorio_utils import build_recordatorio_titulo
