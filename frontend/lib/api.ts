@@ -858,6 +858,22 @@ export const departamentosApi = {
 export const usersApi = {
   ...createCrudApi<ManagedUser, Partial<ManagedUser>, Partial<ManagedUser>>('users'),
 
+  listPaginated: async (
+    params?: { page?: number; page_size?: number; search?: string; empleados?: string; [key: string]: string | number | undefined }
+  ): Promise<PaginatedResponse<ManagedUser>> => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          searchParams.set(key, String(value));
+        }
+      });
+    }
+    const query = searchParams.toString();
+    const response = await fetchWithAuth(`${API_BASE_URL}/users/${query ? `?${query}` : ''}`);
+    return handleApiResponse<PaginatedResponse<ManagedUser>>(response);
+  },
+
   uploadAvatar: async (id: number, avatarFile: File): Promise<ManagedUser> => {
     const formData = new FormData();
     formData.append('avatar', avatarFile);
@@ -1372,7 +1388,12 @@ export const notificacionesApi = {
     });
     return handleApiResponse<any>(response);
   },
-  enviarGeneral: async (data: { mensaje: string; tipo?: string }): Promise<any> => {
+  enviarGeneral: async (data: {
+    mensaje: string;
+    tipo?: string;
+    roles?: string[];
+    user_ids?: number[];
+  }): Promise<any> => {
     const response = await fetchWithAuth(`${API_BASE_URL}/notificaciones/enviar-general/`, {
       method: 'POST',
       body: JSON.stringify(data),

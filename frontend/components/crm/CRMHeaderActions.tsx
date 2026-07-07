@@ -138,17 +138,17 @@ function HealthcareResourceLink({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="group flex gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/40"
+      className="group flex gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/40"
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#334155]/80 ring-1 ring-white/5">
-        <Icon className="h-4 w-4 text-indigo-300" />
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 ring-1 ring-indigo-100 dark:bg-[#334155]/80 dark:ring-white/5">
+        <Icon className="h-4 w-4 text-indigo-600 dark:text-indigo-300" />
       </span>
       <span className="min-w-0 flex-1 pt-0.5">
         <span className="flex items-start justify-between gap-2">
-          <span className="text-[13px] font-medium leading-snug text-white">{label}</span>
-          <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500 opacity-0 transition-opacity group-hover:opacity-100" />
+          <span className="text-[13px] font-medium leading-snug text-[#0f172a] dark:text-white">{label}</span>
+          <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400 opacity-0 transition-opacity group-hover:opacity-100 dark:text-slate-500" />
         </span>
-        <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-400">{description}</span>
+        <span className="mt-0.5 block text-[11px] leading-relaxed text-[#64748b] dark:text-slate-400">{description}</span>
       </span>
     </a>
   );
@@ -312,10 +312,10 @@ export function CRMHeaderActions() {
               </div>
 
               {/* HealthCare.gov */}
-              <div className="flex min-w-0 flex-col bg-[#1e293b] p-4">
-                <SectionLabel icon={Globe} label="HealthCare.gov" tone="dark" />
-                <div className="max-h-[300px] min-h-0 overflow-y-auto [scrollbar-width:thin] [scrollbar-color:#475569_transparent]">
-                  <div className="divide-y divide-white/[0.06]">
+              <div className="flex min-w-0 flex-col bg-[#f8fafc] p-4 dark:bg-[#1e293b]">
+                <SectionLabel icon={Globe} label="HealthCare.gov" />
+                <div className="max-h-[300px] min-h-0 overflow-y-auto [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent] dark:[scrollbar-color:#475569_transparent]">
+                  <div className="divide-y divide-slate-200 dark:divide-white/[0.06]">
                     {HEALTHCARE_LINKS.map((link) => (
                       <HealthcareResourceLink key={link.id} {...link} />
                     ))}

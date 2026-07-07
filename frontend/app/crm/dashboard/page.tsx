@@ -42,6 +42,7 @@ type MonthlyTotalsRow = {
 
 type AgentRow = {
   nombre: string;
+  npn?: string;
   num_polizas: number;
   num_aplicantes: number;
   porcentaje_polizas: number;
@@ -581,7 +582,7 @@ export default function DashboardPage() {
                   </div>
                   <div>
                     <h4 className="text-[14px] font-bold text-[#0f172a] dark:text-white uppercase m-0 leading-[1.2]">{agent.nombre}</h4>
-                    <p className="text-[12px] font-semibold text-[#64748b] dark:text-gray-400 mt-[4px] m-0">NPN {Math.floor(10000000 + Math.random() * 90000000)} • Principal Activo</p>
+                    <p className="text-[12px] font-semibold text-[#64748b] dark:text-gray-400 mt-[4px] m-0">NPN {agent.npn || '—'} • Principal Activo</p>
                   </div>
                 </div>
 

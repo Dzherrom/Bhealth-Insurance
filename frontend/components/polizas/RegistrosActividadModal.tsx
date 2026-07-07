@@ -68,11 +68,6 @@ export function RegistrosActividadModal({
   useEffect(() => {
     if (!isOpen || !polizaId) return;
 
-    if (historialInicial && historialInicial.length > 0) {
-      setRegistros(historialInicial);
-      return;
-    }
-
     let cancelled = false;
     setLoading(true);
     historialApi
@@ -90,7 +85,7 @@ export function RegistrosActividadModal({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, polizaId, historialInicial]);
+  }, [isOpen, polizaId]);
 
   const toggleExpanded = (id: number) => {
     setExpandedItems((prev) => {

@@ -64,6 +64,11 @@ class PolizaPagination(PageNumberPagination):
     page_size_query_param = 'page_size'
     max_page_size = 200
 
+class UserPagination(PageNumberPagination):
+    page_size = 25
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
 class DashboardStatsView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsCRMNonBasicRole]
 
@@ -204,6 +209,7 @@ class DashboardStatsView(APIView):
         stats['clasificacion_agentes'] = [
             {
                 "nombre": ag.nombre_completo,
+                "npn": ag.npn or "",
                 "num_polizas": ag.num_polizas,
                 "num_aplicantes": ag.num_aplicantes or 0,
                 "porcentaje_polizas": round((ag.num_polizas / total_polizas_count) * 100, 2) if total_polizas_count else 0,
@@ -1314,13 +1320,16 @@ class UserManagementViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserManagementSerializer
     permission_classes = [permissions.IsAuthenticated, IsAdminOrManagerRole]
+    pagination_class = UserPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['is_active', 'profile__status', 'profile__role']
     search_fields = ['username', 'email', 'first_name', 'last_name']
 
     def get_queryset(self):
-        # Ensure we get users with their profiles
-        return User.objects.select_related('profile').all()
+        qs = User.objects.select_related('profile').all()
+        if self.request.query_params.get('empleados') == '1':
+            qs = qs.exclude(profile__role__in=['USER', 'CLIENTE'])
+        return qs
 
     ROLE_RANK = ROLE_RANK
 
@@ -1846,10 +1855,20 @@ class NotificacionViewSet(viewsets.ModelViewSet):
     def enviar_general(self, request):
         mensaje = request.data.get('mensaje')
         tipo = request.data.get('tipo', 'SISTEMA')
+        roles = request.data.get('roles')
+        user_ids = request.data.get('user_ids')
         if not mensaje:
             return Response({'detail': 'mensaje es obligatorio'}, status=status.HTTP_400_BAD_REQUEST)
 
         target_users = User.objects.filter(is_active=True).exclude(profile__role='USER')
+
+        if user_ids:
+            target_users = target_users.filter(id__in=user_ids)
+        elif roles:
+            if not isinstance(roles, list):
+                return Response({'detail': 'roles debe ser una lista'}, status=status.HTTP_400_BAD_REQUEST)
+            target_users = target_users.filter(profile__role__in=roles)
+
         created = 0
         for user in target_users:
             Notificacion.objects.create(usuario=user, mensaje=mensaje, tipo=tipo)

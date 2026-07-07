@@ -146,6 +146,7 @@ export default function UsersPage() {
   const [filterRole, setFilterRole] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalUsers, setTotalUsers] = useState(0);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -190,21 +191,35 @@ export default function UsersPage() {
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
     try {
-      const apiUsers = await usersApi.list() as ApiUser[];
-      // Filtramos para que solo pasen empleados (es decir, aquellos cuyo role no sea 'USER' ni 'CLIENTE')
-      const employeeUsers = apiUsers.filter(u => {
-        const role = (u.profile?.role || 'USER').toUpperCase();
-        return role !== 'USER' && role !== 'CLIENTE';
-      });
+      const params: Record<string, string | number> = {
+        page: currentPage,
+        page_size: PAGE_SIZE,
+        empleados: '1',
+      };
+      if (searchTerm.trim()) params.search = searchTerm.trim();
+      if (filterRole !== 'all') params['profile__role'] = toBackendRole(filterRole);
+      if (filterStatus !== 'all') {
+        const statusMap: Record<string, string> = {
+          activo: 'ACTIVE',
+          inactivo: 'INACTIVE',
+          pendiente: 'CANDIDATE',
+        };
+        params['profile__status'] = statusMap[filterStatus] || filterStatus.toUpperCase();
+      }
+
+      const result = await usersApi.listPaginated(params);
+      const employeeUsers = (result.results || []) as ApiUser[];
       setApiUsers(employeeUsers);
       setUsers(employeeUsers.map(mapApiUserToUIUser));
+      setTotalUsers(result.count ?? employeeUsers.length);
     } catch (error) {
       console.error('Error al cargar usuarios:', error);
       setUsers([]);
+      setTotalUsers(0);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [currentPage, searchTerm, filterRole, filterStatus]);
 
   useEffect(() => {
     fetchUsers();
@@ -214,31 +229,17 @@ export default function UsersPage() {
     setCurrentPage(1);
   }, [searchTerm, filterRole, filterStatus]);
 
-  // Filtrar usuarios
-  const filteredUsers = users.filter((user) => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.phone.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = filterRole === 'all' || user.role === filterRole;
-    const matchesStatus = filterStatus === 'all' || user.status === filterStatus;
-
-    return matchesSearch && matchesRole && matchesStatus;
-  });
-
-  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
-  const paginatedUsers = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    return filteredUsers.slice(start, start + PAGE_SIZE);
-  }, [filteredUsers, currentPage]);
+  // Filtrar usuarios (paginación y filtros en servidor)
+  const totalPages = Math.max(1, Math.ceil(totalUsers / PAGE_SIZE));
 
   const availableRoles = useMemo(
-    () => Array.from(new Set(users.map((user) => user.role))).filter(Boolean),
-    [users]
+    () => ROLE_OPTIONS.map((option) => normalizeRole(option.value)),
+    []
   );
 
   const availableStatuses = useMemo(
-    () => Array.from(new Set(users.map((user) => user.status))).filter(Boolean),
-    [users]
+    () => ['activo', 'inactivo', 'pendiente'],
+    []
   );
 
   const maxAssignableRank = useMemo(() => {
@@ -500,7 +501,7 @@ export default function UsersPage() {
         availableStatuses={availableStatuses}
       />
       <UsersList
-        users={paginatedUsers}
+        users={users}
         getRoleBadgeVariant={getRoleBadgeVariant}
         getStatusBadgeVariant={getStatusBadgeVariant}
         getInitials={getInitials}
@@ -515,7 +516,7 @@ export default function UsersPage() {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground dark:text-gray-400">
-          Mostrando {paginatedUsers.length} de {filteredUsers.length} usuarios filtrados
+          Mostrando {users.length} de {totalUsers} usuarios
         </p>
         <div className="flex items-center gap-2">
           <Button

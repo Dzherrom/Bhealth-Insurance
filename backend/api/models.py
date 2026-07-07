@@ -1319,6 +1319,111 @@ def track_recordatorio_save(sender, instance, created, **kwargs):
         )
         instance._history_tracked = True
 
+def _polizas_linked_to_direccion(direccion_id):
+    return Poliza.objects.filter(
+        Q(direccion_fisica_id=direccion_id) |
+        Q(direccion_postal_id=direccion_id) |
+        Q(direccion_facturacion_id=direccion_id)
+    )
+
+def _registrar_historial_polizas(polizas, user, detalles, accion='EDICION'):
+    for poliza in polizas:
+        HistorialPoliza.objects.create(
+            poliza=poliza,
+            usuario=user,
+            accion=accion,
+            detalles=detalles,
+        )
+
+@receiver(pre_save, sender=Direccion)
+def capture_direccion_old_state(sender, instance, **kwargs):
+    if instance.pk:
+        try:
+            instance._old_instance_state = Direccion.objects.get(pk=instance.pk)
+        except Direccion.DoesNotExist:
+            instance._old_instance_state = None
+    else:
+        instance._old_instance_state = None
+
+@receiver(post_save, sender=Direccion)
+def track_direccion_save(sender, instance, created, **kwargs):
+    if getattr(instance, '_history_tracked', False):
+        return
+    from api.middleware import get_current_user
+    user = get_current_user()
+    polizas = _polizas_linked_to_direccion(instance.pk)
+    if not polizas.exists():
+        return
+
+    if created:
+        detalles = (
+            f"Dirección agregada: {instance.linea1}, {instance.ciudad}, "
+            f"{instance.estado} {instance.zip_code}"
+        )
+    else:
+        old_instance = getattr(instance, '_old_instance_state', None)
+        changes = []
+        if old_instance:
+            for field_name in ['linea1', 'linea2', 'ciudad', 'estado', 'zip_code', 'condado']:
+                if getattr(old_instance, field_name) != getattr(instance, field_name):
+                    changes.append(field_name)
+        if changes:
+            detalles = f"Dirección actualizada ({', '.join(changes)}): {instance.linea1}, {instance.ciudad}"
+        else:
+            detalles = f"Dirección actualizada: {instance.linea1}, {instance.ciudad}"
+
+    _registrar_historial_polizas(polizas, user, detalles)
+    instance._history_tracked = True
+
+@receiver(post_delete, sender=Direccion)
+def track_direccion_delete(sender, instance, **kwargs):
+    from api.middleware import get_current_user
+    user = get_current_user()
+    polizas = _polizas_linked_to_direccion(instance.pk)
+    if not polizas.exists():
+        return
+    detalles = f"Dirección eliminada: {instance.linea1}, {instance.ciudad}"
+    _registrar_historial_polizas(polizas, user, detalles, accion='ELIMINACION')
+
+@receiver(pre_save, sender=TarjetaCredito)
+def capture_tarjeta_old_state(sender, instance, **kwargs):
+    if instance.pk:
+        try:
+            instance._old_instance_state = TarjetaCredito.objects.get(pk=instance.pk)
+        except TarjetaCredito.DoesNotExist:
+            instance._old_instance_state = None
+    else:
+        instance._old_instance_state = None
+
+@receiver(post_save, sender=TarjetaCredito)
+def track_tarjeta_save(sender, instance, created, **kwargs):
+    if getattr(instance, '_history_tracked', False):
+        return
+    from api.middleware import get_current_user
+    user = get_current_user()
+    if created:
+        detalles = f"Tarjeta de crédito agregada ({instance.tipo_tarjeta})"
+    else:
+        detalles = f"Tarjeta de crédito actualizada ({instance.tipo_tarjeta})"
+    HistorialPoliza.objects.create(
+        poliza=instance.poliza,
+        usuario=user,
+        accion='EDICION',
+        detalles=detalles,
+    )
+    instance._history_tracked = True
+
+@receiver(post_delete, sender=TarjetaCredito)
+def track_tarjeta_delete(sender, instance, **kwargs):
+    from api.middleware import get_current_user
+    user = get_current_user()
+    HistorialPoliza.objects.create(
+        poliza=instance.poliza,
+        usuario=user,
+        accion='ELIMINACION',
+        detalles=f"Tarjeta de crédito eliminada ({instance.tipo_tarjeta})",
+    )
+
 class ConfiguracionNotificacion(models.Model):
     TIPO_NOTIFICACION_CHOICES = [
         ('CONTRATO', 'Contratos'),

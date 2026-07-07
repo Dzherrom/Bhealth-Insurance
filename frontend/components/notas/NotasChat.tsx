@@ -192,7 +192,7 @@ export function NotasChat({ isOpen, onClose, onClosed, polizaInfo }: NotasChatPr
 
     const cursorPosition = e.target.selectionStart;
     const textBeforeCursor = val.slice(0, cursorPosition);
-    const mentionMatch = textBeforeCursor.match(/@(\w*)$/);
+    const mentionMatch = textBeforeCursor.match(/@([\w.-]*)$/);
 
     if (mentionMatch) {
       setShowMentions(true);
@@ -225,7 +225,7 @@ export function NotasChat({ isOpen, onClose, onClosed, polizaInfo }: NotasChatPr
     const cursorPosition = textarea?.selectionStart || nuevaNota.length;
     const textBeforeCursor = nuevaNota.slice(0, cursorPosition);
     const textAfterCursor = nuevaNota.slice(cursorPosition);
-    const textBeforeMention = textBeforeCursor.replace(/@\w*$/, '');
+    const textBeforeMention = textBeforeCursor.replace(/@[\w.-]*$/, '');
     
     setNuevaNota(textBeforeMention + `@${username} ` + textAfterCursor);
     setShowMentions(false);
@@ -397,7 +397,7 @@ export function NotasChat({ isOpen, onClose, onClosed, polizaInfo }: NotasChatPr
                   
                   <div className="bg-gray-50 dark:bg-slate-800 rounded-lg p-3">
                     <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                      {nota.mensaje.split(/(@\w+)/g).map((part: string, i: number) => 
+                      {nota.mensaje.split(/(@[\w.-]+)/g).map((part: string, i: number) =>
                         part.startsWith('@') ? <span key={i} className="text-blue-600 dark:text-blue-400 font-medium bg-blue-50 dark:bg-blue-900/30 px-1 rounded-sm">{part}</span> : part
                       )}
                     </p>
