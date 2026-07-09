@@ -220,8 +220,8 @@ export const useCatalogoStore = create<CatalogoState>()(
         getAgenciasActivas: () => 
           get().agencias.filter(a => a.activa),
         
-        getAgentesActivos: () => 
-          get().agentes.filter(a => a.activo),
+        getAgentesActivos: () =>
+          get().agentes.filter((a) => a.activo !== false),
         
         getAseguradorasActivas: () => 
           get().aseguradoras.filter(a => a.activa),

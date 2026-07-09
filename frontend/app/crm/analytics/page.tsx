@@ -39,14 +39,14 @@ export default function ComisionesPage() {
         agenciasApi.list(),
         aseguradorasApi.list(),
         planesApi.list(),
-        agentesApi.list(),
+        agentesApi.listRegistrados(),
       ]);
       setConfiguraciones((configRes as any).results || configRes || []);
       setReportes((reportesRes as any).results || reportesRes || []);
       setAgencias((agenciasRes as any).results || agenciasRes || []);
       setAseguradoras((aseguradorasRes as any).results || aseguradorasRes || []);
       setPlanes((planesRes as any).results || planesRes || []);
-      setAgentes((agentesRes as any).results || agentesRes || []);
+      setAgentes(agentesRes || []);
     } catch (error) {
       toast({ title: 'Error', description: 'No se pudo cargar la página de comisiones', variant: 'destructive' });
     } finally {

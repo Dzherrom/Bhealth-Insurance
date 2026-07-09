@@ -168,6 +168,10 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 if backend_public_url and backend_public_url not in CSRF_TRUSTED_ORIGINS:
     CSRF_TRUSTED_ORIGINS.append(backend_public_url)
+CSRF_TRUSTED_ORIGINS.extend([
+    'http://127.0.0.1:8000',
+    'http://localhost:8000',
+])
 CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(CSRF_TRUSTED_ORIGINS))
 
 

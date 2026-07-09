@@ -64,6 +64,17 @@ interface EditProfileForm {
 const AGENT_ROLES = AGENT_LINK_ROLES;
 const ROLE_OPTIONS = [...CRM_ROLE_OPTIONS, { value: 'USER', label: 'Usuario' }];
 
+const normalizeDepartamentoId = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'object' && value !== null && 'id' in value) {
+    const id = Number((value as { id?: unknown }).id);
+    return Number.isFinite(id) ? id : null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 const resolveDepartamentoForRole = (
   role: string,
   departments: Departamento[],
@@ -170,7 +181,7 @@ export default function UserDetailsPage() {
         ssn: typedData.profile?.ssn || '',
         role: typedData.profile?.role || 'USER',
         status: typedData.profile?.status || 'ACTIVE',
-        departamento: typedData.profile?.departamento ?? null,
+        departamento: normalizeDepartamentoId(typedData.profile?.departamento),
       });
       setAgentNpn(typedData.profile?.npn || typedData.profile?.agente_npn || '');
       setAgentFfm(typedData.profile?.agente_ffm || '');
@@ -294,22 +305,35 @@ export default function UserDetailsPage() {
         throw new Error('No puedes asignar un rol superior al tuyo.');
       }
 
-      await usersApi.patch(user.id, {
-        first_name: form.firstName,
-        last_name: form.lastName,
-        email: form.email,
-        profile: {
-          role: form.role,
-          status: form.status,
-          telefono: form.phone,
-          npn: form.npn.trim() || null,
-          ssn: form.ssn.trim() || null,
-          departamento: form.departamento,
-        },
-      } as any);
-
       if (avatarFile) {
         await usersApi.uploadAvatar(user.id, avatarFile);
+      }
+
+      const hasProfileChanges =
+        form.firstName !== (user.first_name || '') ||
+        form.lastName !== (user.last_name || '') ||
+        form.email !== (user.email || '') ||
+        form.phone !== (user.profile?.telefono || '') ||
+        form.npn !== (user.profile?.npn || user.profile?.agente_npn || '') ||
+        form.ssn !== (user.profile?.ssn || '') ||
+        form.role !== (user.profile?.role || 'USER') ||
+        form.status !== (user.profile?.status || 'ACTIVE') ||
+        form.departamento !== normalizeDepartamentoId(user.profile?.departamento);
+
+      if (hasProfileChanges) {
+        await usersApi.patch(user.id, {
+          first_name: form.firstName,
+          last_name: form.lastName,
+          email: form.email,
+          profile: {
+            role: form.role,
+            status: form.status,
+            telefono: form.phone,
+            npn: form.npn.trim() || null,
+            ssn: form.ssn.trim() || null,
+            departamento: normalizeDepartamentoId(form.departamento),
+          },
+        } as any);
       }
 
       await fetchUser();

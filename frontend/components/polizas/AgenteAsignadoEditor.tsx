@@ -29,7 +29,7 @@ export function AgenteAsignadoEditor({
 
   useEffect(() => {
     agentesApi
-      .list()
+      .listRegistrados()
       .then((items) =>
         setAllAgentes(
           items.map((item) => ({

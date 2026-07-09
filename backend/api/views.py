@@ -69,6 +69,11 @@ class UserPagination(PageNumberPagination):
     page_size_query_param = 'page_size'
     max_page_size = 100
 
+class AgentePagination(PageNumberPagination):
+    page_size = 50
+    page_size_query_param = 'page_size'
+    max_page_size = 500
+
 class DashboardStatsView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsCRMNonBasicRole]
 
@@ -474,9 +479,19 @@ class DireccionViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
 class AgenteViewSet(viewsets.ModelViewSet):
-    queryset = Agente.objects.all()
+    queryset = Agente.objects.select_related('agencia', 'user_profile__user').all()
     serializer_class = AgenteSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = AgentePagination
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['nombre_completo', 'npn', 'ffm', 'agencia__nombre']
+
+    def get_queryset(self):
+        qs = Agente.objects.select_related('agencia', 'user_profile__user').order_by('nombre_completo')
+        con_usuario = self.request.query_params.get('con_usuario')
+        if con_usuario in ('1', 'true', 'yes'):
+            qs = qs.filter(user_profile__isnull=False)
+        return qs
 
     @action(detail=True, methods=['get'])
     def polizas(self, request, pk=None):

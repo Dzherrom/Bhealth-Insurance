@@ -735,6 +735,51 @@ export const direccionesApi = {
 export const agentesApi = {
   ...createCrudApi<Agente, AgenteCreate, AgenteUpdate>('agentes'),
 
+  listPaginated: async (
+    params?: { page?: number; page_size?: number; search?: string; con_usuario?: string; [key: string]: string | number | undefined }
+  ): Promise<PaginatedResponse<Agente>> => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          searchParams.set(key, String(value));
+        }
+      });
+    }
+    const query = searchParams.toString();
+    const response = await fetchWithAuth(`${API_BASE_URL}/agentes/${query ? `?${query}` : ''}`);
+    return handleApiResponse<PaginatedResponse<Agente>>(response);
+  },
+
+  fetchAllPages: async (
+    params?: { search?: string; con_usuario?: string; page_size?: number; [key: string]: string | number | undefined }
+  ): Promise<Agente[]> => {
+    const pageSize = params?.page_size ?? 200;
+    let page = 1;
+    const all: Agente[] = [];
+
+    while (page <= 50) {
+      const result = await agentesApi.listPaginated({ ...params, page, page_size: pageSize });
+      all.push(...(result.results ?? []));
+      if (!result.next) break;
+      page += 1;
+    }
+
+    return all;
+  },
+
+  /** Agentes vinculados a un usuario CRM (los "registrados" en el sistema). */
+  listRegistrados: async (search?: string): Promise<Agente[]> => {
+    return agentesApi.fetchAllPages({ con_usuario: '1', search, page_size: 200 });
+  },
+
+  list: async (params?: { search?: string; con_usuario?: string; todos?: string }): Promise<Agente[]> => {
+    if (params?.todos === '1') {
+      return agentesApi.fetchAllPages({ search: params.search, page_size: 200 });
+    }
+    return agentesApi.listRegistrados(params?.search);
+  },
+
   listPolizas: async (agenteId: number | string) => {
     const response = await fetchWithAuth(`${API_BASE_URL}/agentes/${agenteId}/polizas/`, { method: 'GET' });
     return handleApiResponse<any[]>(response);

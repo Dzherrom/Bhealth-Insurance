@@ -235,7 +235,7 @@ export function DocumentosPoliza({ polizaId, onDocumentsChange }: DocumentosPoli
     setSavingFolder(true);
     try {
       if (editingFolder?.id) {
-        await carpetasDocumentosApi.update(editingFolder.id, { nombre: folderName.trim() });
+        await carpetasDocumentosApi.patch(editingFolder.id, { nombre: folderName.trim() });
         toast({ title: 'Carpeta actualizada' });
       } else {
         await carpetasDocumentosApi.create({
