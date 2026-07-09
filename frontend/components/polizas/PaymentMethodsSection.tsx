@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ChevronDown, CreditCard, Eye, EyeOff } from 'lucide-react';
 import {
   DropdownMenu,
@@ -8,14 +8,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { usePermission } from '@/hooks/use-permission';
 import api from '@/lib/api';
-import { UsBankCombobox } from '@/components/polizas/UsBankCombobox';
 import {
   formatCardTypeLabel,
   formatPaymentCreatedAt,
@@ -24,6 +20,8 @@ import {
   maskCvv,
   maskRoutingNumber,
 } from '@/lib/paymentMaskUtils';
+import { PaymentCardFormModal } from '@/components/polizas/PaymentCardFormModal';
+import { PaymentBankFormModal } from '@/components/polizas/PaymentBankFormModal';
 
 interface PaymentMethodsSectionProps {
   polizaId: number;
@@ -386,265 +384,37 @@ export function PaymentMethodsSection({
         )}
       </div>
 
-      <PaymentCardModal
+      <PaymentCardFormModal
         open={cardModalOpen}
         onOpenChange={setCardModalOpen}
-        polizaId={polizaId}
         initial={editingCard}
-        onSaved={onRefresh}
+        onSubmit={async (form) => {
+          const payload = { ...form, poliza: polizaId };
+          if (editingCard?.id) {
+            await api.tarjetasCredito.patch(editingCard.id, payload);
+          } else {
+            await api.tarjetasCredito.create(payload);
+          }
+          toast({ title: editingCard?.id ? 'Tarjeta actualizada' : 'Tarjeta agregada' });
+          onRefresh();
+        }}
       />
 
-      <PaymentBankModal
+      <PaymentBankFormModal
         open={bankModalOpen}
         onOpenChange={setBankModalOpen}
-        polizaId={polizaId}
         initial={editingBank}
-        onSaved={onRefresh}
+        onSubmit={async (form) => {
+          const payload = { ...form, poliza: polizaId };
+          if (editingBank?.id) {
+            await api.cuentasBancarias.patch(editingBank.id, payload);
+          } else {
+            await api.cuentasBancarias.create(payload);
+          }
+          toast({ title: editingBank?.id ? 'Cuenta actualizada' : 'Cuenta agregada' });
+          onRefresh();
+        }}
       />
     </>
-  );
-}
-
-function PaymentCardModal({
-  open,
-  onOpenChange,
-  polizaId,
-  initial,
-  onSaved,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  polizaId: number;
-  initial: any | null;
-  onSaved: () => void;
-}) {
-  const { toast } = useToast();
-  const [form, setForm] = useState({
-    tipo_tarjeta: 'VISA',
-    numero: '',
-    nombre_titular: '',
-    cvv: '',
-    fecha_vencimiento: '',
-    es_predeterminado: false,
-  });
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    setForm({
-      tipo_tarjeta: initial?.tipo_tarjeta || 'VISA',
-      numero: initial?.numero || '',
-      nombre_titular: initial?.nombre_titular || '',
-      cvv: initial?.cvv || '',
-      fecha_vencimiento: initial?.fecha_vencimiento || '',
-      es_predeterminado: Boolean(initial?.es_predeterminado),
-    });
-  }, [open, initial]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      const payload = { ...form, poliza: polizaId };
-      if (initial?.id) {
-        await api.tarjetasCredito.patch(initial.id, payload);
-      } else {
-        await api.tarjetasCredito.create(payload);
-      }
-      toast({ title: initial?.id ? 'Tarjeta actualizada' : 'Tarjeta agregada' });
-      onOpenChange(false);
-      onSaved();
-    } catch {
-      toast({ title: 'Error al guardar tarjeta', variant: 'destructive' });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{initial?.id ? 'Editar tarjeta de pago' : 'Agregar tarjeta de pago'}</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-2">
-            <Label>Tipo de tarjeta</Label>
-            <select
-              className="flex h-10 w-full rounded-md border border-input bg-white dark:bg-slate-800 px-3 py-1 text-sm"
-              value={form.tipo_tarjeta}
-              onChange={(e) => setForm((p) => ({ ...p, tipo_tarjeta: e.target.value }))}
-            >
-              <option value="DEBITO">Débito</option>
-              <option value="CREDITO">Crédito</option>
-              <option value="VISA">Visa</option>
-              <option value="MASTERCARD">Mastercard</option>
-              <option value="AMEX">American Express</option>
-              <option value="DISCOVER">Discover</option>
-            </select>
-          </div>
-          <div className="grid gap-2">
-            <Label>Nombre en la tarjeta</Label>
-            <Input
-              required
-              value={form.nombre_titular}
-              onChange={(e) => setForm((p) => ({ ...p, nombre_titular: e.target.value }))}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label>Número de tarjeta</Label>
-            <Input
-              required
-              value={form.numero}
-              onChange={(e) => setForm((p) => ({ ...p, numero: e.target.value }))}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label>Fecha de vencimiento</Label>
-              <Input
-                required
-                placeholder="MM/YY o M/YYYY"
-                value={form.fecha_vencimiento}
-                onChange={(e) => setForm((p) => ({ ...p, fecha_vencimiento: e.target.value }))}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label>CVV</Label>
-              <Input
-                required
-                value={form.cvv}
-                onChange={(e) => setForm((p) => ({ ...p, cvv: e.target.value }))}
-              />
-            </div>
-          </div>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={form.es_predeterminado}
-              onChange={(e) => setForm((p) => ({ ...p, es_predeterminado: e.target.checked }))}
-            />
-            Marcar como predeterminada
-          </label>
-          <DialogFooter>
-            <Button type="submit" disabled={saving}>
-              {saving ? 'Guardando...' : 'Guardar'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function PaymentBankModal({
-  open,
-  onOpenChange,
-  polizaId,
-  initial,
-  onSaved,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  polizaId: number;
-  initial: any | null;
-  onSaved: () => void;
-}) {
-  const { toast } = useToast();
-  const [form, setForm] = useState({
-    nombre_banco: '',
-    numero_cuenta: '',
-    aba_routing: '',
-    titular_cuenta: '',
-    es_predeterminado: false,
-  });
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    setForm({
-      nombre_banco: initial?.nombre_banco || '',
-      numero_cuenta: initial?.numero_cuenta || '',
-      aba_routing: initial?.aba_routing || '',
-      titular_cuenta: initial?.titular_cuenta || '',
-      es_predeterminado: Boolean(initial?.es_predeterminado),
-    });
-  }, [open, initial]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      const payload = { ...form, poliza: polizaId };
-      if (initial?.id) {
-        await api.cuentasBancarias.patch(initial.id, payload);
-      } else {
-        await api.cuentasBancarias.create(payload);
-      }
-      toast({ title: initial?.id ? 'Cuenta actualizada' : 'Cuenta agregada' });
-      onOpenChange(false);
-      onSaved();
-    } catch {
-      toast({ title: 'Error al guardar cuenta', variant: 'destructive' });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{initial?.id ? 'Editar cuenta bancaria' : 'Agregar cuenta bancaria'}</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-2">
-            <Label>Nombre del banco</Label>
-            <UsBankCombobox
-              value={form.nombre_banco}
-              onChange={(nombre_banco) => setForm((p) => ({ ...p, nombre_banco }))}
-              required
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label>Número de cuenta</Label>
-            <Input
-              required
-              value={form.numero_cuenta}
-              onChange={(e) => setForm((p) => ({ ...p, numero_cuenta: e.target.value }))}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label>ABA / Enrutamiento</Label>
-            <Input
-              required
-              value={form.aba_routing}
-              onChange={(e) => setForm((p) => ({ ...p, aba_routing: e.target.value }))}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label>Titular de la cuenta</Label>
-            <Input
-              required
-              value={form.titular_cuenta}
-              onChange={(e) => setForm((p) => ({ ...p, titular_cuenta: e.target.value }))}
-            />
-          </div>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={form.es_predeterminado}
-              onChange={(e) => setForm((p) => ({ ...p, es_predeterminado: e.target.checked }))}
-            />
-            Marcar como predeterminada
-          </label>
-          <DialogFooter>
-            <Button type="submit" disabled={saving}>
-              {saving ? 'Guardando...' : 'Guardar'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }

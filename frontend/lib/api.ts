@@ -1164,20 +1164,36 @@ export const cambiosDeVidaApi = {
 
 export interface PortalClienteDashboard {
   cliente_id: number;
+  primer_nombre?: string;
+  apellido_paterno?: string;
+  apellido_materno?: string | null;
   nombre_completo: string;
   fecha_nacimiento?: string | null;
   direccion_completa?: string | null;
   telefono?: string | null;
   email?: string | null;
   ingresos?: string | null;
-  grupo_familiar: Array<{ nombre: string; relacion: string; es_solicitante_principal: boolean }>;
-  tarjetas_digitales: Array<{ id: number; tipo_tarjeta: string; numero_enmascarado: string; nombre_titular: string; fecha_vencimiento: string }>;
+  grupo_familiar: Array<{
+    cliente_id: number;
+    nombre: string;
+    primer_nombre?: string;
+    apellido_paterno?: string;
+    apellido_materno?: string | null;
+    relacion: string;
+    es_solicitante_principal: boolean;
+    fecha_nacimiento?: string | null;
+    telefono?: string | null;
+    email?: string | null;
+    ingresos?: string | null;
+  }>;
+  tarjetas_digitales: Array<{ id: number; tipo_tarjeta: string; numero_enmascarado: string; nombre_titular: string; fecha_vencimiento: string; es_predeterminado?: boolean }>;
   cuentas_bancarias?: Array<{
     id: number;
     nombre_banco: string;
     numero_enmascarado: string;
     titular_cuenta: string;
     aba_enmascarado?: string | null;
+    es_predeterminado?: boolean;
   }>;
   cambios_pendientes?: Array<{
     id: number;
@@ -1188,12 +1204,17 @@ export interface PortalClienteDashboard {
     descripcion?: string | null;
     resumen: string;
     tipo_solicitud?: string | null;
+    documento_id?: number | null;
     fecha_creacion?: string | null;
+    puede_modificar?: boolean;
+    puede_eliminar?: boolean;
   }>;
   elegibilidad: Record<string, unknown>;
   agente: { nombre?: string | null; npn?: string | null };
-  poliza?: {
+  polizas?: Array<{
     id: number;
+    tipo_producto?: string | null;
+    aseguradora?: string | null;
     estatus?: string | null;
     plan?: string | null;
     prima_mensual?: string;
@@ -1201,6 +1222,22 @@ export interface PortalClienteDashboard {
     subsidio?: string;
     fecha_efectiva?: string | null;
     id_mercado?: string;
+    metal?: string | null;
+    es_principal?: boolean;
+  }>;
+  poliza?: {
+    id: number;
+    tipo_producto?: string | null;
+    aseguradora?: string | null;
+    estatus?: string | null;
+    plan?: string | null;
+    prima_mensual?: string;
+    costo_poliza?: string;
+    subsidio?: string;
+    fecha_efectiva?: string | null;
+    id_mercado?: string;
+    metal?: string | null;
+    es_principal?: boolean;
   } | null;
   campos_editables?: string[];
   documentos_solicitados?: Array<{
@@ -1210,13 +1247,18 @@ export interface PortalClienteDashboard {
     estado_documento: string;
     estado_display: string;
     fecha_subida?: string | null;
+    cliente_id?: number | null;
+    puede_modificar?: boolean;
+    puede_eliminar?: boolean;
+    tiene_archivo?: boolean;
   }>;
   mensaje?: string;
 }
 
 export const portalClienteApi = {
-  getDashboard: async (): Promise<PortalClienteDashboard> => {
-    const response = await fetchWithAuth(`${API_BASE_URL}/portal-cliente/dashboard/`, { method: 'GET' });
+  getDashboard: async (polizaId?: number): Promise<PortalClienteDashboard> => {
+    const query = polizaId ? `?poliza_id=${polizaId}` : '';
+    const response = await fetchWithAuth(`${API_BASE_URL}/portal-cliente/dashboard${query}`, { method: 'GET' });
     return handleApiResponse<PortalClienteDashboard>(response);
   },
   solicitarCambio: async (payload: {
@@ -1244,6 +1286,50 @@ export const portalClienteApi = {
       estado_display: string;
       mensaje: string;
     }>(response);
+  },
+  actualizarSolicitud: async (
+    cambioId: number,
+    payload: { descripcion?: string; campos?: Record<string, unknown> },
+  ) => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/portal-cliente/solicitudes/${cambioId}/`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return handleApiResponse(response);
+  },
+  cancelarSolicitud: async (cambioId: number) => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/portal-cliente/solicitudes/${cambioId}/`, {
+      method: 'DELETE',
+    });
+    return handleApiResponse<{ mensaje: string }>(response);
+  },
+  actualizarDocumento: async (documentoId: number, payload: FormData) => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/portal-cliente/documentos/${documentoId}/`, {
+      method: 'PATCH',
+      body: payload,
+      headers: getAuthHeadersWithoutContentType(),
+    });
+    return handleApiResponse(response);
+  },
+  eliminarDocumento: async (documentoId: number) => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/portal-cliente/documentos/${documentoId}/`, {
+      method: 'DELETE',
+    });
+    return handleApiResponse<{ mensaje: string }>(response);
+  },
+  fetchDocumentoPreview: async (documentoId: number): Promise<{ blob: Blob; contentType: string }> => {
+    const response = await fetchWithAuth(
+      `${API_BASE_URL}/portal-cliente/documentos/${documentoId}/preview/`,
+      { method: 'GET' },
+    );
+    if (!response.ok) {
+      const message = await response.text().catch(() => '');
+      throw new Error(message || 'No se pudo cargar la vista previa');
+    }
+    const contentType = response.headers.get('Content-Type') || 'application/octet-stream';
+    const blob = await response.blob();
+    return { blob, contentType };
   },
 };
 
