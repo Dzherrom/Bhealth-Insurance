@@ -12,6 +12,7 @@ interface AgregarEtiquetaModalProps {
   onClose: () => void;
   onSave: (etiqueta: Etiqueta | Omit<Etiqueta, 'id'>) => void;
   etiquetaToEdit?: Etiqueta | null;
+  existingEtiquetas?: Etiqueta[];
 }
 
 const coloresDisponibles = [
@@ -19,9 +20,15 @@ const coloresDisponibles = [
   '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#ec4899', '#6b7280',
 ];
 
-export function AgregarEtiquetaModal({ isOpen, onClose, onSave, etiquetaToEdit }: AgregarEtiquetaModalProps) {
+export function AgregarEtiquetaModal({
+  isOpen,
+  onClose,
+  onSave,
+  etiquetaToEdit,
+  existingEtiquetas = [],
+}: AgregarEtiquetaModalProps) {
   const [formData, setFormData] = useState({ nombre: '', color: '#3b82f6' });
-  const [errors, setErrors] = useState({ nombre: false, color: false });
+  const [errors, setErrors] = useState({ nombre: '', color: '' });
 
   useEffect(() => {
     if (etiquetaToEdit) {
@@ -29,50 +36,54 @@ export function AgregarEtiquetaModal({ isOpen, onClose, onSave, etiquetaToEdit }
     } else {
       setFormData({ nombre: '', color: '#3b82f6' });
     }
+    setErrors({ nombre: '', color: '' });
   }, [etiquetaToEdit, isOpen]);
+
+  const isDuplicateName = (nombre: string) => {
+    const normalized = nombre.trim().toLowerCase();
+    return existingEtiquetas.some((etiqueta) => {
+      if (etiquetaToEdit?.id != null && etiqueta.id === etiquetaToEdit.id) return false;
+      return (etiqueta.nombre || '').trim().toLowerCase() === normalized;
+    });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validar campos obligatorios
-    const newErrors = {
-      nombre: !formData.nombre.trim(),
-      color: !formData.color
+
+    const nombre = formData.nombre.trim();
+    const nextErrors = {
+      nombre: !nombre ? 'El nombre es obligatorio.' : '',
+      color: !formData.color ? 'El color es obligatorio.' : '',
     };
-    
-    setErrors(newErrors);
-    
-    // Si hay errores, no enviar
-    if (newErrors.nombre || newErrors.color) {
-      return;
+
+    if (!nextErrors.nombre && isDuplicateName(nombre)) {
+      nextErrors.nombre = 'Ya existe una etiqueta con este nombre.';
     }
 
+    setErrors(nextErrors);
+    if (nextErrors.nombre || nextErrors.color) return;
+
     if (etiquetaToEdit) {
-      onSave({ ...etiquetaToEdit, ...formData });
+      onSave({ ...etiquetaToEdit, nombre, color: formData.color });
     } else {
-      onSave(formData);
+      onSave({ nombre, color: formData.color });
     }
-    handleClose();
   };
 
   const handleClose = () => {
     setFormData({ nombre: '', color: '#3b82f6' });
-    setErrors({ nombre: false, color: false });
+    setErrors({ nombre: '', color: '' });
     onClose();
   };
 
   const handleColorChange = (color: string) => {
     setFormData({ ...formData, color });
-    if (errors.color) {
-      setErrors({ ...errors, color: false });
-    }
+    if (errors.color) setErrors((prev) => ({ ...prev, color: '' }));
   };
 
   const handleNombreChange = (valor: string) => {
     setFormData({ ...formData, nombre: valor });
-    if (errors.nombre) {
-      setErrors({ ...errors, nombre: false });
-    }
+    if (errors.nombre) setErrors((prev) => ({ ...prev, nombre: '' }));
   };
 
   return (
@@ -83,29 +94,28 @@ export function AgregarEtiquetaModal({ isOpen, onClose, onSave, etiquetaToEdit }
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Campo Titulo / Nombre */}
           <div className="space-y-2">
             <Label htmlFor="nombre" className={`text-sm font-medium ${errors.nombre ? 'text-red-600' : 'text-gray-700'}`}>
-              Nombre {errors.nombre && <span className="text-red-600">(obligatorio)</span>}
+              Nombre
             </Label>
             <Input
               id="nombre"
               value={formData.nombre}
               onChange={(e) => handleNombreChange(e.target.value)}
               placeholder="Ingresar el nombre de la etiqueta"
-              className={`${errors.nombre ? 'border-red-500 focus:border-red-500' : ''}`}
+              className={errors.nombre ? 'border-red-500 focus:border-red-500' : ''}
             />
+            {errors.nombre ? <p className="text-xs text-red-600">{errors.nombre}</p> : null}
           </div>
 
-          {/* Campo Color */}
           <div className="space-y-2">
             <Label className={`text-sm font-medium ${errors.color ? 'text-red-600' : 'text-gray-700'}`}>
-              Color {errors.color && <span className="text-red-600">(obligatorio)</span>}
+              Color
             </Label>
-            
-            {/* Selector de color visual */}
             <div className="space-y-3">
-              <div className="text-xs text-gray-600">Selecciona el color de la etiqueta:</div>
+              <div className="text-xs text-gray-600">
+                Puedes reutilizar colores; solo el nombre debe ser único.
+              </div>
               <div className="grid grid-cols-6 gap-2">
                 {coloresDisponibles.map((color) => (
                   <button
@@ -113,18 +123,33 @@ export function AgregarEtiquetaModal({ isOpen, onClose, onSave, etiquetaToEdit }
                     type="button"
                     onClick={() => handleColorChange(color)}
                     className={`w-8 h-8 rounded border-2 transition-all ${
-                      formData.color === color 
-                        ? 'border-gray-800 scale-110' 
+                      formData.color === color
+                        ? 'border-gray-800 scale-110'
                         : 'border-gray-300 hover:border-gray-500'
                     }`}
                     style={{ backgroundColor: color }}
+                    title={color}
                   />
                 ))}
               </div>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="color"
+                  value={formData.color}
+                  onChange={(e) => handleColorChange(e.target.value)}
+                  className="h-10 w-14 cursor-pointer p-1"
+                />
+                <Input
+                  value={formData.color}
+                  onChange={(e) => handleColorChange(e.target.value)}
+                  placeholder="#3b82f6"
+                  className="font-mono text-sm"
+                />
+              </div>
             </div>
+            {errors.color ? <p className="text-xs text-red-600">{errors.color}</p> : null}
           </div>
 
-          {/* Botones */}
           <div className="flex justify-end space-x-3 pt-4 border-t">
             <Button type="button" variant="outline" onClick={handleClose}>
               Cancelar

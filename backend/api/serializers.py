@@ -533,6 +533,18 @@ class EtiquetaSerializer(serializers.ModelSerializer):
         model = Etiqueta
         fields = '__all__'
 
+    def validate_nombre(self, value):
+        nombre = (value or '').strip()
+        if not nombre:
+            raise serializers.ValidationError('El nombre de la etiqueta es obligatorio.')
+        tipo = self.initial_data.get('tipo') or getattr(self.instance, 'tipo', 'DOCUMENTO')
+        qs = Etiqueta.objects.filter(nombre__iexact=nombre, tipo=tipo)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError('Ya existe una etiqueta con este nombre.')
+        return nombre
+
     def validate(self, attrs):
         attrs = super().validate(attrs)
         tipo = attrs.get('tipo', getattr(self.instance, 'tipo', 'DOCUMENTO'))

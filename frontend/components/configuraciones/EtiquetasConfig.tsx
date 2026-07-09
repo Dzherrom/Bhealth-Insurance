@@ -38,18 +38,28 @@ export function EtiquetasConfig({ tipo, title, description }: EtiquetasConfigPro
   };
 
   const handleSave = async (etiqueta: Etiqueta | Omit<Etiqueta, 'id'>) => {
+    const payload = {
+      nombre: etiqueta.nombre.trim(),
+      color: etiqueta.color || '#6b7280',
+      tipo,
+      descripcion: etiqueta.descripcion ?? null,
+    };
+
     try {
       if ('id' in etiqueta && etiqueta.id != null) {
-        const updated = await etiquetasApi.update(etiqueta.id, { ...etiqueta, tipo });
-        setEtiquetas(prev => prev.map(e => e.id === etiqueta.id ? updated : e));
+        const updated = await etiquetasApi.patch(etiqueta.id, payload);
+        setEtiquetas((prev) => prev.map((e) => (e.id === etiqueta.id ? updated : e)));
         toast({ title: 'Exito', description: 'Etiqueta actualizada' });
       } else {
-        const newEtiqueta = await etiquetasApi.create({ ...etiqueta, tipo });
-        setEtiquetas(prev => [...prev, newEtiqueta]);
+        const newEtiqueta = await etiquetasApi.create(payload);
+        setEtiquetas((prev) => [...prev, newEtiqueta]);
         toast({ title: 'Exito', description: 'Etiqueta creada' });
       }
+      setIsModalOpen(false);
+      setEditingEtiqueta(null);
     } catch (error) {
-      toast({ title: 'Error', description: 'Error al guardar la etiqueta', variant: 'destructive' });
+      const message = error instanceof Error ? error.message : 'Error al guardar la etiqueta';
+      toast({ title: 'Error', description: message, variant: 'destructive' });
     }
   };
 
@@ -119,9 +129,13 @@ export function EtiquetasConfig({ tipo, title, description }: EtiquetasConfigPro
       </Card>
       <AgregarEtiquetaModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingEtiqueta(null);
+        }}
         onSave={handleSave}
         etiquetaToEdit={editingEtiqueta}
+        existingEtiquetas={etiquetas}
       />
     </div>
   );
