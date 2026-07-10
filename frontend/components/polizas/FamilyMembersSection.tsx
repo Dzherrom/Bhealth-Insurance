@@ -97,8 +97,8 @@ function DetailField({
 }) {
   return (
     <div className="flex flex-col gap-0.5 min-w-0">
-      <span className="text-xs text-slate-400">{label}</span>
-      <span className="text-sm text-white flex items-center gap-1.5 break-words">
+      <span className="text-xs text-slate-500 dark:text-slate-400">{label}</span>
+      <span className="text-sm text-slate-900 dark:text-white flex items-center gap-1.5 break-words">
         {value}
         {copyValue && onCopy ? (
           <button
@@ -526,9 +526,9 @@ export function FamilyMembersSection({ poliza, onRefresh }: FamilyMembersSection
                     </div>
 
                     {expanded && (
-                      <div className="mt-4 min-w-0 overflow-hidden space-y-4 rounded-lg border border-slate-700 bg-slate-900/60 p-4">
+                      <div className="mt-4 min-w-0 overflow-hidden space-y-4 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/60">
                         <div className="flex items-center justify-between">
-                          <h4 className="text-sm font-semibold text-white">Información personal</h4>
+                          <h4 className="text-sm font-semibold text-slate-900 dark:text-white">Información personal</h4>
                           <Button
                             variant="ghost"
                             size="sm"

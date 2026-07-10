@@ -735,6 +735,51 @@ export const direccionesApi = {
 export const agentesApi = {
   ...createCrudApi<Agente, AgenteCreate, AgenteUpdate>('agentes'),
 
+  listPaginated: async (
+    params?: { page?: number; page_size?: number; search?: string; con_usuario?: string; [key: string]: string | number | undefined }
+  ): Promise<PaginatedResponse<Agente>> => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          searchParams.set(key, String(value));
+        }
+      });
+    }
+    const query = searchParams.toString();
+    const response = await fetchWithAuth(`${API_BASE_URL}/agentes/${query ? `?${query}` : ''}`);
+    return handleApiResponse<PaginatedResponse<Agente>>(response);
+  },
+
+  fetchAllPages: async (
+    params?: { search?: string; con_usuario?: string; page_size?: number; [key: string]: string | number | undefined }
+  ): Promise<Agente[]> => {
+    const pageSize = params?.page_size ?? 200;
+    let page = 1;
+    const all: Agente[] = [];
+
+    while (page <= 50) {
+      const result = await agentesApi.listPaginated({ ...params, page, page_size: pageSize });
+      all.push(...(result.results ?? []));
+      if (!result.next) break;
+      page += 1;
+    }
+
+    return all;
+  },
+
+  /** Agentes vinculados a un usuario CRM (los "registrados" en el sistema). */
+  listRegistrados: async (search?: string): Promise<Agente[]> => {
+    return agentesApi.fetchAllPages({ con_usuario: '1', search, page_size: 200 });
+  },
+
+  list: async (params?: { search?: string; con_usuario?: string; todos?: string }): Promise<Agente[]> => {
+    if (params?.todos === '1') {
+      return agentesApi.fetchAllPages({ search: params.search, page_size: 200 });
+    }
+    return agentesApi.listRegistrados(params?.search);
+  },
+
   listPolizas: async (agenteId: number | string) => {
     const response = await fetchWithAuth(`${API_BASE_URL}/agentes/${agenteId}/polizas/`, { method: 'GET' });
     return handleApiResponse<any[]>(response);
@@ -857,6 +902,22 @@ export const departamentosApi = {
 // 👤 Gestión de Usuarios (CRM)
 export const usersApi = {
   ...createCrudApi<ManagedUser, Partial<ManagedUser>, Partial<ManagedUser>>('users'),
+
+  listPaginated: async (
+    params?: { page?: number; page_size?: number; search?: string; empleados?: string; [key: string]: string | number | undefined }
+  ): Promise<PaginatedResponse<ManagedUser>> => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          searchParams.set(key, String(value));
+        }
+      });
+    }
+    const query = searchParams.toString();
+    const response = await fetchWithAuth(`${API_BASE_URL}/users/${query ? `?${query}` : ''}`);
+    return handleApiResponse<PaginatedResponse<ManagedUser>>(response);
+  },
 
   uploadAvatar: async (id: number, avatarFile: File): Promise<ManagedUser> => {
     const formData = new FormData();
@@ -1103,20 +1164,36 @@ export const cambiosDeVidaApi = {
 
 export interface PortalClienteDashboard {
   cliente_id: number;
+  primer_nombre?: string;
+  apellido_paterno?: string;
+  apellido_materno?: string | null;
   nombre_completo: string;
   fecha_nacimiento?: string | null;
   direccion_completa?: string | null;
   telefono?: string | null;
   email?: string | null;
   ingresos?: string | null;
-  grupo_familiar: Array<{ nombre: string; relacion: string; es_solicitante_principal: boolean }>;
-  tarjetas_digitales: Array<{ id: number; tipo_tarjeta: string; numero_enmascarado: string; nombre_titular: string; fecha_vencimiento: string }>;
+  grupo_familiar: Array<{
+    cliente_id: number;
+    nombre: string;
+    primer_nombre?: string;
+    apellido_paterno?: string;
+    apellido_materno?: string | null;
+    relacion: string;
+    es_solicitante_principal: boolean;
+    fecha_nacimiento?: string | null;
+    telefono?: string | null;
+    email?: string | null;
+    ingresos?: string | null;
+  }>;
+  tarjetas_digitales: Array<{ id: number; tipo_tarjeta: string; numero_enmascarado: string; nombre_titular: string; fecha_vencimiento: string; es_predeterminado?: boolean }>;
   cuentas_bancarias?: Array<{
     id: number;
     nombre_banco: string;
     numero_enmascarado: string;
     titular_cuenta: string;
     aba_enmascarado?: string | null;
+    es_predeterminado?: boolean;
   }>;
   cambios_pendientes?: Array<{
     id: number;
@@ -1127,12 +1204,17 @@ export interface PortalClienteDashboard {
     descripcion?: string | null;
     resumen: string;
     tipo_solicitud?: string | null;
+    documento_id?: number | null;
     fecha_creacion?: string | null;
+    puede_modificar?: boolean;
+    puede_eliminar?: boolean;
   }>;
   elegibilidad: Record<string, unknown>;
   agente: { nombre?: string | null; npn?: string | null };
-  poliza?: {
+  polizas?: Array<{
     id: number;
+    tipo_producto?: string | null;
+    aseguradora?: string | null;
     estatus?: string | null;
     plan?: string | null;
     prima_mensual?: string;
@@ -1140,6 +1222,22 @@ export interface PortalClienteDashboard {
     subsidio?: string;
     fecha_efectiva?: string | null;
     id_mercado?: string;
+    metal?: string | null;
+    es_principal?: boolean;
+  }>;
+  poliza?: {
+    id: number;
+    tipo_producto?: string | null;
+    aseguradora?: string | null;
+    estatus?: string | null;
+    plan?: string | null;
+    prima_mensual?: string;
+    costo_poliza?: string;
+    subsidio?: string;
+    fecha_efectiva?: string | null;
+    id_mercado?: string;
+    metal?: string | null;
+    es_principal?: boolean;
   } | null;
   campos_editables?: string[];
   documentos_solicitados?: Array<{
@@ -1149,13 +1247,18 @@ export interface PortalClienteDashboard {
     estado_documento: string;
     estado_display: string;
     fecha_subida?: string | null;
+    cliente_id?: number | null;
+    puede_modificar?: boolean;
+    puede_eliminar?: boolean;
+    tiene_archivo?: boolean;
   }>;
   mensaje?: string;
 }
 
 export const portalClienteApi = {
-  getDashboard: async (): Promise<PortalClienteDashboard> => {
-    const response = await fetchWithAuth(`${API_BASE_URL}/portal-cliente/dashboard/`, { method: 'GET' });
+  getDashboard: async (polizaId?: number): Promise<PortalClienteDashboard> => {
+    const query = polizaId ? `?poliza_id=${polizaId}` : '';
+    const response = await fetchWithAuth(`${API_BASE_URL}/portal-cliente/dashboard${query}`, { method: 'GET' });
     return handleApiResponse<PortalClienteDashboard>(response);
   },
   solicitarCambio: async (payload: {
@@ -1183,6 +1286,50 @@ export const portalClienteApi = {
       estado_display: string;
       mensaje: string;
     }>(response);
+  },
+  actualizarSolicitud: async (
+    cambioId: number,
+    payload: { descripcion?: string; campos?: Record<string, unknown> },
+  ) => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/portal-cliente/solicitudes/${cambioId}/`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return handleApiResponse(response);
+  },
+  cancelarSolicitud: async (cambioId: number) => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/portal-cliente/solicitudes/${cambioId}/`, {
+      method: 'DELETE',
+    });
+    return handleApiResponse<{ mensaje: string }>(response);
+  },
+  actualizarDocumento: async (documentoId: number, payload: FormData) => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/portal-cliente/documentos/${documentoId}/`, {
+      method: 'PATCH',
+      body: payload,
+      headers: getAuthHeadersWithoutContentType(),
+    });
+    return handleApiResponse(response);
+  },
+  eliminarDocumento: async (documentoId: number) => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/portal-cliente/documentos/${documentoId}/`, {
+      method: 'DELETE',
+    });
+    return handleApiResponse<{ mensaje: string }>(response);
+  },
+  fetchDocumentoPreview: async (documentoId: number): Promise<{ blob: Blob; contentType: string }> => {
+    const response = await fetchWithAuth(
+      `${API_BASE_URL}/portal-cliente/documentos/${documentoId}/preview/`,
+      { method: 'GET' },
+    );
+    if (!response.ok) {
+      const message = await response.text().catch(() => '');
+      throw new Error(message || 'No se pudo cargar la vista previa');
+    }
+    const contentType = response.headers.get('Content-Type') || 'application/octet-stream';
+    const blob = await response.blob();
+    return { blob, contentType };
   },
 };
 
@@ -1372,7 +1519,12 @@ export const notificacionesApi = {
     });
     return handleApiResponse<any>(response);
   },
-  enviarGeneral: async (data: { mensaje: string; tipo?: string }): Promise<any> => {
+  enviarGeneral: async (data: {
+    mensaje: string;
+    tipo?: string;
+    roles?: string[];
+    user_ids?: number[];
+  }): Promise<any> => {
     const response = await fetchWithAuth(`${API_BASE_URL}/notificaciones/enviar-general/`, {
       method: 'POST',
       body: JSON.stringify(data),

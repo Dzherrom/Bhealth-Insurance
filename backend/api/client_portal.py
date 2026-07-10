@@ -17,6 +17,8 @@ CLIENT_EDITABLE_FIELDS = frozenset({
     'ingresos',
     'grupo_familiar',
     'tarjetas_digitales',
+    'cuentas_bancarias',
+    'miembro_familiar',
 })
 
 CLIENT_CAMPO_LABELS = {
@@ -28,6 +30,8 @@ CLIENT_CAMPO_LABELS = {
     'ingresos': 'Ingresos',
     'grupo_familiar': 'Grupo familiar',
     'tarjetas_digitales': 'Tarjetas digitales',
+    'cuentas_bancarias': 'Cuentas bancarias',
+    'miembro_familiar': 'Datos de familiar',
 }
 
 DOCUMENTO_CATEGORIA_LABELS = {
@@ -180,6 +184,20 @@ def user_owns_poliza(user: User, poliza: Poliza) -> bool:
     return PolizaCliente.objects.filter(poliza=poliza, cliente=cliente).exists()
 
 
+def get_polizas_for_cliente(cliente: Cliente):
+    return (
+        Poliza.objects.filter(polizacliente__cliente=cliente)
+        .select_related('agente', 'plan', 'estado', 'tipo_producto', 'aseguradora', 'direccion_fisica')
+        .prefetch_related(
+            'polizacliente_set__cliente',
+            'tarjetas_credito',
+            'cuentas_bancarias',
+        )
+        .order_by('-ultima_actualizacion')
+        .distinct()
+    )
+
+
 def get_primary_poliza_for_cliente(cliente: Cliente) -> Poliza | None:
     principal = (
         Poliza.objects.filter(
@@ -226,6 +244,8 @@ def map_campo_to_tipo(campo: str) -> str:
         'ingresos': 'CAMBIO_INGRESOS',
         'grupo_familiar': 'NUEVO_MIEMBRO',
         'tarjetas_digitales': 'OTROS',
+        'cuentas_bancarias': 'OTROS',
+        'miembro_familiar': 'OTROS',
         'fecha_nacimiento': 'OTROS',
         'telefono': 'OTROS',
         'email': 'OTROS',

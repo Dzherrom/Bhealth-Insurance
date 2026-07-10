@@ -242,16 +242,41 @@ export default function PolizasPage() {
             </div>
           </div>
 
-          <div className="flex justify-between items-center text-[13px]">
-            <label className="flex items-center gap-[8px] text-[#0f172a] dark:text-white font-medium cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showArchived}
-                onChange={(e) => setShowArchived(e.target.checked)}
-              />
-              Ver archivadas
-            </label>
-            <div className="text-[#64748b] dark:text-gray-400 font-medium">Resultados: {filteredPolizas.length}</div>
+          <div className="flex flex-wrap justify-between items-center gap-3 text-[13px]">
+            <div className="inline-flex rounded-lg border border-[#e2e8f0] dark:border-[#334155] p-1 bg-[#f8fafc] dark:bg-[#0f172a]">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowArchived(false);
+                  setPage(1);
+                }}
+                className={`px-4 py-1.5 rounded-md text-[13px] font-semibold transition-colors ${
+                  !showArchived
+                    ? 'bg-white dark:bg-[#1e293b] text-[#4f46e5] shadow-sm'
+                    : 'text-[#64748b] dark:text-gray-400 hover:text-[#0f172a] dark:hover:text-white'
+                }`}
+              >
+                Activas
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowArchived(true);
+                  setPage(1);
+                }}
+                className={`px-4 py-1.5 rounded-md text-[13px] font-semibold transition-colors flex items-center gap-1.5 ${
+                  showArchived
+                    ? 'bg-white dark:bg-[#1e293b] text-[#4f46e5] shadow-sm'
+                    : 'text-[#64748b] dark:text-gray-400 hover:text-[#0f172a] dark:hover:text-white'
+                }`}
+              >
+                <Archive className="w-3.5 h-3.5" />
+                Archivadas
+              </button>
+            </div>
+            <div className="text-[#64748b] dark:text-gray-400 font-medium">
+              {showArchived ? 'Pólizas archivadas' : 'Pólizas activas'}: {filteredPolizas.length}
+            </div>
           </div>
         </div>
 

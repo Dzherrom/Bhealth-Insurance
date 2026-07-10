@@ -1,10 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { API_BASE_URL, getCurrentToken } from '@/lib/api';
-import { useAuthStore } from '@/store/authStore';
+import { useZipCountyLookup } from '@/hooks/useZipCountyLookup';
 import type { DireccionFormData } from './constants';
 
 interface DireccionFormFieldsProps {
@@ -13,41 +12,53 @@ interface DireccionFormFieldsProps {
 }
 
 export function DireccionFormFields({ value, onChange }: DireccionFormFieldsProps) {
-  const accessToken = useAuthStore((s) => s.accessToken);
-  const [counties, setCounties] = useState<string[]>([]);
+  const { counties, loading, resolveZip, setCounties } = useZipCountyLookup();
+  const valueRef = useRef(value);
+  valueRef.current = value;
+
+  useEffect(() => {
+    const zip = value.zip_code?.trim() || '';
+    if (zip.length < 5) return;
+    resolveZip(zip, value.condado).then((result) => {
+      if (!result) return;
+      const current = valueRef.current;
+      onChange({
+        ...current,
+        ciudad: result.ciudad || current.ciudad,
+        estado: result.estado || current.estado,
+        condado: current.condado || result.condado,
+      });
+    });
+    // Solo al montar / cargar dirección existente
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const update = (field: keyof DireccionFormData, fieldValue: string) => {
-    onChange({ ...value, [field]: fieldValue });
+    onChange({ ...valueRef.current, [field]: fieldValue });
   };
 
   const handleZipChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const zip = e.target.value;
-    update('zip_code', zip);
+    const next = { ...valueRef.current, zip_code: zip };
+    onChange(next);
     setCounties([]);
 
     if (zip.length < 5) return;
 
-    try {
-      const token = accessToken || getCurrentToken();
-      const res = await fetch(`${API_BASE_URL}/utils/zipcode/${zip}/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      onChange({
-        ...value,
-        zip_code: zip,
-        ciudad: data.city || value.ciudad,
-        estado: data.state || value.estado,
-        condado: value.condado,
-      });
-      if (Array.isArray(data.counties)) setCounties(data.counties);
-    } catch (err) {
-      console.error('ZIP lookup error', err);
-    }
+    const result = await resolveZip(zip, next.condado);
+    if (!result) return;
+
+    onChange({
+      ...valueRef.current,
+      zip_code: zip,
+      ciudad: result.ciudad || valueRef.current.ciudad,
+      estado: result.estado || valueRef.current.estado,
+      condado: result.condado || valueRef.current.condado,
+    });
   };
 
   const inputClass = 'h-9 dark:bg-slate-800 dark:border-slate-700';
+  const zipLocked = value.zip_code.length === 5;
 
   return (
     <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 bg-slate-50 dark:bg-slate-800/40 space-y-3">
@@ -71,8 +82,8 @@ export function DireccionFormFields({ value, onChange }: DireccionFormFieldsProp
             <Input
               value={value.ciudad}
               onChange={(e) => update('ciudad', e.target.value)}
-              readOnly={value.zip_code.length === 5}
-              className={`${inputClass} ${value.zip_code.length === 5 ? 'bg-slate-100 dark:bg-slate-700' : ''}`}
+              readOnly={zipLocked}
+              className={`${inputClass} ${zipLocked ? 'bg-slate-100 dark:bg-slate-700' : ''}`}
             />
           </div>
           <div className="space-y-1.5">
@@ -80,12 +91,12 @@ export function DireccionFormFields({ value, onChange }: DireccionFormFieldsProp
             <Input
               value={value.estado}
               onChange={(e) => update('estado', e.target.value)}
-              readOnly={value.zip_code.length === 5}
-              className={`${inputClass} ${value.zip_code.length === 5 ? 'bg-slate-100 dark:bg-slate-700' : ''}`}
+              readOnly={zipLocked}
+              className={`${inputClass} ${zipLocked ? 'bg-slate-100 dark:bg-slate-700' : ''}`}
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Condado *</Label>
+            <Label className="text-xs">Condado * {loading ? '(buscando...)' : ''}</Label>
             <select
               value={value.condado}
               onChange={(e) => update('condado', e.target.value)}

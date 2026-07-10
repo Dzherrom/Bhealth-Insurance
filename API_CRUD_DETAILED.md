@@ -469,6 +469,7 @@ DELETE /api/planes/{id}/
 ```
 GET /api/polizas/
 ```
+Soporta paginación (`page`, `page_size`), búsqueda (`search`) y múltiples filtros (ej. `agente`, `estado`, `archivada`, `incluir_archivadas`).
 
 ### Obtener Una Póliza
 ```
@@ -667,6 +668,14 @@ PATCH /api/polizas/{id}/
 ```
 DELETE /api/polizas/{id}/
 ```
+
+### Presence (Presencia y Bloqueo)
+```
+GET /api/polizas/{id}/presence/
+POST /api/polizas/{id}/presence/
+DELETE /api/polizas/{id}/presence/
+```
+Gestiona la presencia de usuarios viendo o editando una póliza (evita colisiones de edición).
 
 ---
 
@@ -1069,6 +1078,30 @@ POST /api/notificaciones/{id}/marcar_leida/
 ```json
 {
   "status": "notificacion marcada como leida"
+}
+```
+
+### Enviar Notificación General
+```
+POST /api/notificaciones/enviar-general/
+```
+
+**Request Body:**
+```json
+{
+  "mensaje": "Mensaje para los agentes",
+  "tipo": "SISTEMA",
+  "roles": ["AGENTE", "CLIENT_SUPPORT"],
+  "user_ids": [2, 5]
+}
+```
+*Nota: `roles` y `user_ids` son opcionales. Si no se envían, se notifica a todos los usuarios activos que no sean clientes.*
+
+**Response:**
+```json
+{
+  "detail": "Notificación enviada",
+  "creadas": 15
 }
 ```
 
@@ -1540,6 +1573,16 @@ GET /api/dashboard/stats/
       "total_polizas": 200,
       "porcentaje_aplicantes": 40.0
     }
+  ],
+  "clasificacion_agentes": [
+    {
+      "nombre": "Juan Pérez",
+      "npn": "12345678",
+      "num_polizas": 150,
+      "num_aplicantes": 300,
+      "porcentaje_polizas": 25.5
+    }
+  ]
   ],
   "failed_logins_count": 5,
   "top_agentes": [],
@@ -2100,7 +2143,300 @@ Content-Type: application/json
 }
 ```
 
+
+## Usuarios (User Management)
+
+**Endpoint Base:** `/api/users/`
+
+### Listar Usuarios
+```
+GET /api/users/
+```
+Soporta paginación (`page`, `page_size`), búsqueda (`search`) y filtros (`is_active`, `profile__status`, `profile__role`, `empleados=1`).
+
+### Obtener Un Usuario
+```
+GET /api/users/{id}/
+```
+
+### Crear Usuario
+```
+POST /api/users/
+```
+
+### Actualizar Usuario
+```
+PUT /api/users/{id}/
+PATCH /api/users/{id}/
+```
+
+### Eliminar Usuario
+```
+DELETE /api/users/{id}/
+```
+
+### Subir Avatar
+```
+POST /api/users/{id}/avatar/
+```
+
+### Resetear Contraseña
+```
+POST /api/users/{id}/reset-password/
+```
+
+### Activar / Desactivar Usuario
+```
+POST /api/users/{id}/activate/
+POST /api/users/{id}/deactivate/
+```
+
 ---
+
+## Historial de Póliza
+
+**Endpoint Base:** `/api/historial/`
+
+### Listar Historial de una Póliza
+```
+GET /api/historial/?poliza={poliza_id}
+```
+
+---
+
+## Carpetas de Documentos
+
+**Endpoint Base:** `/api/carpetas-documentos/`
+
+### Listar Carpetas
+```
+GET /api/carpetas-documentos/
+```
+
+### Crear Carpeta
+```
+POST /api/carpetas-documentos/
+```
+
+---
+
+## Cambios de Vida
+
+**Endpoint Base:** `/api/cambios-de-vida/`
+
+### Listar Cambios de Vida
+```
+GET /api/cambios-de-vida/
+```
+
+### Crear Cambio de Vida
+```
+POST /api/cambios-de-vida/
+```
+
+---
+
+## Ingresos del Empleador
+
+**Endpoint Base:** `/api/ingresos-empleador/`
+
+### Listar Ingresos
+```
+GET /api/ingresos-empleador/
+```
+
+### Crear Ingreso
+```
+POST /api/ingresos-empleador/
+```
+
+---
+
+## Documentos Legales del Cliente
+
+**Endpoint Base:** `/api/documentos-legales/`
+
+### Listar Documentos Legales
+```
+GET /api/documentos-legales/
+```
+
+### Crear Documento Legal
+```
+POST /api/documentos-legales/
+```
+
+---
+
+## Médicos y Medicamentos
+
+**Endpoint Base Médicos:** `/api/medicos-poliza/`
+**Endpoint Base Medicamentos:** `/api/medicamentos/`
+
+### Listar Médicos de Póliza
+```
+GET /api/medicos-poliza/?poliza={poliza_id}
+```
+
+### Crear Médico de Póliza
+```
+POST /api/medicos-poliza/
+```
+
+### Listar Medicamentos de Póliza
+```
+GET /api/medicamentos/?poliza={poliza_id}
+```
+
+### Crear Medicamento
+```
+POST /api/medicamentos/
+```
+
+---
+
+## Comisiones y Reportes
+
+**Endpoint Base Reportes:** `/api/reportes_comision/`
+**Endpoint Base Configuración:** `/api/configuracion-comisiones/`
+
+### Listar Reportes de Comisión
+```
+GET /api/reportes_comision/
+```
+
+### Listar Configuración de Comisiones
+```
+GET /api/configuracion-comisiones/
+```
+
+---
+
+## Cuentas Bancarias e Información de Pago
+
+**Endpoint Base Cuentas Bancarias:** `/api/cuentas_bancarias/`
+**Endpoint Base Info Pago:** `/api/info_pago/`
+
+### Listar Cuentas Bancarias
+```
+GET /api/cuentas_bancarias/?poliza={poliza_id}
+```
+
+### Crear Cuenta Bancaria
+```
+POST /api/cuentas_bancarias/
+```
+
+### Listar Info de Pago
+```
+GET /api/info_pago/?poliza={poliza_id}
+```
+
+### Crear Info de Pago
+```
+POST /api/info_pago/
+```
+
+---
+
+## Departamentos
+
+**Endpoint Base:** `/api/departamentos/`
+
+### Listar Departamentos
+```
+GET /api/departamentos/
+```
+
+---
+
+## Solicitudes de Consentimiento (Consent Requests)
+
+**Endpoint Base:** `/api/consent-requests/`
+
+### Listar Solicitudes
+```
+GET /api/consent-requests/
+```
+
+### Crear Solicitud
+```
+POST /api/consent-requests/
+```
+
+---
+
+## Tipos de Producto
+
+**Endpoint Base:** `/api/tipos-producto/`
+
+### Listar Tipos de Producto
+```
+GET /api/tipos-producto/
+```
+
+---
+
+## Utilidades de Código Postal
+
+**Endpoint:** `/api/utils/zipcode/{zip_code}/`
+
+### Consultar Código Postal
+```
+GET /api/utils/zipcode/33101/
+```
+**Respuesta:**
+```json
+{
+  "zip_code": "33101",
+  "city": "Miami",
+  "state_abbr": "FL",
+  "counties": ["Miami-Dade"]
+}
+```
+
+---
+
+## Portal Cliente
+
+**Endpoints:**
+- `POST /api/register/cliente/` - Registro de cliente.
+- `GET /api/portal-cliente/dashboard/` - Dashboard del cliente.
+- `POST /api/portal-cliente/solicitar-cambio/` - Solicitar cambio en la póliza.
+- `POST /api/portal-cliente/solicitar-documento/` - Solicitar documento.
+
+---
+
+## Importación y Exportación Flat (Pólizas)
+
+**Endpoints:**
+- `POST /api/polizas/flat/preview/` - Previsualizar importación flat.
+- `POST /api/polizas/flat/import/` - Importar póliza flat.
+- `POST /api/polizas/flat/import/batch/` - Importación masiva flat.
+- `GET /api/polizas/flat/export/` - Exportar pólizas flat.
+
+---
+
+## Calendario de Primas
+
+**Endpoint:** `/api/polizas/{poliza_id}/calendario-primas/`
+
+### Obtener Calendario
+```
+GET /api/polizas/1/calendario-primas/
+```
+
+
+## Reportes Adicionales
+
+**Endpoints:**
+- `GET /api/reportes/agentes-facturacion/` - Reporte de facturación de agentes.
+- `GET /api/reportes/intentos-fallidos/` - Reporte de intentos fallidos de login.
+
+
+---
+
+
 
 **Última actualización:** Mayo 2026
 

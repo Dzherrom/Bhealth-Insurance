@@ -42,6 +42,7 @@ type MonthlyTotalsRow = {
 
 type AgentRow = {
   nombre: string;
+  npn?: string;
   num_polizas: number;
   num_aplicantes: number;
   porcentaje_polizas: number;
@@ -88,6 +89,10 @@ type DashboardStats = {
   total_aplicantes: number;
   total_polizas_canceladas: number;
   total_aplicantes_cancelados: number;
+  polizas_en_periodo: number;
+  aplicantes_en_periodo: number;
+  ventas_totales: number;
+  tasa_retencion: number;
   polizas_efectivas_mensual_chart: MonthlyTotalsRow[];
   clasificacion_agentes: AgentRow[];
   polizas_efectivas_tipo_producto_mensual_chart: ProductMonthlyRow[];
@@ -122,24 +127,29 @@ const getMapColor = (count: number, max: number) => {
   return "#93c5fd";
 };
 
-const getDefaultRange = () => {
-  const endDateObj = new Date();
-  const startDateObj = new Date();
-  startDateObj.setMonth(startDateObj.getMonth() - 6);
-  
-  const endYYYY = endDateObj.getFullYear();
-  const endMM = String(endDateObj.getMonth() + 1).padStart(2, '0');
-  const endDD = String(endDateObj.getDate()).padStart(2, '0');
+const getDefaultRange = () => ({
+  startDate: "",
+  endDate: "",
+});
 
-  const startYYYY = startDateObj.getFullYear();
-  const startMM = String(startDateObj.getMonth() + 1).padStart(2, '0');
-  const startDD = String(startDateObj.getDate()).padStart(2, '0');
+const getAgentInitials = (name: string) =>
+  name
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .substring(0, 2)
+    .toUpperCase();
 
-  return {
-    startDate: `${startYYYY}-${startMM}-${startDD}`,
-    endDate: `${endYYYY}-${endMM}-${endDD}`,
-  };
-};
+const getConversionRate = (polizas: number, aplicantes: number) =>
+  aplicantes > 0 ? Math.round((polizas / aplicantes) * 100) : 0;
+
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat("es-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(value);
 
 export default function DashboardPage() {
   const accessToken = useAuthStore((state) => state.accessToken);
@@ -232,8 +242,22 @@ export default function DashboardPage() {
   }, [stats]);
 
   const totalPolicyCount = stats?.total_polizas || 0;
+  const periodFilterActive = !!appliedRange.startDate || !!appliedRange.endDate;
 
-  const canApplyRange = !!startDate && !!endDate && startDate <= endDate;
+  const canApplyRange =
+    (!startDate && !endDate) || (!!startDate && !!endDate && startDate <= endDate);
+
+  const topAgents = useMemo(
+    () => (stats?.clasificacion_agentes || []).slice(0, 3),
+    [stats]
+  );
+
+  const bottomAgents = useMemo(() => {
+    const agents = [...(stats?.clasificacion_agentes || [])];
+    return agents
+      .sort((a, b) => a.num_polizas - b.num_polizas || a.num_aplicantes - b.num_aplicantes)
+      .slice(0, 3);
+  }, [stats]);
 
   
   const insurerMergedData = useMemo(() => {
@@ -281,8 +305,32 @@ export default function DashboardPage() {
           >
             Filtrar
           </Button>
+          {periodFilterActive && (
+            <Button
+              variant="outline"
+              disabled={loading}
+              onClick={() => {
+                setStartDate("");
+                setEndDate("");
+                setAppliedRange({ startDate: "", endDate: "" });
+              }}
+              className="h-[38px] rounded-[10px] text-[13px] font-semibold px-[16px]"
+            >
+              Ver todo
+            </Button>
+          )}
         </div>
       </div>
+
+      {periodFilterActive && (
+        <div className="mb-[20px] rounded-[10px] border border-[#e0e7ff] bg-[#eef2ff] px-[14px] py-[10px] text-[13px] font-medium text-[#4338ca]">
+          Los gráficos y clasificación de agentes reflejan el periodo seleccionado
+          {appliedRange.startDate || appliedRange.endDate
+            ? ` (${appliedRange.startDate || "inicio"} — ${appliedRange.endDate || "hoy"})`
+            : ""}
+          . Los totales de pólizas y aplicantes muestran todo el historial ({stats.total_polizas} pólizas).
+        </div>
+      )}
 
       {/* KPI Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-[20px] mb-[24px]">
@@ -293,8 +341,10 @@ export default function DashboardPage() {
             <span className="text-[12px] font-bold text-[#94a3b8] dark:text-gray-500 uppercase tracking-[0.5px]">Ventas Totales</span>
             <Wallet className="w-5 h-5 text-[#4f46e5]" />
           </div>
-          <div className="text-[32px] font-bold text-[#0f172a] dark:text-white tracking-[-0.5px] leading-[1.2]">$184,500</div>
-          <div className="text-[12px] font-semibold text-[#64748b] dark:text-gray-400 mt-[8px]">+14.2% vs año anterior</div>
+          <div className="text-[32px] font-bold text-[#0f172a] dark:text-white tracking-[-0.5px] leading-[1.2]">
+            {formatCurrency(stats.ventas_totales || 0)}
+          </div>
+          <div className="text-[12px] font-semibold text-[#64748b] dark:text-gray-400 mt-[8px]">Suma de primas mensuales</div>
         </div>
 
         {/* KPI 2 : Pólizas */}
@@ -304,7 +354,10 @@ export default function DashboardPage() {
             <FileText className="w-5 h-5 text-[#10b981]" />
           </div>
           <div className="text-[32px] font-bold text-[#0f172a] dark:text-white tracking-[-0.5px] leading-[1.2]">{stats.total_polizas || "0"}</div>
-          <div className="text-[12px] font-semibold text-[#64748b] dark:text-gray-400 mt-[8px]">Número total de pólizas</div>
+          <div className="text-[12px] font-semibold text-[#64748b] dark:text-gray-400 mt-[8px]">
+            Total registradas en el sistema
+            {periodFilterActive ? ` · ${stats.polizas_en_periodo || 0} en el periodo` : ""}
+          </div>
         </div>
 
         {/* KPI 3 : Aplicantes */}
@@ -314,7 +367,10 @@ export default function DashboardPage() {
             <Users className="w-5 h-5 text-[#3b82f6]" />
           </div>
           <div className="text-[32px] font-bold text-[#0f172a] dark:text-white tracking-[-0.5px] leading-[1.2]">{stats.total_aplicantes || "0"}</div>
-          <div className="text-[12px] font-semibold text-[#64748b] dark:text-gray-400 mt-[8px]">Número total de aplicantes</div>
+          <div className="text-[12px] font-semibold text-[#64748b] dark:text-gray-400 mt-[8px]">
+            Total registrados en el sistema
+            {periodFilterActive ? ` · ${stats.aplicantes_en_periodo || 0} en el periodo` : ""}
+          </div>
         </div>
 
         {/* KPI 4 : Pólizas Canceladas */}
@@ -343,8 +399,10 @@ export default function DashboardPage() {
             <span className="text-[12px] font-bold text-[#94a3b8] dark:text-gray-500 uppercase tracking-[0.5px]">Tasa de Retención</span>
             <Zap className="w-5 h-5 text-[#f59e0b]" />
           </div>
-          <div className="text-[32px] font-bold text-[#0f172a] dark:text-white tracking-[-0.5px] leading-[1.2]">98.4%</div>
-          <div className="text-[12px] font-semibold text-[#10b981] mt-[8px]">Eficiencia óptima</div>
+          <div className="text-[32px] font-bold text-[#0f172a] dark:text-white tracking-[-0.5px] leading-[1.2]">
+            {stats.tasa_retencion ?? 0}%
+          </div>
+          <div className="text-[12px] font-semibold text-[#10b981] mt-[8px]">Pólizas no canceladas</div>
         </div>
 
       </div>
@@ -387,49 +445,29 @@ export default function DashboardPage() {
                 <TrendingUp className="w-4 h-4" /> Mayores Productores (Top 3)
               </div>
               <div className="flex flex-col gap-[16px]">
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-[12px]">
-                    <div className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-bold text-[12px] shrink-0 bg-[#d1fae5] text-[#065f46]">DM</div>
-                    <div>
-                      <h5 className="text-[14px] font-bold text-[#0f172a] dark:text-white m-0">Daniella Mendoza</h5>
-                      <p className="text-[11px] font-semibold text-[#64748b] dark:text-gray-400 m-0">Conversión: 84%</p>
+                {topAgents.length ? (
+                  topAgents.map((agent) => (
+                    <div key={agent.nombre} className="flex items-center justify-between">
+                      <div className="flex items-center gap-[12px]">
+                        <div className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-bold text-[12px] shrink-0 bg-[#d1fae5] text-[#065f46]">
+                          {getAgentInitials(agent.nombre)}
+                        </div>
+                        <div>
+                          <h5 className="text-[14px] font-bold text-[#0f172a] dark:text-white m-0">{agent.nombre}</h5>
+                          <p className="text-[11px] font-semibold text-[#64748b] dark:text-gray-400 m-0">
+                            Conversión: {getConversionRate(agent.num_polizas, agent.num_aplicantes)}%
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[13px] font-bold text-[#10b981]">{agent.num_polizas} Pólizas</div>
+                        <div className="text-[11px] font-semibold text-[#64748b] dark:text-gray-400">{agent.num_aplicantes} Ap</div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-[13px] font-bold text-[#10b981]">153 Pólizas</div>
-                    <div className="text-[11px] font-semibold text-[#64748b] dark:text-gray-400">185 Ap</div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-[12px]">
-                    <div className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-bold text-[12px] shrink-0 bg-[#d1fae5] text-[#065f46]">CR</div>
-                    <div>
-                      <h5 className="text-[14px] font-bold text-[#0f172a] dark:text-white m-0">Carlos Rdz</h5>
-                      <p className="text-[11px] font-semibold text-[#64748b] dark:text-gray-400 m-0">Conversión: 79%</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-[13px] font-bold text-[#10b981]">125 Pólizas</div>
-                    <div className="text-[11px] font-semibold text-[#64748b] dark:text-gray-400">140 Ap</div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-[12px]">
-                    <div className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-bold text-[12px] shrink-0 bg-[#d1fae5] text-[#065f46]">LG</div>
-                    <div>
-                      <h5 className="text-[14px] font-bold text-[#0f172a] dark:text-white m-0">Luis Gómez</h5>
-                      <p className="text-[11px] font-semibold text-[#64748b] dark:text-gray-400 m-0">Conversión: 72%</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-[13px] font-bold text-[#10b981]">98 Pólizas</div>
-                    <div className="text-[11px] font-semibold text-[#64748b] dark:text-gray-400">110 Ap</div>
-                  </div>
-                </div>
-
+                  ))
+                ) : (
+                  <p className="text-[12px] text-muted-foreground dark:text-gray-400 m-0">Sin datos de agentes.</p>
+                )}
               </div>
             </div>
 
@@ -439,49 +477,29 @@ export default function DashboardPage() {
                 <TrendingDown className="w-4 h-4" /> Requiere Revisión
               </div>
               <div className="flex flex-col gap-[16px]">
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-[12px]">
-                    <div className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-bold text-[12px] shrink-0 bg-[#fee2e2] text-[#991b1b]">MP</div>
-                    <div>
-                      <h5 className="text-[14px] font-bold text-[#0f172a] dark:text-white m-0">Miguel P</h5>
-                      <p className="text-[11px] font-semibold text-[#64748b] dark:text-gray-400 m-0">Conv: 31%</p>
+                {bottomAgents.length ? (
+                  bottomAgents.map((agent) => (
+                    <div key={`bottom-${agent.nombre}`} className="flex items-center justify-between">
+                      <div className="flex items-center gap-[12px]">
+                        <div className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-bold text-[12px] shrink-0 bg-[#fee2e2] text-[#991b1b]">
+                          {getAgentInitials(agent.nombre)}
+                        </div>
+                        <div>
+                          <h5 className="text-[14px] font-bold text-[#0f172a] dark:text-white m-0">{agent.nombre}</h5>
+                          <p className="text-[11px] font-semibold text-[#64748b] dark:text-gray-400 m-0">
+                            Conv: {getConversionRate(agent.num_polizas, agent.num_aplicantes)}%
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[13px] font-bold text-[#ef4444]">{agent.num_polizas} Pólizas</div>
+                        <div className="text-[11px] font-semibold text-[#64748b] dark:text-gray-400">{agent.num_aplicantes} Ap</div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-[13px] font-bold text-[#ef4444]">12 Pólizas</div>
-                    <div className="text-[11px] font-semibold text-[#64748b] dark:text-gray-400">25 Ap</div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-[12px]">
-                    <div className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-bold text-[12px] shrink-0 bg-[#fee2e2] text-[#991b1b]">AF</div>
-                    <div>
-                      <h5 className="text-[14px] font-bold text-[#0f172a] dark:text-white m-0">Ana F</h5>
-                      <p className="text-[11px] font-semibold text-[#64748b] dark:text-gray-400 m-0">Conv: 28%</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-[13px] font-bold text-[#ef4444]">8 Pólizas</div>
-                    <div className="text-[11px] font-semibold text-[#64748b] dark:text-gray-400">14 Ap</div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-[12px]">
-                    <div className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-bold text-[12px] shrink-0 bg-[#fee2e2] text-[#991b1b]">RJ</div>
-                    <div>
-                      <h5 className="text-[14px] font-bold text-[#0f172a] dark:text-white m-0">Roberto J</h5>
-                      <p className="text-[11px] font-semibold text-[#64748b] dark:text-gray-400 m-0">Conv: 21%</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-[13px] font-bold text-[#ef4444]">7 Pólizas</div>
-                    <div className="text-[11px] font-semibold text-[#64748b] dark:text-gray-400">9 Ap</div>
-                  </div>
-                </div>
-
+                  ))
+                ) : (
+                  <p className="text-[12px] text-muted-foreground dark:text-gray-400 m-0">Sin datos de agentes.</p>
+                )}
               </div>
             </div>
 
@@ -581,26 +599,16 @@ export default function DashboardPage() {
                   </div>
                   <div>
                     <h4 className="text-[14px] font-bold text-[#0f172a] dark:text-white uppercase m-0 leading-[1.2]">{agent.nombre}</h4>
-                    <p className="text-[12px] font-semibold text-[#64748b] dark:text-gray-400 mt-[4px] m-0">NPN {Math.floor(10000000 + Math.random() * 90000000)} • Principal Activo</p>
+                    <p className="text-[12px] font-semibold text-[#64748b] dark:text-gray-400 mt-[4px] m-0">NPN {agent.npn || '—'} • Principal Activo</p>
                   </div>
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-end sm:items-center gap-[12px] sm:gap-[30px]">
-                  <div className="flex items-center gap-[12px]">
-                    <span className="w-[32px] h-[32px] bg-[#e0e7ff] text-[#3b82f6] text-[11px] font-bold flex items-center justify-center rounded-[8px]">FL</span>
-                    <div className="flex items-center gap-[10px]">
-                        <span className="bg-[#f8fafc] dark:bg-[#0f172a] border border-[#e2e8f0] dark:border-[#334155] text-[#475569] dark:text-gray-300 text-[11px] font-semibold px-[8px] py-[4px] rounded-[10px] flex items-center gap-[6px]">
-                          <span className="w-[6px] h-[6px] rounded-full bg-[#10b981] shadow-[0_0_5px_rgba(16,185,129,0.5)]"></span>Progressive
-                        </span>
-                        <span className="bg-[#f8fafc] dark:bg-[#0f172a] border border-[#e2e8f0] dark:border-[#334155] text-[#475569] dark:text-gray-300 text-[11px] font-semibold px-[8px] py-[4px] rounded-[10px] flex items-center gap-[6px]">
-                          <span className="w-[6px] h-[6px] rounded-full bg-[#3b82f6] shadow-[0_0_5px_rgba(59,130,246,0.5)]"></span>Blue Cross
-                        </span>
-                    </div>
-                  </div>
-                  
                   <div className="flex flex-col text-right">
-                    <div className="text-[15px] font-bold text-[#0f172a] dark:text-white">{agent.num_polizas} Ventas ({agent.porcentaje_polizas}%)</div>
-                    <div className="text-[12px] font-semibold text-[#10b981]">Totalizado</div>
+                    <div className="text-[15px] font-bold text-[#0f172a] dark:text-white">
+                      {agent.num_polizas} Pólizas · {agent.num_aplicantes} Aplicantes
+                    </div>
+                    <div className="text-[12px] font-semibold text-[#10b981]">{agent.porcentaje_polizas}% del total</div>
                   </div>
                 </div>
               </div>

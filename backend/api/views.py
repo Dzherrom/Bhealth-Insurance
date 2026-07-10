@@ -33,6 +33,7 @@ from .models import (
 )
 from .serializers import *
 from .utils import send_activity_webhook, fetch_location_from_zip
+from .carpeta_utils import ensure_poliza_carpetas
 from .roles import (
     POLICY_GLOBAL_VIEW_ROLES,
     POLICY_NPN_SCOPED_ROLES,
@@ -62,6 +63,16 @@ class PolizaPagination(PageNumberPagination):
     page_size = 25
     page_size_query_param = 'page_size'
     max_page_size = 200
+
+class UserPagination(PageNumberPagination):
+    page_size = 25
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+class AgentePagination(PageNumberPagination):
+    page_size = 50
+    page_size_query_param = 'page_size'
+    max_page_size = 500
 
 class DashboardStatsView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsCRMNonBasicRole]
@@ -104,10 +115,12 @@ class DashboardStatsView(APIView):
             end_date = today
             start_date = today - timedelta(days=selected_days)
 
-        polizas_qs = Poliza.objects.all()
+        polizas_all_qs = Poliza.objects.all()
+        polizas_qs = polizas_all_qs
         clientes_qs = Cliente.objects.all()
         recordatorios_qs = Recordatorio.objects.all()
         failed_logins_qs = IntentoLoginFallido.objects.all()
+        periodo_activo = bool(start_date or end_date)
 
         if start_date:
             polizas_qs = polizas_qs.filter(fecha_efectiva__gte=start_date)
@@ -152,15 +165,28 @@ class DashboardStatsView(APIView):
         # 3. Nuevos prospectos (dentro del periodo)
         stats['nuevos_prospectos'] = clientes_qs.count()
 
-        # 4. Total Polizas y Aplicantes, y Cancelados
+        # 4. Totales globales (sin filtro de fechas) y conteos del periodo
+        real_total_aplicantes_all = polizas_all_qs.aggregate(t=Sum('total_aplicantes'))['t'] or 0
+        total_polizas_all = polizas_all_qs.count()
+        stats['total_aplicantes'] = real_total_aplicantes_all
+        stats['total_polizas'] = total_polizas_all
+
+        polizas_canceladas_all_qs = polizas_all_qs.filter(estado__nombre__icontains='cancelad')
+        stats['total_polizas_canceladas'] = polizas_canceladas_all_qs.count()
+        stats['total_aplicantes_cancelados'] = polizas_canceladas_all_qs.aggregate(t=Sum('total_aplicantes'))['t'] or 0
+
+        ventas_totales = polizas_all_qs.aggregate(t=Sum('prima_mensual'))['t'] or 0
+        stats['ventas_totales'] = float(ventas_totales)
+        if total_polizas_all:
+            activas_all = total_polizas_all - stats['total_polizas_canceladas']
+            stats['tasa_retencion'] = round((activas_all / total_polizas_all) * 100, 1)
+        else:
+            stats['tasa_retencion'] = 0.0
+
         real_total_aplicantes = polizas_qs.aggregate(t=Sum('total_aplicantes'))['t'] or 0
         total_polizas_count = polizas_qs.count()
-        stats['total_aplicantes'] = real_total_aplicantes
-        stats['total_polizas'] = total_polizas_count
-
-        polizas_canceladas_qs = polizas_qs.filter(estado__nombre__icontains='cancelad')
-        stats['total_polizas_canceladas'] = polizas_canceladas_qs.count()
-        stats['total_aplicantes_cancelados'] = polizas_canceladas_qs.aggregate(t=Sum('total_aplicantes'))['t'] or 0
+        stats['polizas_en_periodo'] = total_polizas_count if periodo_activo else total_polizas_all
+        stats['aplicantes_en_periodo'] = real_total_aplicantes if periodo_activo else real_total_aplicantes_all
 
         # 5. Pólizas efectivas por mes (columnas: pólizas y aplicantes)
         polizas_efectivas_mensual = polizas_qs.annotate(
@@ -203,6 +229,7 @@ class DashboardStatsView(APIView):
         stats['clasificacion_agentes'] = [
             {
                 "nombre": ag.nombre_completo,
+                "npn": ag.npn or "",
                 "num_polizas": ag.num_polizas,
                 "num_aplicantes": ag.num_aplicantes or 0,
                 "porcentaje_polizas": round((ag.num_polizas / total_polizas_count) * 100, 2) if total_polizas_count else 0,
@@ -467,9 +494,19 @@ class DireccionViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
 class AgenteViewSet(viewsets.ModelViewSet):
-    queryset = Agente.objects.all()
+    queryset = Agente.objects.select_related('agencia', 'user_profile__user').all()
     serializer_class = AgenteSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = AgentePagination
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['nombre_completo', 'npn', 'ffm', 'agencia__nombre']
+
+    def get_queryset(self):
+        qs = Agente.objects.select_related('agencia', 'user_profile__user').order_by('nombre_completo')
+        con_usuario = self.request.query_params.get('con_usuario')
+        if con_usuario in ('1', 'true', 'yes'):
+            qs = qs.filter(user_profile__isnull=False)
+        return qs
 
     @action(detail=True, methods=['get'])
     def polizas(self, request, pk=None):
@@ -1313,13 +1350,16 @@ class UserManagementViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserManagementSerializer
     permission_classes = [permissions.IsAuthenticated, IsAdminOrManagerRole]
+    pagination_class = UserPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['is_active', 'profile__status', 'profile__role']
     search_fields = ['username', 'email', 'first_name', 'last_name']
 
     def get_queryset(self):
-        # Ensure we get users with their profiles
-        return User.objects.select_related('profile').all()
+        qs = User.objects.select_related('profile').all()
+        if self.request.query_params.get('empleados') == '1':
+            qs = qs.exclude(profile__role__in=['USER', 'CLIENTE'])
+        return qs
 
     ROLE_RANK = ROLE_RANK
 
@@ -1845,10 +1885,20 @@ class NotificacionViewSet(viewsets.ModelViewSet):
     def enviar_general(self, request):
         mensaje = request.data.get('mensaje')
         tipo = request.data.get('tipo', 'SISTEMA')
+        roles = request.data.get('roles')
+        user_ids = request.data.get('user_ids')
         if not mensaje:
             return Response({'detail': 'mensaje es obligatorio'}, status=status.HTTP_400_BAD_REQUEST)
 
         target_users = User.objects.filter(is_active=True).exclude(profile__role='USER')
+
+        if user_ids:
+            target_users = target_users.filter(id__in=user_ids)
+        elif roles:
+            if not isinstance(roles, list):
+                return Response({'detail': 'roles debe ser una lista'}, status=status.HTTP_400_BAD_REQUEST)
+            target_users = target_users.filter(profile__role__in=roles)
+
         created = 0
         for user in target_users:
             Notificacion.objects.create(usuario=user, mensaje=mensaje, tipo=tipo)

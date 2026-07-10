@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { MapPin, Edit, Trash2, Plus } from 'lucide-react';
 import { direccionesApi, polizasApi } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
+import { useZipCountyLookup } from '@/hooks/useZipCountyLookup';
 import { collectPolicyAddresses, formatDireccion } from './polizaUtils';
 
 interface DireccionesPolizaProps {
@@ -34,6 +35,9 @@ export function DireccionesPoliza({ poliza, onRefresh }: DireccionesPolizaProps)
   const [editingDireccion, setEditingDireccion] = useState<any | null>(null);
   const [form, setForm] = useState<any>(emptyDireccion);
   const [assignSlot, setAssignSlot] = useState<string>('');
+  const { counties, loading, resolveZip, setCounties } = useZipCountyLookup();
+  const formRef = useRef(form);
+  formRef.current = form;
 
   const polizaId = poliza?.id;
   const policyAddresses = useMemo(() => collectPolicyAddresses(poliza), [poliza]);
@@ -45,6 +49,39 @@ export function DireccionesPoliza({ poliza, onRefresh }: DireccionesPolizaProps)
       if (fromPolicy) return fromPolicy;
     }
     return poliza?.[`${slotKey}_details`] || null;
+  };
+
+  useEffect(() => {
+    if (!openModal) return;
+    const zip = form.zip_code?.trim() || '';
+    if (zip.length < 5) return;
+    resolveZip(zip, form.condado).then((result) => {
+      if (!result) return;
+      setForm((prev: typeof emptyDireccion) => ({
+        ...prev,
+        ciudad: result.ciudad || prev.ciudad,
+        estado: result.estado || prev.estado,
+        condado: prev.condado || result.condado,
+      }));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openModal, editingDireccion?.id]);
+
+  const handleZipChange = async (zip: string) => {
+    setForm((prev: typeof emptyDireccion) => ({ ...prev, zip_code: zip }));
+    setCounties([]);
+    if (zip.length < 5) return;
+
+    const result = await resolveZip(zip, formRef.current.condado);
+    if (!result) return;
+
+    setForm((prev: typeof emptyDireccion) => ({
+      ...prev,
+      zip_code: zip,
+      ciudad: result.ciudad || prev.ciudad,
+      estado: result.estado || prev.estado,
+      condado: result.condado || prev.condado,
+    }));
   };
 
   const asignarDireccion = async (
@@ -88,6 +125,7 @@ export function DireccionesPoliza({ poliza, onRefresh }: DireccionesPolizaProps)
       setEditingDireccion(null);
       setForm(emptyDireccion);
       setAssignSlot('');
+      setCounties([]);
       onRefresh?.();
     } catch (error) {
       console.error(error);
@@ -119,6 +157,7 @@ export function DireccionesPoliza({ poliza, onRefresh }: DireccionesPolizaProps)
     setEditingDireccion(null);
     setForm(emptyDireccion);
     setAssignSlot('direccion_fisica');
+    setCounties([]);
     setOpenModal(true);
   };
 
@@ -137,6 +176,8 @@ export function DireccionesPoliza({ poliza, onRefresh }: DireccionesPolizaProps)
   };
 
   if (!poliza) return null;
+
+  const zipLocked = (form.zip_code || '').length === 5;
 
   return (
     <div className="space-y-6">
@@ -196,17 +237,19 @@ export function DireccionesPoliza({ poliza, onRefresh }: DireccionesPolizaProps)
           {policyAddresses.length === 0 ? (
             <p className="text-sm text-muted-foreground">Esta póliza aún no tiene direcciones. Cree una nueva para comenzar.</p>
           ) : (
-            policyAddresses.map((d) => (
-              <div key={d.id} className="border rounded p-3 flex items-center justify-between gap-3">
+            policyAddresses.map((direccion) => (
+              <div key={direccion.id} className="flex items-center justify-between border rounded p-3">
                 <div>
-                  <p className="font-medium">#{d.id} - {d.linea1}{d.linea2 ? `, ${d.linea2}` : ''}</p>
-                  <p className="text-xs text-muted-foreground">{formatDireccion(d)}</p>
+                  <p className="font-medium">{formatDireccion(direccion)}</p>
+                  {direccion.condado ? (
+                    <p className="text-xs text-muted-foreground">Condado: {direccion.condado}</p>
+                  ) : null}
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="icon" onClick={() => openEditModal(d)}>
+                  <Button variant="outline" size="sm" onClick={() => openEditModal(direccion)}>
                     <Edit className="h-4 w-4" />
                   </Button>
-                  <Button variant="outline" size="icon" onClick={() => removeDireccion(d.id)}>
+                  <Button variant="outline" size="sm" onClick={() => removeDireccion(direccion.id)}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
@@ -224,10 +267,42 @@ export function DireccionesPoliza({ poliza, onRefresh }: DireccionesPolizaProps)
           <div className="space-y-3">
             <div><Label>Línea 1 *</Label><Input value={form.linea1} onChange={(e) => setForm((p: any) => ({ ...p, linea1: e.target.value }))} /></div>
             <div><Label>Línea 2</Label><Input value={form.linea2} onChange={(e) => setForm((p: any) => ({ ...p, linea2: e.target.value }))} /></div>
-            <div><Label>Ciudad *</Label><Input value={form.ciudad} onChange={(e) => setForm((p: any) => ({ ...p, ciudad: e.target.value }))} /></div>
-            <div><Label>Estado *</Label><Input value={form.estado} onChange={(e) => setForm((p: any) => ({ ...p, estado: e.target.value }))} /></div>
-            <div><Label>ZIP *</Label><Input value={form.zip_code} onChange={(e) => setForm((p: any) => ({ ...p, zip_code: e.target.value }))} /></div>
-            <div><Label>Condado</Label><Input value={form.condado} onChange={(e) => setForm((p: any) => ({ ...p, condado: e.target.value }))} /></div>
+            <div>
+              <Label>ZIP *</Label>
+              <Input value={form.zip_code} onChange={(e) => handleZipChange(e.target.value)} />
+            </div>
+            <div>
+              <Label>Ciudad *</Label>
+              <Input
+                value={form.ciudad}
+                onChange={(e) => setForm((p: any) => ({ ...p, ciudad: e.target.value }))}
+                readOnly={zipLocked}
+                className={zipLocked ? 'bg-slate-100 dark:bg-slate-700' : ''}
+              />
+            </div>
+            <div>
+              <Label>Estado *</Label>
+              <Input
+                value={form.estado}
+                onChange={(e) => setForm((p: any) => ({ ...p, estado: e.target.value }))}
+                readOnly={zipLocked}
+                className={zipLocked ? 'bg-slate-100 dark:bg-slate-700' : ''}
+              />
+            </div>
+            <div>
+              <Label>Condado {loading ? '(buscando...)' : ''}</Label>
+              <select
+                className="mt-1 w-full border rounded px-2 py-2 text-sm bg-white dark:bg-slate-800 disabled:opacity-50"
+                value={form.condado}
+                onChange={(e) => setForm((p: any) => ({ ...p, condado: e.target.value }))}
+                disabled={!counties.length}
+              >
+                <option value="">Seleccione condado...</option>
+                {counties.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
             {!editingDireccion && (
               <div>
                 <Label>Asignar como</Label>

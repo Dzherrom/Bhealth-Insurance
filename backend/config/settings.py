@@ -168,6 +168,10 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 if backend_public_url and backend_public_url not in CSRF_TRUSTED_ORIGINS:
     CSRF_TRUSTED_ORIGINS.append(backend_public_url)
+CSRF_TRUSTED_ORIGINS.extend([
+    'http://127.0.0.1:8000',
+    'http://localhost:8000',
+])
 CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(CSRF_TRUSTED_ORIGINS))
 
 
@@ -220,9 +224,21 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-# Database — configured via backend/.env (see .env.example)
+# Database — PostgreSQL local para pruebas de desarrollo
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-DATABASES = _build_databases()
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'bhealth_db',
+        'USER': 'postgres',
+        'PASSWORD': '1234',
+        'HOST': 'localhost',
+        'PORT': '5432',
+        'OPTIONS': {
+            'client_encoding': 'UTF8',
+        },
+    }
+}
 
 # HTTPS / reverse-proxy hardening when DEBUG=False (Nginx + Certbot on VPS)
 if not DEBUG:

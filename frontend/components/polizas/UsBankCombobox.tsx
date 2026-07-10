@@ -23,6 +23,8 @@ interface UsBankComboboxProps {
   name?: string;
   placeholder?: string;
   required?: boolean;
+  triggerClassName?: string;
+  contentClassName?: string;
 }
 
 export function UsBankCombobox({
@@ -32,6 +34,8 @@ export function UsBankCombobox({
   name,
   placeholder = 'Seleccionar banco...',
   required,
+  triggerClassName,
+  contentClassName,
 }: UsBankComboboxProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -54,7 +58,8 @@ export function UsBankCombobox({
             aria-expanded={open}
             className={cn(
               'w-full justify-between font-normal',
-              !value && 'text-muted-foreground'
+              !value && 'text-muted-foreground',
+              triggerClassName,
             )}
           >
             <span className="truncate">{value || placeholder}</span>
@@ -62,7 +67,7 @@ export function UsBankCombobox({
           </Button>
         </PopoverTrigger>
         <PopoverContent
-          className="w-[--radix-popover-trigger-width] p-0 z-[100]"
+          className={cn('w-[--radix-popover-trigger-width] p-0 z-[100]', contentClassName)}
           align="start"
           onWheel={(e) => e.stopPropagation()}
           onTouchMove={(e) => e.stopPropagation()}

@@ -126,18 +126,29 @@ class ProfileDataSerializer(serializers.ModelSerializer):
     def get_agente_ffm(self, obj):
         return obj.agente.ffm if obj.agente_id else None
 
+    def _resolve_profile_instance(self):
+        """Resolve profile during nested validation inside UserManagementSerializer."""
+        if self.instance is not None:
+            return self.instance
+        parent = getattr(self, 'parent', None)
+        parent_instance = getattr(parent, 'instance', None)
+        if parent_instance is not None:
+            return getattr(parent_instance, 'profile', None)
+        return None
+
     def validate_npn(self, value):
         if not value:
             return value
         npn = value.strip()
+        profile_instance = self._resolve_profile_instance()
         qs = UserProfile.objects.filter(npn=npn)
-        if self.instance:
-            qs = qs.exclude(pk=self.instance.pk)
+        if profile_instance:
+            qs = qs.exclude(pk=profile_instance.pk)
         if qs.exists():
             raise serializers.ValidationError('Este NPN ya está asignado a otro empleado.')
         agente_qs = Agente.objects.filter(npn=npn)
-        if self.instance and self.instance.agente_id:
-            agente_qs = agente_qs.exclude(pk=self.instance.agente_id)
+        if profile_instance and profile_instance.agente_id:
+            agente_qs = agente_qs.exclude(pk=profile_instance.agente_id)
         if agente_qs.exists():
             raise serializers.ValidationError('Este NPN ya está registrado en otro agente.')
         return npn
@@ -146,9 +157,10 @@ class ProfileDataSerializer(serializers.ModelSerializer):
         if not value:
             return value
         ssn = value.strip()
+        profile_instance = self._resolve_profile_instance()
         qs = UserProfile.objects.filter(ssn=ssn)
-        if self.instance:
-            qs = qs.exclude(pk=self.instance.pk)
+        if profile_instance:
+            qs = qs.exclude(pk=profile_instance.pk)
         if qs.exists():
             raise serializers.ValidationError('Este SSN ya está asignado a otro empleado.')
         return ssn
@@ -177,13 +189,8 @@ class UserManagementSerializer(serializers.ModelSerializer):
             instance.groups.set(groups_data)
 
         if profile_data is not None:
-            profile_serializer = ProfileDataSerializer(
-                instance.profile,
-                data=profile_data,
-                partial=True,
-            )
-            profile_serializer.is_valid(raise_exception=True)
-            profile_serializer.save()
+            profile_serializer = ProfileDataSerializer()
+            profile_serializer.update(instance.profile, profile_data)
 
         return instance
 
@@ -526,6 +533,18 @@ class EtiquetaSerializer(serializers.ModelSerializer):
         model = Etiqueta
         fields = '__all__'
 
+    def validate_nombre(self, value):
+        nombre = (value or '').strip()
+        if not nombre:
+            raise serializers.ValidationError('El nombre de la etiqueta es obligatorio.')
+        tipo = self.initial_data.get('tipo') or getattr(self.instance, 'tipo', 'DOCUMENTO')
+        qs = Etiqueta.objects.filter(nombre__iexact=nombre, tipo=tipo)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError('Ya existe una etiqueta con este nombre.')
+        return nombre
+
     def validate(self, attrs):
         attrs = super().validate(attrs)
         tipo = attrs.get('tipo', getattr(self.instance, 'tipo', 'DOCUMENTO'))
@@ -768,7 +787,10 @@ class RecordatorioSerializer(serializers.ModelSerializer):
     class Meta:
         model = Recordatorio
         fields = '__all__'
-        read_only_fields = ('notificado', 'fecha_notificacion', 'fecha_creacion', 'creado_por')
+        read_only_fields = ('notificado', 'fecha_notificacion', 'fecha_creacion', 'creado_por', 'titulo')
+        extra_kwargs = {
+            'usuario_notificar': {'required': False, 'allow_null': True},
+        }
 
     def _build_titulo(self, validated_data):
         from .recordatorio_utils import build_recordatorio_titulo
