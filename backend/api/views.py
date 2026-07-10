@@ -115,10 +115,12 @@ class DashboardStatsView(APIView):
             end_date = today
             start_date = today - timedelta(days=selected_days)
 
-        polizas_qs = Poliza.objects.all()
+        polizas_all_qs = Poliza.objects.all()
+        polizas_qs = polizas_all_qs
         clientes_qs = Cliente.objects.all()
         recordatorios_qs = Recordatorio.objects.all()
         failed_logins_qs = IntentoLoginFallido.objects.all()
+        periodo_activo = bool(start_date or end_date)
 
         if start_date:
             polizas_qs = polizas_qs.filter(fecha_efectiva__gte=start_date)
@@ -163,15 +165,28 @@ class DashboardStatsView(APIView):
         # 3. Nuevos prospectos (dentro del periodo)
         stats['nuevos_prospectos'] = clientes_qs.count()
 
-        # 4. Total Polizas y Aplicantes, y Cancelados
+        # 4. Totales globales (sin filtro de fechas) y conteos del periodo
+        real_total_aplicantes_all = polizas_all_qs.aggregate(t=Sum('total_aplicantes'))['t'] or 0
+        total_polizas_all = polizas_all_qs.count()
+        stats['total_aplicantes'] = real_total_aplicantes_all
+        stats['total_polizas'] = total_polizas_all
+
+        polizas_canceladas_all_qs = polizas_all_qs.filter(estado__nombre__icontains='cancelad')
+        stats['total_polizas_canceladas'] = polizas_canceladas_all_qs.count()
+        stats['total_aplicantes_cancelados'] = polizas_canceladas_all_qs.aggregate(t=Sum('total_aplicantes'))['t'] or 0
+
+        ventas_totales = polizas_all_qs.aggregate(t=Sum('prima_mensual'))['t'] or 0
+        stats['ventas_totales'] = float(ventas_totales)
+        if total_polizas_all:
+            activas_all = total_polizas_all - stats['total_polizas_canceladas']
+            stats['tasa_retencion'] = round((activas_all / total_polizas_all) * 100, 1)
+        else:
+            stats['tasa_retencion'] = 0.0
+
         real_total_aplicantes = polizas_qs.aggregate(t=Sum('total_aplicantes'))['t'] or 0
         total_polizas_count = polizas_qs.count()
-        stats['total_aplicantes'] = real_total_aplicantes
-        stats['total_polizas'] = total_polizas_count
-
-        polizas_canceladas_qs = polizas_qs.filter(estado__nombre__icontains='cancelad')
-        stats['total_polizas_canceladas'] = polizas_canceladas_qs.count()
-        stats['total_aplicantes_cancelados'] = polizas_canceladas_qs.aggregate(t=Sum('total_aplicantes'))['t'] or 0
+        stats['polizas_en_periodo'] = total_polizas_count if periodo_activo else total_polizas_all
+        stats['aplicantes_en_periodo'] = real_total_aplicantes if periodo_activo else real_total_aplicantes_all
 
         # 5. Pólizas efectivas por mes (columnas: pólizas y aplicantes)
         polizas_efectivas_mensual = polizas_qs.annotate(
