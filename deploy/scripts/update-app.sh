@@ -9,8 +9,12 @@ cd "${ROOT_DIR}"
 echo "==> Recovering ownership for deploy user..."
 sudo chown -R deploy:deploy "${ROOT_DIR}"
 
+echo "==> Preserving backend/.env before git pull..."
+cp backend/.env /tmp/lumina-backend.env.bak
+
 echo "==> git pull..."
 git pull
+cp /tmp/lumina-backend.env.bak backend/.env
 
 echo "==> Backend: dependencies, migrate, static..."
 source venv/bin/activate
@@ -23,6 +27,9 @@ cd ..
 
 echo "==> Frontend: build..."
 cd frontend
+if [[ ! -f .env.production ]]; then
+  cp .env.production.example .env.production
+fi
 npm ci
 npm run build
 cd ..
