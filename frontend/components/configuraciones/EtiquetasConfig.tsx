@@ -42,7 +42,7 @@ export function EtiquetasConfig({ tipo, title, description }: EtiquetasConfigPro
       nombre: etiqueta.nombre.trim(),
       color: etiqueta.color || '#6b7280',
       tipo,
-      descripcion: etiqueta.descripcion ?? null,
+      descripcion: etiqueta.descripcion ?? undefined,
     };
 
     try {
