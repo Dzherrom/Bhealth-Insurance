@@ -291,11 +291,11 @@ export default function NuevaPolizaWizard() {
     { id: 4, title: 'Dirección', subtitle: '' },
   ];
 
-  // Fetch initial data (agentes registrados con usuario CRM)
+  // Fetch initial data (todos los agentes)
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const data = await agentesApi.listRegistrados();
+        const data = await agentesApi.fetchAllPages({ page_size: 200 });
         setAgentes(data);
       } catch (err) {
         console.error("Error fetching agentes", err);
