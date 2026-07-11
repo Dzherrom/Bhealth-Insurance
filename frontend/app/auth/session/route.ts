@@ -10,10 +10,10 @@ const SESSION_COOKIE_NAMES = [
   'portal_client',
 ] as const;
 
-function sessionMaxAge(accessToken: string): number {
-  const payload = decodeJwtPayload(accessToken);
-  if (!payload?.exp) return 3600;
-  return Math.max(payload.exp - Math.floor(Date.now() / 1000), 60);
+function sessionMaxAge(): number {
+  // Las cookies de sesión viven 7 días para permitir que el cliente intente refrescar el token
+  // sin que el middleware lo redirija prematuramente a /auth/login.
+  return 86400 * 7;
 }
 
 function applySessionCookies(
@@ -22,7 +22,7 @@ function applySessionCookies(
   role: UserRole | null,
 ): void {
   const resolvedRole = role ?? resolveRoleFromAccessToken(accessToken);
-  const maxAge = sessionMaxAge(accessToken);
+  const maxAge = sessionMaxAge();
   const base = { path: '/', maxAge, sameSite: 'lax' as const };
 
   response.cookies.set('auth_session', '1', base);

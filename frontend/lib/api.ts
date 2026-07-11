@@ -1,5 +1,5 @@
-import { isTokenExpired } from '@/lib/jwt';
-import { hasAuthSessionCookie, readLiveRefreshToken } from '@/lib/authSession';
+import { isTokenExpired, resolveRoleFromAccessToken } from '@/lib/jwt';
+import { hasAuthSessionCookie, readLiveRefreshToken, setAuthCookies } from '@/lib/authSession';
 import {
   ApiResponse,
   AuthTokens,
@@ -82,20 +82,27 @@ function persistRefreshResult(result: RefreshTokenResponse) {
   }
 
   const persistedAuthRaw = localStorage.getItem('auth-storage');
-  if (!persistedAuthRaw) return;
-
-  try {
-    const persistedAuth = JSON.parse(persistedAuthRaw);
-    if (!persistedAuth?.state) return;
-
-    persistedAuth.state.accessToken = result.access;
-    if (result.refresh) {
-      persistedAuth.state.refreshToken = result.refresh;
+  let role: string | null = null;
+  
+  if (persistedAuthRaw) {
+    try {
+      const persistedAuth = JSON.parse(persistedAuthRaw);
+      if (persistedAuth?.state) {
+        persistedAuth.state.accessToken = result.access;
+        if (result.refresh) {
+          persistedAuth.state.refreshToken = result.refresh;
+        }
+        role = persistedAuth.state.role || null;
+        localStorage.setItem('auth-storage', JSON.stringify(persistedAuth));
+      }
+    } catch {
+      // Ignore malformed persisted auth payload.
     }
-    localStorage.setItem('auth-storage', JSON.stringify(persistedAuth));
-  } catch {
-    // Ignore malformed persisted auth payload.
   }
+
+  // Update cookies so middleware knows the session is still active
+  const resolvedRole = role ?? resolveRoleFromAccessToken(result.access);
+  setAuthCookies(result.access, resolvedRole as any);
 }
 
 export const clearClientAuthStorage = () => {

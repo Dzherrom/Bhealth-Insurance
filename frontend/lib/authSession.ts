@@ -77,13 +77,14 @@ export function persistAuthSnapshot(snapshot: AuthPersistSnapshot): void {
   );
 }
 
-function cookieSuffix(exp?: number): string {
+function cookieSuffix(): string {
   const secure =
     typeof window !== 'undefined' && window.location.protocol === 'https:'
       ? '; Secure'
       : '';
-  const expStr = exp ? `; expires=${new Date(exp * 1000).toUTCString()}` : '; Max-Age=3600';
-  return `${expStr}; path=/; SameSite=Lax${secure}`;
+  // Las cookies de sesión viven 7 días para permitir que el cliente intente refrescar el token
+  // sin que el middleware lo redirija prematuramente a /auth/login.
+  return `; Max-Age=${86400 * 7}; path=/; SameSite=Lax${secure}`;
 }
 
 /** Cookies mínimas para el middleware (sin JWT completo). */
@@ -99,7 +100,7 @@ export function setAuthCookies(accessToken: string, role: UserRole | null): void
 
   const payload = decodeJwtPayload(accessToken);
   const resolvedRole = role ?? resolveRoleFromAccessToken(accessToken);
-  const suffix = cookieSuffix(payload?.exp);
+  const suffix = cookieSuffix();
 
   setLightweightAuthCookies(resolvedRole, suffix);
 
