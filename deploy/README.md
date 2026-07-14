@@ -1,5 +1,8 @@
 # Lumina Insurance — VPS deploy templates
 
+> **Guía completa paso a paso:** ver [`VPS_DEPLOY_UBUNTU.md`](../VPS_DEPLOY_UBUNTU.md) en la raíz del repositorio.  
+> **Manual para empleados (sin tecnicismos):** ver [`GUIA_EMPLEADO_CRM.md`](../GUIA_EMPLEADO_CRM.md).
+
 Plantillas para el paso 7+ de la guía Hostinger. **No se instalan solas**: cópialas al sistema en el VPS.
 
 ## Rutas asumidas

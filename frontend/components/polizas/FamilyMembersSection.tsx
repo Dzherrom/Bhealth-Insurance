@@ -473,7 +473,7 @@ export function FamilyMembersSection({ poliza, onRefresh }: FamilyMembersSection
                           </div>
                         )}
 
-                        <div className="text-sm font-medium text-white mt-1">{formatUsd(income)}</div>
+                        <div className="text-sm font-medium text-slate-900 dark:text-white mt-1">{formatUsd(income)}</div>
                       </div>
 
                       <div className="flex shrink-0">
@@ -545,7 +545,7 @@ export function FamilyMembersSection({ poliza, onRefresh }: FamilyMembersSection
                             label="¿Aplicante?"
                             value={
                               isTitular(member) ? (
-                                <span className="text-green-400 flex items-center gap-2">
+                                <span className="text-green-600 dark:text-green-400 flex items-center gap-2">
                                   Sí
                                   <Switch checked disabled aria-label="Titular aplicante" />
                                 </span>
@@ -557,7 +557,7 @@ export function FamilyMembersSection({ poliza, onRefresh }: FamilyMembersSection
                                     onCheckedChange={(checked) => handleToggleAplicante(member, checked)}
                                     aria-label="Marcar como aplicante"
                                   />
-                                  <span className={member.es_aplicante ? 'text-green-400' : 'text-red-400'}>
+                                  <span className={member.es_aplicante ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
                                     {member.es_aplicante ? 'Sí' : 'No'}
                                   </span>
                                 </span>
@@ -624,9 +624,9 @@ export function FamilyMembersSection({ poliza, onRefresh }: FamilyMembersSection
                             label="¿Usa tabaco?"
                             value={
                               details.usa_tabaco ? (
-                                <span className="text-green-400">Sí</span>
+                                <span className="text-green-600 dark:text-green-400">Sí</span>
                               ) : (
-                                <span className="text-red-400 flex items-center gap-1">
+                                <span className="text-red-600 dark:text-red-400 flex items-center gap-1">
                                   No <i className="fa-solid fa-circle-xmark text-xs" />
                                 </span>
                               )
@@ -636,7 +636,7 @@ export function FamilyMembersSection({ poliza, onRefresh }: FamilyMembersSection
 
                         <div className="pt-2">
                           <div className="flex items-center justify-between mb-2">
-                            <h4 className="text-sm font-semibold text-white">Ingresos</h4>
+                            <h4 className="text-sm font-semibold text-slate-900 dark:text-white">Ingresos</h4>
                             <div className="inline-flex rounded-md overflow-hidden border border-primary">
                               <button
                                 type="button"
@@ -664,9 +664,9 @@ export function FamilyMembersSection({ poliza, onRefresh }: FamilyMembersSection
                               </button>
                             </div>
                           </div>
-                          <div className="w-full max-w-full overflow-x-auto rounded-md border border-slate-700">
+                          <div className="w-full max-w-full overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
                             <table className="w-full min-w-[560px] table-fixed text-xs text-left">
-                              <thead className="bg-slate-800/80 text-slate-300">
+                              <thead className="bg-slate-100 text-slate-700 dark:bg-slate-800/80 dark:text-slate-300">
                                 <tr>
                                   <th className="w-[26%] px-3 py-2 font-medium">Nombre del empleador</th>
                                   <th className="w-[16%] px-3 py-2 font-medium">Teléfono del empleador</th>
@@ -676,16 +676,16 @@ export function FamilyMembersSection({ poliza, onRefresh }: FamilyMembersSection
                                   <th className="w-[12%] px-3 py-2 font-medium text-right">Acciones</th>
                                 </tr>
                               </thead>
-                              <tbody className="divide-y divide-slate-700">
+                              <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                                 {ingresosRows.length === 0 ? (
                                   <tr>
-                                    <td colSpan={6} className="px-3 py-4 text-center text-slate-400">
+                                    <td colSpan={6} className="px-3 py-4 text-center text-slate-500 dark:text-slate-400">
                                       Sin ingresos registrados
                                     </td>
                                   </tr>
                                 ) : (
                                   ingresosRows.map((row: any, idx: number) => (
-                                    <tr key={row.id ?? `fallback-${idx}`} className="text-slate-200">
+                                    <tr key={row.id ?? `fallback-${idx}`} className="text-slate-700 dark:text-slate-200">
                                       <td className="px-3 py-2">{row.nombre_empleador || '—'}</td>
                                       <td className="px-3 py-2">{row.telefono_empleador || '—'}</td>
                                       <td className="px-3 py-2">{row.cargo_ocupacion || '—'}</td>
@@ -757,7 +757,7 @@ export function FamilyMembersSection({ poliza, onRefresh }: FamilyMembersSection
                                 )}
                               </tbody>
                               {ingresosRows.length > 0 && (
-                                <tfoot className="bg-slate-800/50 text-slate-200 font-medium">
+                                <tfoot className="bg-slate-100 text-slate-800 dark:bg-slate-800/50 dark:text-slate-200 font-medium">
                                   <tr>
                                     <td colSpan={3} className="px-3 py-2 text-right">
                                       Total:
@@ -802,7 +802,7 @@ export function FamilyMembersSection({ poliza, onRefresh }: FamilyMembersSection
 
                         <div className="pt-2">
                           <div className="flex items-center justify-between mb-2">
-                            <h4 className="text-sm font-semibold text-white">Estatus migratorio</h4>
+                            <h4 className="text-sm font-semibold text-slate-900 dark:text-white">Estatus migratorio</h4>
                             <Button
                               variant="ghost"
                               size="sm"
@@ -839,10 +839,10 @@ export function FamilyMembersSection({ poliza, onRefresh }: FamilyMembersSection
                             />
                           </div>
 
-                          <h5 className="text-xs font-semibold text-slate-300 mb-2">Documentos legales</h5>
-                          <div className="w-full max-w-full overflow-x-auto rounded-md border border-slate-700">
+                          <h5 className="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-2">Documentos legales</h5>
+                          <div className="w-full max-w-full overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
                             <table className="w-full min-w-[640px] table-fixed text-xs text-left">
-                              <thead className="bg-slate-800/80 text-slate-300">
+                              <thead className="bg-slate-100 text-slate-700 dark:bg-slate-800/80 dark:text-slate-300">
                                 <tr>
                                   <th className="w-[24%] px-3 py-2 font-medium">Documento</th>
                                   <th className="w-[20%] px-3 py-2 font-medium">Documento #</th>
@@ -851,7 +851,7 @@ export function FamilyMembersSection({ poliza, onRefresh }: FamilyMembersSection
                                   <th className="w-[20%] px-3 py-2 font-medium text-right">Acciones</th>
                                 </tr>
                               </thead>
-                              <tbody className="divide-y divide-slate-700">
+                              <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                                 {DOCUMENTOS_LEGALES.map((doc) => {
                                   const link = getLegalDocLink(details, doc.key);
                                   const docNumber = link?.numero_documento || '';
@@ -868,12 +868,12 @@ export function FamilyMembersSection({ poliza, onRefresh }: FamilyMembersSection
                                   const linkedTitle = link?.documento_details?.titulo;
 
                                   return (
-                                    <tr key={doc.key} className="text-slate-200">
+                                    <tr key={doc.key} className="text-slate-700 dark:text-slate-200">
                                       <td className="px-3 py-2 align-top">
                                         <div className="truncate" title={doc.label}>{doc.label}</div>
                                         {linkedTitle ? (
                                           <div
-                                            className="text-[10px] text-slate-400 truncate"
+                                            className="text-[10px] text-slate-500 dark:text-slate-400 truncate"
                                             title={linkedTitle}
                                           >
                                             {linkedTitle}
@@ -893,7 +893,7 @@ export function FamilyMembersSection({ poliza, onRefresh }: FamilyMembersSection
                                             </button>
                                           </span>
                                         ) : link?.documento_details ? (
-                                          <span className="text-slate-400 italic text-[10px]">Archivo vinculado</span>
+                                          <span className="text-slate-500 dark:text-slate-400 italic text-[10px]">Archivo vinculado</span>
                                         ) : (
                                           '—'
                                         )}
