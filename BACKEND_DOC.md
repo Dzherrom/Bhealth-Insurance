@@ -1,37 +1,499 @@
-# API CRUD Documentation - Bhealth Insurance
+# API CRUD Documentation - Bhealth Insurance (Lumina CRM)
 
-Este documento proporciona ejemplos detallados de todos los endpoints CRUD del sistema, incluyendo todos los campos disponibles para cada recurso.
+Documentación técnica del backend REST API para el sistema de gestión de seguros de salud **BHealth Insurance / Lumina CRM**.
 
-**Base URL:** `/api/`
+**Base URL:** `/api/`  
+**Autenticación:** JWT Bearer Token (SimpleJWT)  
+**Formato de fechas API:** `MM/DD/YYYY` (entrada y salida)  
+**Stack:** Django 5.2 · Django REST Framework 3.16 · PostgreSQL · SimpleJWT
 
-**Autenticación:** JWT Token (Bearer Token)
+---
 
 ## Tabla de Contenidos
 
-1. [Autenticación](#autenticación)
-2. [Agencias](#agencias)
-3. [Direcciones](#direcciones)
-4. [Agentes](#agentes)
-5. [Clientes](#clientes)
-6. [Aseguradoras](#aseguradoras)
-7. [Planes](#planes)
-8. [Pólizas](#pólizas)
-9. [Notas](#notas)
-10. [Tareas](#tareas)
-11. [Citas](#citas)
-12. [Documentos](#documentos)
-13. [Recordatorios](#recordatorios)
-14. [Notificaciones](#notificaciones)
-15. [Tarjetas de Crédito](#tarjetas-de-crédito)
-16. [Flujo Departamental de Pólizas](#flujo-departamental-de-pólizas)
-17. [Matriz de Permisos por Rol](#matriz-de-permisos-por-rol)
-18. [Auditoría Global](#auditoría-global)
-19. [Utilidades y Búsqueda](#utilidades-y-búsqueda)
-20. [Actividad del Sistema](#actividad-del-sistema)
-21. [Dashboard](#dashboard)
-22. [Contratos y Zoho Sign](#contratos-y-zoho-sign)
-23. [Importación Masiva (CSV)](#importación-masiva-csv)
-24. [Estadísticas de Usuario](#estadísticas-de-usuario)
+### Referencia del sistema
+0. [Arquitectura del Backend](#arquitectura-del-backend)
+1. [Roles y Permisos](#roles-y-permisos)
+2. [Modelos de Datos](#modelos-de-datos)
+3. [Índice Completo de Endpoints](#índice-completo-de-endpoints)
+4. [Variables de Entorno](#variables-de-entorno)
+5. [Comandos de Gestión](#comandos-de-gestión)
+6. [Integraciones Externas](#integraciones-externas)
+7. [Reglas de Negocio Clave](#reglas-de-negocio-clave)
+
+### Endpoints CRUD (con ejemplos)
+8. [Autenticación](#autenticación)
+9. [Agencias](#agencias)
+10. [Direcciones](#direcciones)
+11. [Agentes](#agentes)
+12. [Clientes](#clientes)
+13. [Aseguradoras](#aseguradoras)
+14. [Planes](#planes)
+15. [Pólizas](#pólizas)
+16. [Notas](#notas)
+17. [Tareas](#tareas)
+18. [Citas](#citas)
+19. [Documentos](#documentos)
+20. [Recordatorios](#recordatorios)
+21. [Notificaciones](#notificaciones)
+22. [Tarjetas de Crédito](#tarjetas-de-crédito)
+23. [Flujo Departamental de Pólizas](#flujo-departamental-de-pólizas)
+24. [Matriz de Permisos por Rol](#matriz-de-permisos-por-rol)
+25. [Auditoría Global](#auditoría-global)
+26. [Utilidades y Búsqueda](#utilidades-y-búsqueda)
+27. [Actividad del Sistema](#actividad-del-sistema)
+28. [Dashboard](#dashboard)
+29. [Contratos y Zoho Sign](#contratos-y-zoho-sign)
+30. [Importación Masiva (CSV)](#importación-masiva-csv)
+31. [Estadísticas de Usuario](#estadísticas-de-usuario)
+32. [Usuarios (User Management)](#usuarios-user-management)
+33. [Historial de Póliza](#historial-de-póliza)
+34. [Carpetas de Documentos](#carpetas-de-documentos)
+35. [Cambios de Vida](#cambios-de-vida)
+36. [Ingresos del Empleador](#ingresos-del-empleador)
+37. [Documentos Legales del Cliente](#documentos-legales-del-cliente)
+38. [Médicos y Medicamentos](#médicos-y-medicamentos)
+39. [Comisiones y Reportes](#comisiones-y-reportes)
+40. [Cuentas Bancarias e Información de Pago](#cuentas-bancarias-e-información-de-pago)
+41. [Departamentos](#departamentos)
+42. [Solicitudes de Consentimiento](#solicitudes-de-consentimiento-consent-requests)
+43. [Tipos de Producto](#tipos-de-producto)
+44. [Portal Cliente](#portal-cliente)
+45. [Importación y Exportación Flat](#importación-y-exportación-flat-pólizas)
+46. [Calendario de Primas](#calendario-de-primas)
+47. [Reportes Adicionales](#reportes-adicionales)
+48. [Códigos HTTP y Flujos](#códigos-de-respuesta-http)
+
+---
+
+## Arquitectura del Backend
+
+### Estructura del proyecto
+
+```
+backend/
+├── manage.py
+├── config/                         # Proyecto Django
+│   ├── settings.py                 # Env, DB, JWT, CORS, media
+│   ├── urls.py                     # /admin/ + /api/
+│   └── wsgi.py
+├── api/                            # Aplicación principal
+│   ├── models.py                   # ~40 modelos de dominio
+│   ├── serializers.py              # Serializers DRF principales
+│   ├── views.py                    # ViewSets + vistas especiales
+│   ├── views_portal_cliente.py     # Portal del cliente
+│   ├── views_consent.py            # Consentimiento electrónico
+│   ├── views_flat_files.py         # Import/export flat
+│   ├── views_export.py             # Exportación CSV
+│   ├── views_tipos_producto.py     # Catálogo tipos de producto
+│   ├── urls.py                     # Router + rutas custom
+│   ├── permissions.py              # Permisos por rol
+│   ├── roles.py                    # Definición canónica de roles
+│   ├── middleware.py               # Request thread-local (auditoría)
+│   ├── encryption.py               # Fernet para datos sensibles
+│   ├── client_portal.py            # Lógica portal cliente
+│   ├── poliza_presence.py          # Bloqueo edición concurrente
+│   ├── poliza_envio_utils.py       # Validación quote → activa
+│   ├── services/                   # Consent, flat import, etc.
+│   └── management/commands/        # 13 comandos CLI
+├── services/zohosign_client.py     # Cliente Zoho Sign
+├── media/                          # Archivos subidos
+└── staticfiles/                    # Estáticos (WhiteNoise)
+```
+
+### Rutas raíz (`config/urls.py`)
+
+| Ruta | Destino |
+|------|---------|
+| `/admin/` | Django Admin |
+| `/api/` | `api.urls` (toda la API REST) |
+| `/media/*` | Archivos media (solo `DEBUG=True`) |
+
+### Middleware
+
+1. SecurityMiddleware  
+2. WhiteNoiseMiddleware (estáticos)  
+3. SessionMiddleware  
+4. CorsMiddleware  
+5. CommonMiddleware  
+6. CsrfViewMiddleware  
+7. AuthenticationMiddleware  
+8. **`api.middleware.RequestMiddleware`** — guarda el request en thread-local para señales de auditoría (`get_current_user()`)
+
+### Autenticación JWT
+
+| Parámetro | Valor |
+|-----------|-------|
+| Access token | 60 minutos |
+| Refresh token | 1 día |
+| Rotación refresh | Sí, con blacklist |
+| Claims extra | `role`, `username`, `cliente_id` |
+
+**Login response:**
+```json
+{
+  "access": "eyJ...",
+  "refresh": "eyJ...",
+  "role": "super_admin",
+  "username": "lumina-admin",
+  "id": 1,
+  "email": "admin@lumina.local",
+  "first_name": "Admin",
+  "last_name": "Lumina",
+  "cliente_id": null
+}
+```
+
+**Header en todas las peticiones autenticadas:**
+```
+Authorization: Bearer <access_token>
+```
+
+---
+
+## Roles y Permisos
+
+### Roles del sistema (`api/roles.py`)
+
+| Código | Nombre | Acceso CRM | Acceso Portal |
+|--------|--------|------------|---------------|
+| `super_admin` | Super Admin | Total | — |
+| `led` | Coordinador (Manager) | Total | — |
+| `client_support` | Client Support | Sí | — |
+| `gestion_resolucion` | Gestión y Resolución | Sí | — |
+| `health_sherpa` | Health Sherpa | Sí (NPN) | — |
+| `agente` | Agente | Sí (NPN) | — |
+| `cobranza` | Cobranza | Sí | — |
+| `recuperacion` | Recuperación | Sí | — |
+| `recepcion` | Recepción | Sí | — |
+| `soporte_cliente` | Soporte al Cliente | Sí | — |
+| `cliente` | Cliente | — | Portal |
+| `user` | Usuario básico | No | — |
+
+**Alias legacy:** `admin`→`super_admin`, `manager`→`led`, `asistente`→`client_support`, `sherpa`→`health_sherpa`, `pagos`→`cobranza`, `citas`→`gestion_resolucion`.
+
+### Visibilidad de pólizas por rol
+
+| Alcance | Roles |
+|---------|-------|
+| Global (todas) | super_admin, led, gestion_resolucion, cobranza, recuperacion, recepcion, soporte_cliente |
+| Por NPN del agente | health_sherpa, agente |
+| Cartera propia | client_support (agente vinculado) |
+| Solo sus pólizas | cliente (miembro de la póliza) |
+
+### Datos sensibles (SSN, tarjetas, cuentas, preview documentos)
+
+Solo: **super_admin**, **led**, **health_sherpa**.
+
+### Clases de permiso (`api/permissions.py`)
+
+| Clase | Uso |
+|-------|-----|
+| `IsAdminRole` / `IsSuperAdminRole` | Solo super_admin |
+| `IsManagerRole` / `IsAdminOrManagerRole` | super_admin + led |
+| `IsCRMNonBasicRole` | Todos los roles CRM excepto user/cliente |
+| `IsClienteRole` | Portal cliente (perfil ACTIVE) |
+| `IsPolicyOwnerOrHigher` | Edición de póliza según rol/agente |
+
+**Matriz de permisos:** `POST /api/matriz-permisos/validar/` con `{ role, modulo, accion }` → `{ permitido }`.  
+Usada en acciones de flujo: `PASE_A_MANAGER`, `PASE_A_SHERPA`, `DEVOLVER_A_ASISTENTE`, `CERRAR_EN_SHERPA`.
+
+---
+
+## Modelos de Datos
+
+### Agencia y usuarios
+
+| Modelo | Campos clave | Relaciones |
+|--------|--------------|------------|
+| **Agencia** | nombre, legal, DBA, branding, portal | FK Direccion |
+| **Direccion** | linea1/2, ciudad, estado, zip, condado | — |
+| **Agente** | npn (único), ffm, nombre_completo | FK Agencia; OneToOne UserProfile |
+| **Departamento** | codigo, nombre, activo | — |
+| **UserProfile** | role, status, avatar, npn, ssn, settings | OneToOne User; FK Agente, Cliente |
+| **Licencia** | anio, estado USA | FK Agente; M2M Aseguradora |
+
+### Clientes
+
+| Modelo | Campos clave | Relaciones |
+|--------|--------------|------------|
+| **Cliente** | nombres, SSN, DOB, email, inmigración, salud | FK Agente; M2M Poliza |
+| **IngresoEmpleador** | empleador, ingreso, ocupación | FK Cliente |
+| **DocumentoLegalCliente** | tipo, número, fechas | FK Cliente, Documento |
+
+### Catálogo de seguros
+
+| Modelo | Campos clave | Relaciones |
+|--------|--------------|------------|
+| **Aseguradora** | nombre | — |
+| **TipoProducto** | nombre (Medicare, ACA, etc.) | — |
+| **Plan** | id_plan_aseguradora, nombre | FK Aseguradora, TipoProducto |
+| **EstadoPoliza** | nombre, color | — |
+
+### Pólizas (núcleo)
+
+| Modelo | Campos clave | Relaciones |
+|--------|--------------|------------|
+| **Poliza** | id_mercado, prima, flujo_etapa, archivada | FK Estado, Agente×2, Plan, TipoProducto, Direccion×3 |
+| **PolizaCliente** | es_solicitante_principal, es_aplicante, relacion | FK Poliza, Cliente |
+| **MedicoPoliza** | nombre, especialización, es_principal | FK Poliza |
+| **PolizaViewer** | mode (VIEW/EDIT), last_seen | FK Poliza, User (presencia) |
+| **PolizaTransferencia** | accion, de_rol, a_rol | FK Poliza, User |
+| **ImportBatch** | UUID, nombre_archivo | FK User |
+
+### Documentos y notas
+
+| Modelo | Campos clave | Relaciones |
+|--------|--------------|------------|
+| **CarpetaDocumento** | nombre, codigo, orden | FK Poliza |
+| **Documento** | archivo, titulo, categoria, estado | FK Poliza, Carpeta, Cliente |
+| **Etiqueta** | nombre, tipo, color | — |
+| **Nota** | contenido, archivo | FK Poliza, User |
+| **HistorialPoliza** | accion, detalles | FK Poliza, User |
+
+### Operaciones
+
+| Modelo | Campos clave | Relaciones |
+|--------|--------------|------------|
+| **Tarea** | titulo, completada, fecha_limite | FK Poliza, User |
+| **CambioDeVida** | tipo, estado, datos JSON | FK Poliza, Agente |
+| **Recordatorio** | tipo, fecha_vencimiento, es_privado | FK Poliza, User |
+| **Cita** | fecha_hora, proveedor, estado | FK Poliza, Cliente, Medico |
+
+### Pagos
+
+| Modelo | Campos clave | Relaciones |
+|--------|--------------|------------|
+| **InfoPago** | pago_recurrente, dia_pago, estado_pago | OneToOne Poliza |
+| **TarjetaCredito** | tipo, número (encriptado), CVV | FK Poliza |
+| **CuentaBancaria** | banco, cuenta, routing | FK Poliza |
+
+### Contratos, comisiones, consentimiento
+
+| Modelo | Campos clave | Relaciones |
+|--------|--------------|------------|
+| **Contrato** | titulo, zoho_request_id, zoho_status | FK Agente |
+| **ReporteComision** | monto, fecha_pago, estado | FK Poliza, Agente |
+| **ConfiguracionComision** | nivel, porcentaje | FK Agencia/Aseguradora/Plan |
+| **ConsentRequest** | status, signing_url, envelope_id | FK Poliza, Cliente, Documento |
+| **ConsentEvent** | event_type, payload | FK ConsentRequest |
+
+### Seguridad y auditoría
+
+| Modelo | Campos clave | Relaciones |
+|--------|--------------|------------|
+| **MatrizPermisoRol** | role, modulo, accion, permitido | FK User |
+| **AuditoriaGlobal** | accion, modelo, objeto_id, ip | FK User |
+| **IntentoLoginFallido** | usuario_intentado, ip | — |
+| **Notificacion** | mensaje, tipo, leida | FK User |
+
+---
+
+## Índice Completo de Endpoints
+
+### Autenticación y perfil
+
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| POST | `/register/` | Público | Registro empleado |
+| POST | `/register/cliente/` | Público | Registro portal cliente |
+| POST | `/login/` | Público | JWT access + refresh |
+| POST | `/login/refresh/` | Público | Renovar access token |
+| GET/PATCH | `/profile/` | JWT | Perfil del usuario actual |
+| POST | `/logout/` | JWT | Blacklist refresh token |
+
+### Portal cliente
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/portal-cliente/dashboard/` | Dashboard (query: `poliza_id`) |
+| POST | `/portal-cliente/solicitar-cambio/` | Solicitud cambio de datos |
+| POST | `/portal-cliente/solicitar-documento/` | Subir documento (multipart) |
+| PATCH/DELETE | `/portal-cliente/solicitudes/{id}/` | Editar/cancelar solicitud |
+| PATCH/DELETE | `/portal-cliente/documentos/{id}/` | Editar/cancelar documento |
+| GET | `/portal-cliente/documentos/{id}/preview/` | Vista previa archivo |
+
+### Utilidades y reportes
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/utils/zipcode/{zip}/` | Lookup código postal |
+| POST | `/locations/lookup/` | Lookup ZIP + condados |
+| GET | `/dashboard/stats/` | KPIs CRM (filtros fecha) |
+| GET | `/reportes/agentes-facturacion/` | Facturación por agente |
+| GET | `/reportes/intentos-fallidos/` | Intentos login fallidos |
+| GET | `/reportes/auditoria-consolidada/` | Timeline auditoría |
+| GET | `/polizas/{id}/calendario-primas/` | Calendario 12 meses |
+| GET | `/users/{id}/stats/` | Stats empleado |
+| GET | `/users/{id}/stats/{category}/` | Detalle por categoría |
+
+### Import / Export
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/polizas/export/` | CSV simple |
+| POST | `/clientes/import-csv/` | Importar clientes |
+| POST | `/polizas/import-csv/` | Importar pólizas |
+| POST | `/polizas/import-excel/` | Import Excel (manager) |
+| POST | `/polizas/import-excel/undo/` | Deshacer import |
+| GET | `/polizas/flat/preview/` | Preview flat |
+| POST | `/polizas/flat/import/` | Import flat (archivo) |
+| POST | `/polizas/flat/import/batch/` | Import flat (JSON) |
+| GET | `/polizas/flat/export/` | Export flat XLSX/CSV |
+
+### Webhooks (sin JWT)
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/webhooks/zohosign/` | Zoho Sign completado |
+| POST | `/consent-requests/webhook/` | Consent provider |
+
+### ViewSets (CRUD estándar: GET list, POST, GET {id}, PUT/PATCH, DELETE)
+
+| Recurso | Ruta | Notas |
+|---------|------|-------|
+| users | `/users/` | Admin/manager; acciones avatar, reset-password |
+| agencias | `/agencias/` | Multipart logos |
+| direcciones | `/direcciones/` | — |
+| agentes | `/agentes/` | Acciones `/polizas/`, `/clientes/` |
+| clientes | `/clientes/` | verificar-duplicado, contexto-poliza |
+| aseguradoras | `/aseguradoras/` | — |
+| tipos-producto | `/tipos-producto/` | Solo lectura |
+| planes | `/planes/` | — |
+| estados-poliza | `/estados-poliza/` | — |
+| polizas | `/polizas/` | Ver acciones custom abajo |
+| notas | `/notas/` | Multipart |
+| historial | `/historial/` | Solo lectura |
+| etiquetas | `/etiquetas/` | — |
+| carpetas-documentos | `/carpetas-documentos/` | — |
+| documentos | `/documentos/` | preview, multipart |
+| tareas | `/tareas/` | mis_tareas |
+| cambios-de-vida | `/cambios-de-vida/` | — |
+| ingresos-empleador | `/ingresos-empleador/` | Soft-delete |
+| documentos-legales | `/documentos-legales/` | Upsert por cliente+tipo |
+| recordatorios | `/recordatorios/` | — |
+| citas | `/citas/` | — |
+| medicos | `/medicos/` | — |
+| medicos-poliza | `/medicos-poliza/` | — |
+| medicamentos | `/medicamentos/` | — |
+| contratos | `/contratos/` | send-to-zohosign |
+| reportes_comision | `/reportes_comision/` | — |
+| configuracion-comisiones | `/configuracion-comisiones/` | Manager |
+| notificaciones | `/notificaciones/` | marcar_leida, enviar-general |
+| tarjetas_credito | `/tarjetas_credito/` | Encriptado |
+| cuentas_bancarias | `/cuentas_bancarias/` | Enmascarado |
+| info_pago | `/info_pago/` | — |
+| departamentos | `/departamentos/` | Solo lectura |
+| matriz-permisos | `/matriz-permisos/` | Admin |
+| auditoria-global | `/auditoria-global/` | Admin |
+| transferencias-poliza | `/transferencias-poliza/` | Solo lectura |
+| consent-requests | `/consent-requests/` | initiate, webhook |
+
+### Acciones custom de pólizas
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/polizas/{id}/pase_a_manager/` | Flujo → manager |
+| POST | `/polizas/{id}/pase_a_sherpa/` | Flujo → sherpa |
+| POST | `/polizas/{id}/devolver_a_asistente/` | Devolver con nota |
+| POST | `/polizas/{id}/cerrar_en_sherpa/` | Cerrar en sherpa |
+| POST | `/polizas/{id}/heartbeat/` | Presencia (heartbeat) |
+| GET/POST/DELETE | `/polizas/{id}/presence/` | Modo view/edit |
+| GET | `/polizas/{id}/active_viewers/` | Usuarios viendo |
+| POST | `/polizas/{id}/archivar/` | Archivar |
+| POST | `/polizas/{id}/desarchivar/` | Desarchivar |
+| POST | `/polizas/archivar_lote/` | Archivar múltiples |
+| GET | `/polizas/{id}/download_documents/` | ZIP documentos |
+| GET | `/polizas/cotizaciones/` | Solo quotes |
+| GET | `/polizas/{id}/validar-envio/` | Validar antes de enviar |
+| POST | `/polizas/{id}/enviar/` | Quote → póliza activa |
+
+**DELETE en `/polizas/{id}/` está deshabilitado** — usar archivar.
+
+---
+
+## Variables de Entorno
+
+Copiar `backend/.env.example` → `backend/.env`. Para desarrollo local: `backend/.env.local.example`.
+
+| Variable | Requerida | Descripción |
+|----------|-----------|-------------|
+| `SECRET_KEY` | Prod | Clave Django |
+| `DEBUG` | Sí | `True` local / `False` prod |
+| `DATABASE_URL` | Prod | PostgreSQL URL |
+| `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` | Local | Si `DATABASE_URL` vacío |
+| `BACKEND_PUBLIC_URL` | Prod | URL pública API |
+| `FRONTEND_ORIGINS` | Prod | Orígenes CORS/CSRF |
+| `ALLOWED_HOSTS` | Opcional | Hosts extra |
+| `DJANGO_SUPERUSER_*` | Opcional | Bootstrap admin CRM |
+| `CONSENT_BASE_URL` | Opcional | API consentimiento |
+| `CONSENT_API_KEY` | Opcional | API key consent |
+| `CONSENT_WEBHOOK_SECRET` | Opcional | HMAC webhook |
+
+**Zoho Sign** (variables OS): `ZOHO_SIGN_CLIENT_ID`, `ZOHO_SIGN_CLIENT_SECRET`, `ZOHO_SIGN_REFRESH_TOKEN`, etc.
+
+---
+
+## Comandos de Gestión
+
+```bash
+cd backend
+python manage.py <comando>
+```
+
+| Comando | Descripción |
+|---------|-------------|
+| `ensure_crm_admin` | Crear/actualizar superusuario CRM desde env |
+| `populate_full_demo_data` | Dataset demo completo |
+| `populate_dashboard_demo` | Demo dashboard (~150 pólizas) |
+| `seed_dashboard` | Seed enfocado en estadísticas |
+| `export_policies` | Exportar pólizas a CSV |
+| `send_recordatorio_notifications` | Cron recordatorios |
+| `send_birthday_reminders` | Cron cumpleaños |
+| `link_admin_policies` | Vincular pólizas a admin |
+| `fix_missing_addresses` | Asignar direcciones faltantes |
+| `fix_mojibake_agencia` | Corregir encoding agencia |
+| `fix_mojibake_bulk` | Corregir encoding masivo |
+
+---
+
+## Integraciones Externas
+
+| Integración | Uso | Endpoints |
+|-------------|-----|-----------|
+| **Consent** | Firma electrónica pólizas | `/consent-requests/`, webhook |
+| **Zoho Sign** | Contratos agentes | `/contratos/{id}/send-to-zohosign/`, webhook |
+| **Zippopotam.us** | ZIP lookup | `/utils/zipcode/`, `/locations/lookup/` |
+| **Activity webhook** | Presencia póliza → frontend | `ACTIVITY_WEBHOOK_URL` |
+
+### Cifrado en reposo
+
+- Contraseñas portal/marketplace del cliente  
+- Número y CVV de tarjetas  
+- Clave Fernet derivada de `SECRET_KEY`
+
+### Archivos (`MEDIA_ROOT`)
+
+| Ruta upload | Modelo |
+|-------------|--------|
+| `documentos_poliza/` | Documento |
+| `notas_archivos/` | Nota, NotaAdjunto |
+| `avatars/` | UserProfile |
+| `agencia/logos/` | Agencia |
+| `contratos/` | Contrato |
+| `consentimientos/` | Poliza |
+
+---
+
+## Reglas de Negocio Clave
+
+1. **Cotizaciones vs pólizas activas:** estado `QUOTE` solo en `/polizas/cotizaciones/`; `POST /polizas/{id}/enviar/` promueve a activa.
+2. **Flujo departamental:** `CAPTURA_ASISTENTE` → `REVISION_MANAGER` → `EN_PROCESO_SHERPA` → `COMPLETADA_SHERPA`.
+3. **Archivado:** soft-delete; `DELETE` HTTP bloqueado en pólizas.
+4. **Presencia:** `PolizaViewer` evita edición concurrente (409 en conflicto).
+5. **Notificaciones automáticas:** menciones en notas, colaboradores, cambios de vida (signals).
+6. **Portal cliente:** solo edita solicitudes propias en estado `PENDIENTE`/`EN_PROCESO`.
+7. **Paginación pólizas:** 25 por página por defecto.
 
 ---
 
@@ -70,6 +532,43 @@ POST /api/login/
 ```json
 {
   "access": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+  "refresh": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+  "role": "super_admin",
+  "username": "lumina-admin",
+  "id": 1,
+  "email": "admin@lumina.local",
+  "first_name": "Admin",
+  "last_name": "Lumina",
+  "cliente_id": null
+}
+```
+
+### Refresh Token
+```
+POST /api/login/refresh/
+```
+
+**Request Body:**
+```json
+{
+  "refresh": "eyJ0eXAiOiJKV1QiLCJhbGc..."
+}
+```
+
+### Perfil
+```
+GET /api/profile/
+PATCH /api/profile/
+```
+
+### Logout
+```
+POST /api/logout/
+```
+
+**Request Body:**
+```json
+{
   "refresh": "eyJ0eXAiOiJKV1QiLCJhbGc..."
 }
 ```
@@ -2399,45 +2898,205 @@ GET /api/utils/zipcode/33101/
 
 ## Portal Cliente
 
-**Endpoints:**
-- `POST /api/register/cliente/` - Registro de cliente.
-- `GET /api/portal-cliente/dashboard/` - Dashboard del cliente.
-- `POST /api/portal-cliente/solicitar-cambio/` - Solicitar cambio en la póliza.
-- `POST /api/portal-cliente/solicitar-documento/` - Solicitar documento.
+Endpoints para el portal de clientes (`role: cliente`). Requiere JWT + perfil ACTIVE vinculado a un `Cliente`.
+
+### Registro de cliente
+
+```
+POST /api/register/cliente/
+Content-Type: application/json
+```
+
+```json
+{
+  "username": "cliente.portal",
+  "email": "cliente@ejemplo.com",
+  "password": "password123",
+  "first_name": "María",
+  "last_name": "García"
+}
+```
+
+### Dashboard del cliente
+
+```
+GET /api/portal-cliente/dashboard/?poliza_id=123
+Authorization: Bearer <token>
+```
+
+**Respuesta (resumen):**
+```json
+{
+  "cliente": { "id": 1, "nombre_completo": "María García", "email": "..." },
+  "polizas": [
+    {
+      "id": 123,
+      "tipo_producto": "Health Insurance (ACA)",
+      "aseguradora": "Florida Blue",
+      "estatus": "ACTIVA",
+      "prima_mensual": "450.00",
+      "fecha_efectiva": "2026-01-01"
+    }
+  ],
+  "grupo_familiar": [],
+  "solicitudes_pendientes": [],
+  "documentos_pendientes": []
+}
+```
+
+### Solicitar cambio de datos
+
+```
+POST /api/portal-cliente/solicitar-cambio/
+```
+
+```json
+{
+  "poliza_id": 123,
+  "campos": {
+    "telefono": "+1-555-000-1234",
+    "email": "nuevo@email.com"
+  },
+  "descripcion": "Actualización de contacto"
+}
+```
+
+**Campos editables:** teléfono, email, dirección, miembro_familiar, tarjetas_digitales, cuentas_bancarias (ver `CLIENT_EDITABLE_FIELDS` en backend).
+
+### Solicitar documento
+
+```
+POST /api/portal-cliente/solicitar-documento/
+Content-Type: multipart/form-data
+```
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `poliza_id` | int | ID de la póliza |
+| `categoria` | string | Categoría del documento |
+| `titulo` | string | Título |
+| `archivo` | file | Archivo PDF/imagen |
+| `descripcion` | string | Opcional |
+
+### Editar / cancelar solicitud
+
+```
+PATCH /api/portal-cliente/solicitudes/{cambio_id}/
+DELETE /api/portal-cliente/solicitudes/{cambio_id}/
+```
+
+Solo solicitudes propias en estado `PENDIENTE` o `EN_PROCESO` creadas desde el portal.
+
+### Vista previa de documento
+
+```
+GET /api/portal-cliente/documentos/{documento_id}/preview/
+```
+
+Retorna el archivo inline (`FileResponse`).
 
 ---
 
 ## Importación y Exportación Flat (Pólizas)
 
-**Endpoints:**
-- `POST /api/polizas/flat/preview/` - Previsualizar importación flat.
-- `POST /api/polizas/flat/import/` - Importar póliza flat.
-- `POST /api/polizas/flat/import/batch/` - Importación masiva flat.
-- `GET /api/polizas/flat/export/` - Exportar pólizas flat.
+Formato plano de 51 columnas para importación/exportación masiva. Requiere rol **manager** (`led` / `super_admin`).
+
+### Preview
+
+```
+GET /api/polizas/flat/preview/?page=1&page_size=50
+```
+
+### Importar archivo
+
+```
+POST /api/polizas/flat/import/
+Content-Type: multipart/form-data
+
+file=<archivo.csv|xlsx>
+```
+
+### Importar batch JSON
+
+```
+POST /api/polizas/flat/import/batch/
+```
+
+```json
+{
+  "headers": ["id_mercado", "primer_nombre", "..."],
+  "rows": [
+    ["MKT-001", "Juan", "..."]
+  ]
+}
+```
+
+### Exportar
+
+```
+GET /api/polizas/flat/export/?format=xlsx&estado=ACTIVA&fecha_desde=01/01/2026
+```
+
+**Filtros disponibles:** etiqueta, estado, zip_code, aseguradora, tipo_producto, rangos de fecha, aplicantes, agente.
 
 ---
 
 ## Calendario de Primas
 
-**Endpoint:** `/api/polizas/{poliza_id}/calendario-primas/`
-
-### Obtener Calendario
 ```
-GET /api/polizas/1/calendario-primas/
+GET /api/polizas/{poliza_id}/calendario-primas/
 ```
 
-
-## Reportes Adicionales
-
-**Endpoints:**
-- `GET /api/reportes/agentes-facturacion/` - Reporte de facturación de agentes.
-- `GET /api/reportes/intentos-fallidos/` - Reporte de intentos fallidos de login.
-
+**Respuesta:** 12 meses con estados `PENDIENTE`, `VENCIDA`, `PROXIMA`, montos y fechas de vencimiento según `InfoPago` y `fecha_efectiva`.
 
 ---
 
+## Reportes Adicionales
 
+### Facturación de agentes
 
-**Última actualización:** Mayo 2026
+```
+GET /api/reportes/agentes-facturacion/?month=7&year=2026
+```
+
+### Intentos de login fallidos
+
+```
+GET /api/reportes/intentos-fallidos/
+```
+
+Lista de `IntentoLoginFallido` con usuario intentado, IP, user_agent y timestamp.
+
+### Auditoría consolidada (admin)
+
+```
+GET /api/reportes/auditoria-consolidada/?limit=200
+```
+
+Timeline unificada: `AuditoriaGlobal` + `HistorialPoliza` + intentos fallidos.
+
+---
+
+## Códigos de Respuesta HTTP
+
+| Código | Significado |
+|--------|-------------|
+| 200 | OK |
+| 201 | Creado |
+| 204 | Sin contenido (DELETE exitoso) |
+| 205 | Logout exitoso |
+| 400 | Datos inválidos |
+| 401 | No autenticado / token expirado |
+| 403 | Sin permisos |
+| 404 | No encontrado |
+| 409 | Conflicto (ej. edición concurrente de póliza) |
+| 405 | Método no permitido (ej. DELETE póliza) |
+| 500 | Error interno |
+
+---
+
+**Última actualización:** Julio 2026  
+**Versión API:** Django 5.2 / DRF 3.16  
+**Repositorio:** Bhealth-Insurance (Lumina CRM)
 
 Para más información o soporte, contactar al equipo de desarrollo.
