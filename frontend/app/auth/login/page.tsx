@@ -73,9 +73,8 @@ export default function LoginPage() {
   const { login, logout, isLoading, isAuthenticated, hasHydrated, role, user, error, clearError } =
     useAuthStore();
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [hydrationReady, setHydrationReady] = useState(
-    () => typeof window !== 'undefined' && useAuthStore.persist.hasHydrated(),
-  );
+  // Must start false on server and client so the first paint matches (avoids hydration error).
+  const [hydrationReady, setHydrationReady] = useState(false);
 
   useEffect(() => {
     if (hydrationReady) return;

@@ -2,6 +2,8 @@ backend/api/migrations/__pycache__/
 backend/api/__pycache__/
 backend/config/__pycache__/
 
+*.zip
+
 # Temp script
 replace.py
 

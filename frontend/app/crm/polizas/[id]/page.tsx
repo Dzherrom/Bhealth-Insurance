@@ -121,6 +121,8 @@ function PolizaDetailsContent() {
     }
   }, [params.id, fetchPolizaById]);
 
+  const { isReadOnly } = usePolizaEditLock();
+
   if (loading) {
     return (
       <div className="pb-10 min-h-screen pt-6 flex-col md:flex-row px-3 flex gap-4">
@@ -186,7 +188,6 @@ function PolizaDetailsContent() {
   };
 
   const refreshPoliza = () => poliza.id && fetchPolizaById(poliza.id, { silent: true });
-  const { isReadOnly } = usePolizaEditLock();
 
   const esCotizacion = poliza ? polizaIsQuote(poliza) : false;
   const erroresEnvioPreview = poliza ? previewPolizaEnvioErrors(poliza) : [];
