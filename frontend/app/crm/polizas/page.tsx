@@ -9,11 +9,17 @@ import { useAuthStore } from '@/store/authStore';
 import { StatusBadge, getEstadoDocumentoLabel, getEstadoPagoLabel } from '@/components/polizas/polizaStatusUtils';
 import { useToast } from '@/hooks/use-toast';
 import { usePermission } from '@/hooks/use-permission';
-import { polizasApi } from '@/lib/api';
+import { polizasApi, type FlatExportFilters } from '@/lib/api';
+import {
+  countFlatFilters,
+  flatFiltersToQuery,
+  PolizasAdvancedFiltersButton,
+  PolizasAdvancedFiltersDrawer,
+} from '@/components/configuraciones/PolizasAdvancedFiltersDrawer';
+import { EMPTY_EXPORT_FILTERS } from '@/components/configuraciones/PolizasExportFiltersPanel';
 
 import {
   Search,
-  Settings,
   Plus,
   RefreshCw,
   FileText,
@@ -59,6 +65,8 @@ export default function PolizasPage() {
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [advancedFilters, setAdvancedFilters] = useState<FlatExportFilters>({ ...EMPTY_EXPORT_FILTERS });
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const fetchPolizasRef = useRef(fetchPolizas);
   useEffect(() => {
@@ -70,9 +78,16 @@ export default function PolizasPage() {
       effective_years: selectedYears.length > 0 ? selectedYears : undefined,
       incluir_archivadas: showArchived ? '1' : undefined,
       archivada: showArchived ? '1' : undefined,
+      ...flatFiltersToQuery(advancedFilters),
+      search: filters.search || undefined,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, pageSize, yearsString, showArchived]);
+  }, [page, pageSize, yearsString, showArchived, advancedFilters, filters.search]);
+
+  const handleApplyAdvancedFilters = (nextFilters: FlatExportFilters) => {
+    setAdvancedFilters(nextFilters);
+    setPage(1);
+  };
 
   useEffect(() => {
     const handleClickOutside = () => setOpenDropdownId(null);
@@ -119,6 +134,8 @@ export default function PolizasPage() {
       effective_years: selectedYears.length > 0 ? selectedYears : undefined,
       incluir_archivadas: showArchived ? '1' : undefined,
       archivada: showArchived ? '1' : undefined,
+      ...flatFiltersToQuery(advancedFilters),
+      search: filters.search || undefined,
     });
   };
 
@@ -237,7 +254,10 @@ export default function PolizasPage() {
               />
               <div className="flex items-center gap-[6px] shrink-0">
                 <button className="bg-[#10b981] hover:bg-[#059669] text-white border-none py-[8px] px-[14px] text-[13px] font-semibold rounded-[6px] cursor-pointer flex items-center gap-[6px] transition-colors"><Search className="w-3.5 h-3.5 hidden sm:inline" /> Buscar</button>
-                <button className="bg-[#4f46e5] hover:bg-[#4338ca] text-white border-none py-[8px] px-[14px] text-[13px] font-semibold rounded-[6px] cursor-pointer flex items-center gap-[6px] transition-colors"><Settings className="w-3.5 h-3.5 hidden sm:inline" /> Filtros</button>
+                <PolizasAdvancedFiltersButton
+                  activeCount={countFlatFilters(advancedFilters)}
+                  onClick={() => setFiltersOpen(true)}
+                />
               </div>
             </div>
           </div>
@@ -279,6 +299,16 @@ export default function PolizasPage() {
             </div>
           </div>
         </div>
+
+        <PolizasAdvancedFiltersDrawer
+          open={filtersOpen}
+          onOpenChange={setFiltersOpen}
+          onApply={handleApplyAdvancedFilters}
+          onClear={() => {
+            setAdvancedFilters({ ...EMPTY_EXPORT_FILTERS });
+            setPage(1);
+          }}
+        />
 
         {/* Data Table */}
         <div className="bg-white dark:bg-[#1e293b] rounded-[16px] border border-[#f1f5f9] dark:border-[#334155] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] overflow-visible">

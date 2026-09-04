@@ -3,7 +3,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { decodeJwtPayload, extractRoleFromToken, isTokenExpired, resolveRoleClaim } from './lib/jwt';
+import { decodeJwtPayload, extractRoleFromToken, isTokenExpired } from './lib/jwt';
 import { resolveMiddlewareRedirect } from './lib/middlewareAccess';
 import { buildRedirectUrl } from './lib/requestOrigin';
 import type { UserRole } from './types/auth';
@@ -19,6 +19,8 @@ function readCookieToken(request: NextRequest): string | undefined {
 }
 
 function resolveRequestRole(request: NextRequest, token?: string): UserRole | null {
+  // Las cookies ligeras solo son una ayuda de sesión; no deben autorizar
+  // navegación por sí solas después de que el access token haya expirado.
   if (token && !isTokenExpired(token)) {
     const roleFromToken = extractRoleFromToken(token);
     if (roleFromToken) return roleFromToken;
@@ -27,27 +29,7 @@ function resolveRequestRole(request: NextRequest, token?: string): UserRole | nu
     if (payload?.cliente_id) return 'cliente';
   }
 
-  const hasSession = request.cookies.get('auth_session')?.value === '1';
-  if (token && hasSession) {
-    const roleFromToken = extractRoleFromToken(token);
-    if (roleFromToken) return roleFromToken;
-  }
-
-  if (request.cookies.get('portal_client')?.value === '1') {
-    return 'cliente';
-  }
-
-  const roleCookieRaw = request.cookies.get('user_role')?.value;
-  let roleCookie = roleCookieRaw;
-  if (roleCookieRaw) {
-    try {
-      roleCookie = decodeURIComponent(roleCookieRaw);
-    } catch {
-      roleCookie = roleCookieRaw;
-    }
-  }
-
-  return resolveRoleClaim(roleCookie);
+  return null;
 }
 
 export function middleware(request: NextRequest) {

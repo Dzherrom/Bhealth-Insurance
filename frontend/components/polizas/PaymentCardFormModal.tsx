@@ -37,6 +37,33 @@ const DEFAULT_VALUES: PaymentCardFormValues = {
   es_predeterminado: false,
 };
 
+const normalizeDigits = (value: string) => value.replace(/\D/g, '');
+
+function isValidCardNumber(value: string): boolean {
+  const digits = normalizeDigits(value);
+  if (digits.length < 13 || digits.length > 19) return false;
+  let sum = 0;
+  let doubleDigit = false;
+  for (let index = digits.length - 1; index >= 0; index -= 1) {
+    let digit = Number(digits[index]);
+    if (doubleDigit) {
+      digit *= 2;
+      if (digit > 9) digit -= 9;
+    }
+    sum += digit;
+    doubleDigit = !doubleDigit;
+  }
+  return sum % 10 === 0;
+}
+
+function isValidExpiry(value: string): boolean {
+  const match = value.trim().match(/^(0[1-9]|1[0-2])\/(\d{2})$/);
+  if (!match) return false;
+  const expiry = new Date(2000 + Number(match[2]), Number(match[1]), 0);
+  const current = new Date();
+  return expiry >= new Date(current.getFullYear(), current.getMonth() + 1, 0);
+}
+
 export function PaymentCardFormModal({
   open,
   onOpenChange,
@@ -49,6 +76,7 @@ export function PaymentCardFormModal({
 }: PaymentCardFormModalProps) {
   const [form, setForm] = useState<PaymentCardFormValues>(DEFAULT_VALUES);
   const [saving, setSaving] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const isEdit = Boolean(initial?.id);
 
@@ -66,9 +94,29 @@ export function PaymentCardFormModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const hasMaskedSensitiveValue =
+      isEdit && sensitiveOptional && (form.numero.includes('*') || form.cvv.includes('*'));
+    if (!hasMaskedSensitiveValue && !isValidCardNumber(form.numero)) {
+      setValidationError('El número de tarjeta debe tener entre 13 y 19 dígitos válidos.');
+      return;
+    }
+    if (!hasMaskedSensitiveValue && !/^\d{3,4}$/.test(form.cvv)) {
+      setValidationError('El CVV debe contener 3 o 4 dígitos.');
+      return;
+    }
+    if (!isValidExpiry(form.fecha_vencimiento)) {
+      setValidationError('La fecha debe tener formato MM/YY y no estar vencida.');
+      return;
+    }
+    setValidationError(null);
     setSaving(true);
     try {
-      await onSubmit(form);
+      await onSubmit({
+        ...form,
+        numero: normalizeDigits(form.numero),
+        cvv: normalizeDigits(form.cvv),
+        fecha_vencimiento: form.fecha_vencimiento.trim(),
+      });
       onOpenChange(false);
     } finally {
       setSaving(false);
@@ -119,7 +167,9 @@ export function PaymentCardFormModal({
             <Input
               required={!sensitiveOptional || !isEdit}
               value={form.numero}
-              onChange={(e) => setForm((p) => ({ ...p, numero: e.target.value }))}
+              maxLength={19}
+              inputMode="numeric"
+              onChange={(e) => setForm((p) => ({ ...p, numero: e.target.value.replace(/\D/g, '').slice(0, 19) }))}
               placeholder={sensitiveOptional && isEdit ? 'Opcional si no cambia' : undefined}
               className={inputClass}
             />
@@ -129,9 +179,14 @@ export function PaymentCardFormModal({
               <Label className={labelClass}>Fecha de vencimiento</Label>
               <Input
                 required
-                placeholder="MM/YY o M/YYYY"
+                placeholder="MM/YY"
                 value={form.fecha_vencimiento}
-                onChange={(e) => setForm((p) => ({ ...p, fecha_vencimiento: e.target.value }))}
+                maxLength={5}
+                inputMode="numeric"
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^\d]/g, '').slice(0, 4);
+                  setForm((p) => ({ ...p, fecha_vencimiento: value.length > 2 ? `${value.slice(0, 2)}/${value.slice(2)}` : value }));
+                }}
                 className={inputClass}
               />
             </div>
@@ -140,12 +195,15 @@ export function PaymentCardFormModal({
               <Input
                 required={!sensitiveOptional || !isEdit}
                 value={form.cvv}
-                onChange={(e) => setForm((p) => ({ ...p, cvv: e.target.value }))}
+              maxLength={4}
+              inputMode="numeric"
+              onChange={(e) => setForm((p) => ({ ...p, cvv: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
                 placeholder={sensitiveOptional && isEdit ? 'Opcional si no cambia' : undefined}
                 className={inputClass}
               />
             </div>
           </div>
+          {validationError && <p className="text-sm text-red-600">{validationError}</p>}
           <label className={cn('flex items-center gap-2 text-sm', lightMode && 'text-[#334155]')}>
             <input
               type="checkbox"

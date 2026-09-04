@@ -13,6 +13,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import { Sun, Moon, Languages } from "lucide-react";
 import { CRMHeaderActions } from "@/components/crm/CRMHeaderActions";
+import { isTokenExpired } from "@/lib/jwt";
 
 interface CRMLayoutProps {
   children: React.ReactNode;
@@ -23,7 +24,9 @@ export default function CRMLayout({ children }: CRMLayoutProps) {
   const pathname = usePathname();
   const role = useAuthStore((state) => state.role);
   const user = useAuthStore((state) => state.user);
+  const accessToken = useAuthStore((state) => state.accessToken);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const hasHydrated = useAuthStore((state) => state.hasHydrated);
   const [mounted, setMounted] = useState(false);
   const { theme, setTheme } = useTheme();
   const { language, toggleLanguage } = useLanguageStore();
@@ -55,6 +58,15 @@ export default function CRMLayout({ children }: CRMLayoutProps) {
       window.location.replace(getClientDashboardPath());
     }
   }, [isAuthenticated, role, user, pathname]);
+
+  useEffect(() => {
+    if (!showSidebar || !hasHydrated) return;
+
+    if (!isAuthenticated || !accessToken || isTokenExpired(accessToken)) {
+      const reason = isAuthenticated ? '?reason=session_expired' : '';
+      router.replace(`/auth/login${reason}`);
+    }
+  }, [accessToken, hasHydrated, isAuthenticated, router, showSidebar]);
 
   const handleSidebarNavigation = (item: any) => {
     if (item.href) {

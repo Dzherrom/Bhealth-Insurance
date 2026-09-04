@@ -49,6 +49,7 @@ from .poliza_presence import (
     assert_edit_allowed,
     cleanup_stale_viewers,
 )
+from .services.flat_policy_export_filters import apply_flat_export_filters
 
 
 def sync_cliente_agente(poliza):
@@ -65,6 +66,11 @@ class PolizaPagination(PageNumberPagination):
     max_page_size = 200
 
 class UserPagination(PageNumberPagination):
+    page_size = 25
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+class ClientePagination(PageNumberPagination):
     page_size = 25
     page_size_query_param = 'page_size'
     max_page_size = 100
@@ -536,11 +542,12 @@ class ClienteViewSet(viewsets.ModelViewSet):
     queryset = Cliente.objects.all()
     serializer_class = ClienteSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = ClientePagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['agente']
     search_fields = [
         'primer_nombre', 'segundo_nombre', 'apellido_paterno', 'apellido_materno',
-        'email', 'ssn', 'telefono',
+        'email', 'ssn', 'telefono', 'polizas__id_miembro',
     ]
     ordering_fields = ['primer_nombre', 'apellido_paterno', 'fecha_creacion']
     ordering = ['apellido_paterno', 'primer_nombre']
@@ -713,6 +720,9 @@ class PolizaViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(archivada=True)
             elif incluir_archivadas not in ('1', 'true', 'True'):
                 queryset = queryset.filter(archivada=False)
+
+        if self.action == 'list':
+            queryset = apply_flat_export_filters(queryset, self.request.query_params)
 
         return queryset
 
@@ -1145,6 +1155,8 @@ class PolizaViewSet(viewsets.ModelViewSet):
             Q(estado__nombre__icontains='draft') |
             Q(estado__nombre__icontains='borrad')
         )
+        qs = apply_flat_export_filters(qs, request.query_params)
+        qs = filters.SearchFilter().filter_queryset(request, qs, self)
         page = self.paginate_queryset(qs)
         if page is not None:
             serializer = PolizaListSerializer(page, many=True, context={'request': request})

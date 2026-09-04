@@ -278,9 +278,9 @@ export default function UserDetailsPage() {
           npn: agentNpn.trim() || null,
         },
       } as any);
-      if (user.profile?.agente && agentFfm.trim()) {
+      if (user.profile?.agente) {
         await agentesApi.patch(user.profile.agente, {
-          ffm: agentFfm.trim(),
+          ffm: agentFfm.trim() || null,
         } as any);
       }
       await fetchUser();
@@ -512,12 +512,12 @@ export default function UserDetailsPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="agentFfm">FFM</Label>
+                  <Label htmlFor="agentFfm">FFM (opcional)</Label>
                   <Input
                     id="agentFfm"
                     value={agentFfm}
                     onChange={(e) => setAgentFfm(e.target.value)}
-                    placeholder="FFM usado en el mercado"
+                    placeholder="FFM usado en el mercado (opcional)"
                     disabled={!user.profile?.agente}
                   />
                 </div>

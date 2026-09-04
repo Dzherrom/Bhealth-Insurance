@@ -73,6 +73,10 @@ export interface PolizasExportFiltersPanelProps {
   filteredTotal: number;
   onApply: (filters: FlatExportFilters) => void;
   onClearResults: () => void;
+  value?: FlatExportFilters;
+  onChange?: (filters: FlatExportFilters) => void;
+  /** When true, render fields only (no Card) — for Sheet / slider drawers. */
+  embedded?: boolean;
 }
 
 function PolizasExportFiltersPanelComponent({
@@ -82,8 +86,12 @@ function PolizasExportFiltersPanelComponent({
   filteredTotal,
   onApply,
   onClearResults,
+  value,
+  onChange,
+  embedded = false,
 }: PolizasExportFiltersPanelProps) {
   const [draftFilters, setDraftFilters] = useState<FlatExportFilters>({ ...EMPTY_EXPORT_FILTERS });
+  const currentFilters = value ?? draftFilters;
 
   const [etiquetas, setEtiquetas] = useState<FilterOption[]>(() => filterExtrasCache.etiquetas);
   const [tiposProducto, setTiposProducto] = useState<FilterOption[]>(
@@ -169,22 +177,121 @@ function PolizasExportFiltersPanelComponent({
   }, []);
 
   const activeFilterCount = useMemo(
-    () => Object.values(draftFilters).filter((value) => String(value ?? '').trim() !== '').length,
-    [draftFilters],
+    () => Object.values(currentFilters).filter((value) => String(value ?? '').trim() !== '').length,
+    [currentFilters],
   );
 
   const updateDraftFilter = (key: keyof FlatExportFilters, value: string) => {
-    setDraftFilters((prev) => ({ ...prev, [key]: value }));
+    setDraftFilters((prev) => {
+      const next = { ...prev, [key]: value };
+      onChange?.(next);
+      return next;
+    });
   };
 
   const handleApply = () => {
-    onApply({ ...draftFilters });
+    onApply({ ...currentFilters });
   };
 
   const handleClear = () => {
     setDraftFilters({ ...EMPTY_EXPORT_FILTERS });
+    onChange?.({ ...EMPTY_EXPORT_FILTERS });
     onClearResults();
   };
+
+  const fields = (
+    <div className={cn('space-y-4', !embedded && 'max-h-[calc(100vh-8rem)] overflow-y-auto')}>
+      {embedded && activeFilterCount > 0 ? (
+        <p className="text-xs text-muted-foreground">
+          {activeFilterCount} filtro(s) pendiente{activeFilterCount !== 1 ? 's' : ''}
+        </p>
+      ) : null}
+      <FilterSelect
+        label="Etiqueta"
+        value={currentFilters.etiqueta ?? ''}
+        onChange={(value) => updateDraftFilter('etiqueta', value)}
+        options={etiquetas}
+        placeholder="Todas"
+      />
+      <FilterSelect
+        label="Estado"
+        value={currentFilters.estado ?? ''}
+        onChange={(value) => updateDraftFilter('estado', value)}
+        options={estados}
+        placeholder="Todos"
+      />
+      <div className="space-y-2">
+        <Label>Código postal</Label>
+        <Input
+          value={currentFilters.zip_code ?? ''}
+          onChange={(e) => updateDraftFilter('zip_code', e.target.value)}
+          placeholder="Ej. 33101"
+        />
+      </div>
+      <FilterSelect
+        label="Compañía"
+        value={currentFilters.aseguradora ?? ''}
+        onChange={(value) => updateDraftFilter('aseguradora', value)}
+        options={aseguradoras}
+        placeholder="Todas"
+        searchable
+      />
+      <FilterSelect
+        label="Tipo de producto"
+        value={currentFilters.tipo_producto ?? ''}
+        onChange={(value) => updateDraftFilter('tipo_producto', value)}
+        options={tiposProducto}
+        placeholder="Todos"
+      />
+      <DateRangeFields
+        label="Fecha de efectividad"
+        from={currentFilters.fecha_efectiva_desde ?? ''}
+        to={currentFilters.fecha_efectiva_hasta ?? ''}
+        onFromChange={(value) => updateDraftFilter('fecha_efectiva_desde', value)}
+        onToChange={(value) => updateDraftFilter('fecha_efectiva_hasta', value)}
+      />
+      <DateRangeFields
+        label="Fecha de creación"
+        from={currentFilters.fecha_creacion_desde ?? ''}
+        to={currentFilters.fecha_creacion_hasta ?? ''}
+        onFromChange={(value) => updateDraftFilter('fecha_creacion_desde', value)}
+        onToChange={(value) => updateDraftFilter('fecha_creacion_hasta', value)}
+      />
+      <NumberRangeFields
+        label="Cantidad de aplicantes"
+        from={currentFilters.aplicantes_desde ?? ''}
+        to={currentFilters.aplicantes_hasta ?? ''}
+        onFromChange={(value) => updateDraftFilter('aplicantes_desde', value)}
+        onToChange={(value) => updateDraftFilter('aplicantes_hasta', value)}
+      />
+      <FilterSelect
+        label="Agente asignado"
+        value={currentFilters.agente ?? ''}
+        onChange={(value) => updateDraftFilter('agente', value)}
+        options={agentes}
+        placeholder="Todos"
+        searchable
+      />
+
+      <Button className="w-full" onClick={handleApply} disabled={loadingFiltered}>
+        {loadingFiltered ? (
+          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+        ) : (
+          <Search className="w-4 h-4 mr-2" />
+        )}
+        Aplicar filtros
+      </Button>
+
+      <Button variant="outline" className="w-full" onClick={handleClear}>
+        <RotateCcw className="w-4 h-4 mr-2" />
+        Limpiar filtros
+      </Button>
+    </div>
+  );
+
+  if (embedded) {
+    return fields;
+  }
 
   return (
     <aside className="w-full xl:w-80 shrink-0">
@@ -207,88 +314,7 @@ function PolizasExportFiltersPanelComponent({
             </p>
           ) : null}
         </CardHeader>
-        <CardContent className="space-y-4 max-h-[calc(100vh-8rem)] overflow-y-auto">
-          <FilterSelect
-            label="Etiqueta"
-            value={draftFilters.etiqueta ?? ''}
-            onChange={(value) => updateDraftFilter('etiqueta', value)}
-            options={etiquetas}
-            placeholder="Todas"
-          />
-          <FilterSelect
-            label="Estado"
-            value={draftFilters.estado ?? ''}
-            onChange={(value) => updateDraftFilter('estado', value)}
-            options={estados}
-            placeholder="Todos"
-          />
-          <div className="space-y-2">
-            <Label>Código postal</Label>
-            <Input
-              value={draftFilters.zip_code ?? ''}
-              onChange={(e) => updateDraftFilter('zip_code', e.target.value)}
-              placeholder="Ej. 33101"
-            />
-          </div>
-          <FilterSelect
-            label="Compañía"
-            value={draftFilters.aseguradora ?? ''}
-            onChange={(value) => updateDraftFilter('aseguradora', value)}
-            options={aseguradoras}
-            placeholder="Todas"
-            searchable
-          />
-          <FilterSelect
-            label="Tipo de producto"
-            value={draftFilters.tipo_producto ?? ''}
-            onChange={(value) => updateDraftFilter('tipo_producto', value)}
-            options={tiposProducto}
-            placeholder="Todos"
-          />
-          <DateRangeFields
-            label="Fecha de efectividad"
-            from={draftFilters.fecha_efectiva_desde ?? ''}
-            to={draftFilters.fecha_efectiva_hasta ?? ''}
-            onFromChange={(value) => updateDraftFilter('fecha_efectiva_desde', value)}
-            onToChange={(value) => updateDraftFilter('fecha_efectiva_hasta', value)}
-          />
-          <DateRangeFields
-            label="Fecha de creación"
-            from={draftFilters.fecha_creacion_desde ?? ''}
-            to={draftFilters.fecha_creacion_hasta ?? ''}
-            onFromChange={(value) => updateDraftFilter('fecha_creacion_desde', value)}
-            onToChange={(value) => updateDraftFilter('fecha_creacion_hasta', value)}
-          />
-          <NumberRangeFields
-            label="Cantidad de aplicantes"
-            from={draftFilters.aplicantes_desde ?? ''}
-            to={draftFilters.aplicantes_hasta ?? ''}
-            onFromChange={(value) => updateDraftFilter('aplicantes_desde', value)}
-            onToChange={(value) => updateDraftFilter('aplicantes_hasta', value)}
-          />
-          <FilterSelect
-            label="Agente asignado"
-            value={draftFilters.agente ?? ''}
-            onChange={(value) => updateDraftFilter('agente', value)}
-            options={agentes}
-            placeholder="Todos"
-            searchable
-          />
-
-          <Button className="w-full" onClick={handleApply} disabled={loadingFiltered}>
-            {loadingFiltered ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <Search className="w-4 h-4 mr-2" />
-            )}
-            Aplicar filtros
-          </Button>
-
-          <Button variant="outline" className="w-full" onClick={handleClear}>
-            <RotateCcw className="w-4 h-4 mr-2" />
-            Limpiar filtros
-          </Button>
-        </CardContent>
+        <CardContent>{fields}</CardContent>
       </Card>
     </aside>
   );

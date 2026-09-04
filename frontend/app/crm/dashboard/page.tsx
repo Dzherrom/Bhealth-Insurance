@@ -153,6 +153,8 @@ const formatCurrency = (value: number) =>
 
 export default function DashboardPage() {
   const accessToken = useAuthStore((state) => state.accessToken);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const hasHydrated = useAuthStore((state) => state.hasHydrated);
   const refreshAccessToken = useAuthStore((state) => state.refreshAccessToken);
 
   const defaultRange = useMemo(() => getDefaultRange(), []);
@@ -225,8 +227,18 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
+    // Esperar a que Zustand lea la sesión persistida. Si no hay sesión,
+    // el layout del CRM se encarga de redirigir al login.
+    if (!hasHydrated || !isAuthenticated) return;
     fetchStats();
-  }, [appliedRange.startDate, appliedRange.endDate, accessToken, refreshAccessToken]);
+  }, [
+    appliedRange.startDate,
+    appliedRange.endDate,
+    accessToken,
+    hasHydrated,
+    isAuthenticated,
+    refreshAccessToken,
+  ]);
 
   const stateCountMap = useMemo(() => {
     const map = new Map<string, number>();

@@ -6,10 +6,17 @@ import { Poliza, PolizaFilters } from '@/components/polizas/types';
 import { CrearPolizaModal } from '@/components/polizas/formularios/CrearPolizaModal';
 import { useAuthStore } from '@/store/authStore';
 import { API_BASE_URL, fetchWithAuth } from '@/lib/api';
+import type { FlatExportFilters } from '@/lib/api';
+import {
+  countFlatFilters,
+  flatFiltersToQuery,
+  PolizasAdvancedFiltersButton,
+  PolizasAdvancedFiltersDrawer,
+} from '@/components/configuraciones/PolizasAdvancedFiltersDrawer';
+import { EMPTY_EXPORT_FILTERS } from '@/components/configuraciones/PolizasExportFiltersPanel';
 
 import {
   Search,
-  Settings,
   Plus,
   RefreshCw,
   FileText,
@@ -46,11 +53,19 @@ export default function CotizacionesPage() {
 
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [advancedFilters, setAdvancedFilters] = useState<FlatExportFilters>({ ...EMPTY_EXPORT_FILTERS });
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
-    const fetchCotizaciones = useCallback(async () => {
+  const fetchCotizaciones = useCallback(async () => {
     setIsLoading(true);
       try {
-      const res = await fetchWithAuth(`${API_BASE_URL}/polizas/cotizaciones/?page=${page}&page_size=${pageSize}`, { method: 'GET' });
+      const query = new URLSearchParams({
+        page: String(page),
+        page_size: String(pageSize),
+        ...flatFiltersToQuery(advancedFilters),
+      });
+      if (filters.search.trim()) query.set('search', filters.search.trim());
+      const res = await fetchWithAuth(`${API_BASE_URL}/polizas/cotizaciones/?${query.toString()}`, { method: 'GET' });
         if (!res.ok) {
         throw new Error(`Error fetching cotizaciones: ${res.status}`);
         }
@@ -62,7 +77,7 @@ export default function CotizacionesPage() {
       } finally {
       setIsLoading(false);
       }
-    }, [page, pageSize]);
+    }, [advancedFilters, filters.search, page, pageSize]);
 
   const fetchCotizacionesRef = useRef(fetchCotizaciones);
   useEffect(() => {
@@ -71,7 +86,12 @@ export default function CotizacionesPage() {
 
   useEffect(() => {
     fetchCotizacionesRef.current();
-  }, [page, pageSize, yearsString]);
+  }, [page, pageSize, yearsString, advancedFilters, filters.search]);
+
+  const handleApplyAdvancedFilters = (nextFilters: FlatExportFilters) => {
+    setAdvancedFilters(nextFilters);
+    setPage(1);
+  };
 
   useEffect(() => {
     const handleClickOutside = () => setOpenDropdownId(null);
@@ -200,7 +220,10 @@ export default function CotizacionesPage() {
               />
               <div className="flex items-center gap-[6px] shrink-0">
                 <button className="bg-[#10b981] hover:bg-[#059669] text-white border-none py-[8px] px-[14px] text-[13px] font-semibold rounded-[6px] cursor-pointer flex items-center gap-[6px] transition-colors"><Search className="w-3.5 h-3.5 hidden sm:inline" /> Buscar</button>
-                <button className="bg-[#4f46e5] hover:bg-[#4338ca] text-white border-none py-[8px] px-[14px] text-[13px] font-semibold rounded-[6px] cursor-pointer flex items-center gap-[6px] transition-colors"><Settings className="w-3.5 h-3.5 hidden sm:inline" /> Filtros</button>
+                <PolizasAdvancedFiltersButton
+                  activeCount={countFlatFilters(advancedFilters)}
+                  onClick={() => setFiltersOpen(true)}
+                />
               </div>
             </div>
           </div>
@@ -212,6 +235,16 @@ export default function CotizacionesPage() {
             <div className="text-[#64748b] dark:text-gray-400 font-medium">Resultados: {filteredPolizas.length}</div>
           </div>
         </div>
+
+        <PolizasAdvancedFiltersDrawer
+          open={filtersOpen}
+          onOpenChange={setFiltersOpen}
+          onApply={handleApplyAdvancedFilters}
+          onClear={() => {
+            setAdvancedFilters({ ...EMPTY_EXPORT_FILTERS });
+            setPage(1);
+          }}
+        />
 
         {/* Data Table */}
         <div className="bg-white dark:bg-[#1e293b] rounded-[16px] border border-[#f1f5f9] dark:border-[#334155] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] overflow-visible">

@@ -55,7 +55,6 @@ function reconcileHydratedAuthState(state: AuthState | undefined): Partial<AuthS
 
   const liveAccess = readLiveAccessToken();
   const liveRefresh = readLiveRefreshToken();
-  const hasSessionCookie = hasAuthSessionCookie();
 
   if (liveAccess) {
     const role = state.role ?? resolveRoleFromAccessToken(liveAccess);
@@ -79,11 +78,9 @@ function reconcileHydratedAuthState(state: AuthState | undefined): Partial<AuthS
     };
   }
 
-  // Con cookie de sesión o refresh token vivo, no borrar (evita logout ~1s tras login).
-  if (hasSessionCookie || liveRefresh || state.refreshToken) {
-    return null;
-  }
-
+  // Un refresh token o una cookie antigua no autorizan la aplicación por sí
+  // solos. Si no existe un access token vigente, limpiar el estado para que
+  // las rutas protegidas redirijan al login.
   if (!state.accessToken || isTokenExpired(state.accessToken)) {
     clearClientAuthStorage();
     clearAuthCookies();

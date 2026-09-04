@@ -36,6 +36,8 @@ const DEFAULT_VALUES: PaymentBankFormValues = {
   es_predeterminado: false,
 };
 
+const normalizeDigits = (value: string) => value.replace(/\D/g, '');
+
 export function PaymentBankFormModal({
   open,
   onOpenChange,
@@ -48,6 +50,7 @@ export function PaymentBankFormModal({
 }: PaymentBankFormModalProps) {
   const [form, setForm] = useState<PaymentBankFormValues>(DEFAULT_VALUES);
   const [saving, setSaving] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const isEdit = Boolean(initial?.id);
 
@@ -64,9 +67,28 @@ export function PaymentBankFormModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const hasMaskedSensitiveValue =
+      isEdit && sensitiveOptional && (form.numero_cuenta.includes('*') || form.aba_routing.includes('*'));
+    if (!hasMaskedSensitiveValue) {
+      const accountDigits = normalizeDigits(form.numero_cuenta);
+      const routingDigits = normalizeDigits(form.aba_routing);
+      if (!/^\d{4,17}$/.test(accountDigits)) {
+        setValidationError('El número de cuenta debe contener entre 4 y 17 dígitos.');
+        return;
+      }
+      if (!/^\d{9}$/.test(routingDigits)) {
+        setValidationError('El número ABA / routing debe contener exactamente 9 dígitos.');
+        return;
+      }
+    }
+    setValidationError(null);
     setSaving(true);
     try {
-      await onSubmit(form);
+      await onSubmit({
+        ...form,
+        numero_cuenta: normalizeDigits(form.numero_cuenta),
+        aba_routing: normalizeDigits(form.aba_routing),
+      });
       onOpenChange(false);
     } finally {
       setSaving(false);
@@ -100,7 +122,9 @@ export function PaymentBankFormModal({
             <Input
               required={!sensitiveOptional || !isEdit}
               value={form.numero_cuenta}
-              onChange={(e) => setForm((p) => ({ ...p, numero_cuenta: e.target.value }))}
+              maxLength={17}
+              inputMode="numeric"
+              onChange={(e) => setForm((p) => ({ ...p, numero_cuenta: e.target.value.replace(/\D/g, '').slice(0, 17) }))}
               placeholder={sensitiveOptional && isEdit ? 'Opcional si no cambia' : undefined}
               className={inputClass}
             />
@@ -110,11 +134,14 @@ export function PaymentBankFormModal({
             <Input
               required={!sensitiveOptional || !isEdit}
               value={form.aba_routing}
-              onChange={(e) => setForm((p) => ({ ...p, aba_routing: e.target.value }))}
+              maxLength={9}
+              inputMode="numeric"
+              onChange={(e) => setForm((p) => ({ ...p, aba_routing: e.target.value.replace(/\D/g, '').slice(0, 9) }))}
               placeholder={sensitiveOptional && isEdit ? 'Opcional si no cambia' : undefined}
               className={inputClass}
             />
           </div>
+          {validationError && <p className="text-sm text-red-600">{validationError}</p>}
           <div className="grid gap-2">
             <Label className={labelClass}>Titular de la cuenta</Label>
             <Input

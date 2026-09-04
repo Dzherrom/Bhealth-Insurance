@@ -54,42 +54,27 @@ function decodeCookieValue(value?: string | null): string | null {
   }
 }
 
-function hasRoleSessionCookie(ctx: MiddlewareAuthContext): boolean {
-  const role = decodeCookieValue(ctx.userRoleCookie);
-  return Boolean(role?.trim() || ctx.portalClientCookie === '1' || ctx.authSessionCookie === '1');
-}
-
 export function resolveMiddlewareRedirect(
   pathname: string,
   ctx: MiddlewareAuthContext & { hasValidToken: boolean },
 ): string | null {
   const portalClient = isPortalClientSession(ctx);
-  const hasSessionHint = ctx.hasValidToken || hasRoleSessionCookie(ctx);
   const effectiveRole = resolveEffectiveRole(ctx);
 
   if (pathname.startsWith('/crm')) {
+    if (!ctx.hasValidToken) return '/auth/login';
     if (portalClient) return '/client/dashboard';
-    const hasCrmTokenSession = Boolean(ctx.token && ctx.authSessionCookie === '1');
-    if (canAccessCRM(effectiveRole) && hasSessionHint) return null;
-    if (hasCrmTokenSession && hasSessionHint && !portalClient) return null;
-    if (!hasSessionHint) return '/auth/login';
     if (!canAccessCRM(effectiveRole)) return '/auth/login';
     return null;
   }
 
   if (pathname === '/auth/login') {
-    if (portalClient && hasSessionHint) return '/client/dashboard';
-    if (canAccessCRM(effectiveRole) && hasSessionHint) return '/crm/dashboard';
+    if (portalClient && ctx.hasValidToken) return '/client/dashboard';
+    if (canAccessCRM(effectiveRole) && ctx.hasValidToken) return '/crm/dashboard';
     return null;
   }
 
   if (pathname.startsWith('/client/')) {
-    // Portal: confiar en cookies ligeras (portal_client, user_role). El JWT puede
-    // vivir solo en localStorage; el edge no siempre recibe access_token a tiempo.
-    if (portalClient && hasSessionHint) return null;
-
-    if (!ctx.token) return '/client';
-
     if (!ctx.hasValidToken) return '/client';
 
     if (!portalClient) {

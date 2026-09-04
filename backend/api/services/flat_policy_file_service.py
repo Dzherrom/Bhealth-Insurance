@@ -8,6 +8,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 import openpyxl
+from openpyxl.utils.datetime import from_excel
 from django.db import transaction
 from django.http import HttpResponse
 from django.utils import timezone
@@ -180,9 +181,35 @@ def _parse_decimal(value: object, default: Decimal = Decimal("0")) -> Decimal:
 
 
 def _parse_date(value: object) -> Optional[datetime.date]:
+    if isinstance(value, datetime.datetime):
+        return value.date()
+    if isinstance(value, datetime.date):
+        return value
+    if isinstance(value, (int, float)) and value > 0:
+        try:
+            converted = from_excel(value)
+            if isinstance(converted, datetime.datetime):
+                return converted.date()
+            if isinstance(converted, datetime.date):
+                return converted
+        except (TypeError, ValueError):
+            pass
+
     raw = _clean(value)
     if not raw:
         return None
+
+    if raw.replace(".", "", 1).isdigit():
+        try:
+            excel_value = float(raw)
+            if excel_value > 20000:
+                converted = from_excel(excel_value)
+                if isinstance(converted, datetime.datetime):
+                    return converted.date()
+                if isinstance(converted, datetime.date):
+                    return converted
+        except (TypeError, ValueError):
+            pass
 
     for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%m-%d-%Y", "%d/%m/%Y"):
         try:
@@ -211,6 +238,19 @@ def _parse_datetime(value: object) -> Optional[datetime.datetime]:
     date_only = _parse_date(raw)
     if date_only:
         return timezone.make_aware(datetime.datetime.combine(date_only, datetime.time.min))
+    return None
+
+
+def _infer_metal(plan_name: str) -> Optional[str]:
+    normalized = _normalize_key(plan_name)
+    for metal, aliases in {
+        "BRONCE": ("bronze", "bronce"),
+        "PLATA": ("silver", "plata"),
+        "ORO": ("gold", "oro"),
+        "PLATINO": ("platinum", "platino"),
+    }.items():
+        if any(alias in normalized for alias in aliases):
+            return metal
     return None
 
 
@@ -678,6 +718,7 @@ class FlatPolicyFileService:
         policy.aseguradora = insurer
         policy.nombre_plan = plan_name
         policy.estado = policy_status
+        policy.metal = _infer_metal(plan_name) or policy.metal
         if not policy.tipo_producto_id:
             policy.tipo_producto = self._default_tipo_producto()
         policy.costo_poliza = _parse_decimal(self._value(base_headers, base_values, "policy_cost"))

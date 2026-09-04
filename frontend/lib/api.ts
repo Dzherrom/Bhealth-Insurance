@@ -844,6 +844,20 @@ export interface ClienteWizardContext {
 export const clientesApi = {
   ...createCrudApi<Cliente, ClienteCreate, ClienteUpdate>('clientes'),
 
+  listPaginated: async (
+    params?: { page?: number; page_size?: number; search?: string; [key: string]: string | number | undefined },
+  ): Promise<PaginatedResponse<Cliente>> => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params ?? {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        searchParams.set(key, String(value));
+      }
+    });
+    const query = searchParams.toString();
+    const response = await fetchWithAuth(`${API_BASE_URL}/clientes/${query ? `?${query}` : ''}`);
+    return handleApiResponse<PaginatedResponse<Cliente>>(response);
+  },
+
   search: async (query: string, limit = 20): Promise<Cliente[]> => {
     const params = new URLSearchParams({
       search: query.trim(),
@@ -1534,6 +1548,7 @@ export const notificacionesApi = {
   }): Promise<any> => {
     const response = await fetchWithAuth(`${API_BASE_URL}/notificaciones/enviar-general/`, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
     return handleApiResponse<any>(response);

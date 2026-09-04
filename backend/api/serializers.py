@@ -61,7 +61,7 @@ def sync_profile_agente_credentials(profile):
     nombre = f'{user.first_name} {user.last_name}'.strip() or user.username
     agente = Agente.objects.create(
         npn=npn,
-        ffm=f'FFM-{npn}',
+        ffm=None,
         nombre_completo=nombre,
         agencia=agencia,
     )
@@ -299,6 +299,7 @@ class ClienteSerializer(serializers.ModelSerializer):
     direccion_postal_details = DireccionSerializer(source='direccion_postal', read_only=True)
     direccion_facturacion_details = DireccionSerializer(source='direccion_facturacion', read_only=True)
     nombre_completo = serializers.SerializerMethodField()
+    codigos_miembro = serializers.SerializerMethodField()
     agente_nombre = serializers.ReadOnlyField(source='agente.nombre_completo')
     ingresos_empleador = IngresoEmpleadorSerializer(many=True, read_only=True)
     documentos_legales = serializers.SerializerMethodField()
@@ -310,6 +311,14 @@ class ClienteSerializer(serializers.ModelSerializer):
     def get_nombre_completo(self, obj):
         parts = [obj.primer_nombre, obj.segundo_nombre, obj.apellido_paterno, obj.apellido_materno]
         return ' '.join(part for part in parts if part).strip()
+
+    def get_codigos_miembro(self, obj):
+        return list(
+            obj.polizas.exclude(id_miembro__isnull=True)
+            .exclude(id_miembro='')
+            .values_list('id_miembro', flat=True)
+            .distinct()
+        )
 
     def get_documentos_legales(self, obj):
         qs = obj.documentos_legales.filter(activo=True).select_related('documento')
@@ -453,6 +462,8 @@ class InfoPagoSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 from .encryption import encrypt_text, decrypt_text
+import re
+from datetime import date
 
 class TarjetaCreditoSerializer(serializers.ModelSerializer):
     numero = serializers.CharField(max_length=500)
@@ -462,12 +473,48 @@ class TarjetaCreditoSerializer(serializers.ModelSerializer):
         model = TarjetaCredito
         fields = '__all__'
 
+    @staticmethod
+    def _valid_luhn(number):
+        digits = re.sub(r'\D', '', str(number or ''))
+        if not 13 <= len(digits) <= 19:
+            return False
+        total = 0
+        double_digit = False
+        for digit in reversed(digits):
+            value = int(digit)
+            if double_digit:
+                value *= 2
+                if value > 9:
+                    value -= 9
+            total += value
+            double_digit = not double_digit
+        return total % 10 == 0
+
+    @staticmethod
+    def _valid_expiry(value):
+        match = re.fullmatch(r'(0[1-9]|1[0-2])/(\d{2})', str(value or '').strip())
+        if not match:
+            return False
+        year = 2000 + int(match.group(2))
+        month = int(match.group(1))
+        return (year, month) >= (date.today().year, date.today().month)
+
     def to_internal_value(self, data):
         # Encrypt before validating/saving
         # We need to copy data because QueryDict might be immutable
         if hasattr(data, 'copy'):
             data = data.copy()
-        
+
+        errors = {}
+        if 'numero' in data and data['numero'] and not self._valid_luhn(data['numero']):
+            errors['numero'] = 'El número debe contener entre 13 y 19 dígitos válidos.'
+        if 'cvv' in data and data['cvv'] and not re.fullmatch(r'\d{3,4}', str(data['cvv'])):
+            errors['cvv'] = 'El CVV debe contener 3 o 4 dígitos.'
+        if 'fecha_vencimiento' in data and not self._valid_expiry(data['fecha_vencimiento']):
+            errors['fecha_vencimiento'] = 'Use MM/YY con una fecha vigente.'
+        if errors:
+            raise serializers.ValidationError(errors)
+
         # We assume input is raw. If it is already encrypted? We assume API receives raw.
         if 'numero' in data and data['numero']:
             data['numero'] = encrypt_text(data['numero'])
@@ -508,6 +555,16 @@ class CuentaBancariaSerializer(serializers.ModelSerializer):
     class Meta:
         model = CuentaBancaria
         fields = '__all__'
+
+    def validate(self, attrs):
+        errors = {}
+        if 'numero_cuenta' in attrs and not re.fullmatch(r'\d{4,17}', str(attrs['numero_cuenta'])):
+            errors['numero_cuenta'] = 'Debe contener entre 4 y 17 dígitos.'
+        if 'aba_routing' in attrs and not re.fullmatch(r'\d{9}', str(attrs['aba_routing'])):
+            errors['aba_routing'] = 'Debe contener exactamente 9 dígitos.'
+        if errors:
+            raise serializers.ValidationError(errors)
+        return attrs
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
