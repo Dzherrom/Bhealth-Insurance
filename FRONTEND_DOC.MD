@@ -451,18 +451,18 @@ NEXT_PUBLIC_SITE_URL=http://2.25.68.83
 
 ```powershell
 # Terminal 1 — Backend
-cd backend
+   cd backend
 cp .env.local.example .env    # si no existe
 python manage.py migrate
 python manage.py ensure_crm_admin
-python manage.py runserver
+   python manage.py runserver
 
 # Terminal 2 — Frontend
-cd frontend
+   cd frontend
 cp .env.local.example .env.local
 npm install
-npm run dev
-```
+   npm run dev
+   ```
 
 Abrir **http://localhost:3000** → redirect a `/auth/login`.
 
