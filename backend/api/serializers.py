@@ -1,4 +1,5 @@
 from django.contrib.auth.models import User, Group
+from django.db import IntegrityError
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -9,7 +10,7 @@ from .models import (
     Etiqueta, Documento, CarpetaDocumento, Tarea, CambioDeVida, UserProfile, Departamento, TipoProducto,
     InfoPago, TarjetaCredito, CuentaBancaria, PolizaViewer, Cita, Medico, Medicamento, MedicoPoliza, Recordatorio,
     Contrato, ReporteComision, ConfiguracionComision, Notificacion, PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal, ConfiguracionNotificacion,
-    IngresoEmpleador, DocumentoLegalCliente,
+    IngresoEmpleador, DocumentoLegalCliente, Siniestro, SiniestroAdjunto, SiniestroHistorial,
 )
 
 
@@ -59,12 +60,20 @@ def sync_profile_agente_credentials(profile):
 
     user = profile.user
     nombre = f'{user.first_name} {user.last_name}'.strip() or user.username
-    agente = Agente.objects.create(
-        npn=npn,
-        ffm=None,
-        nombre_completo=nombre,
-        agencia=agencia,
-    )
+
+    try:
+        agente = Agente.objects.create(
+            npn=npn,
+            ffm=None,
+            nombre_completo=nombre,
+            agencia=agencia,
+        )
+    except IntegrityError:
+        # Name uniqueness: reuse existing agent instead of duplicating.
+        agente = Agente.objects.filter(nombre_completo__iexact=nombre).order_by('id').first()
+        if not agente:
+            agente = Agente.objects.get(npn=npn)
+
     profile.agente = agente
     profile.save(update_fields=['agente'])
 
@@ -221,10 +230,18 @@ class AgenteSerializer(serializers.ModelSerializer):
     agencia_nombre = serializers.ReadOnlyField(source='agencia.nombre')
     total_polizas = serializers.SerializerMethodField()
     total_clientes = serializers.SerializerMethodField()
+    usuario_username = serializers.SerializerMethodField()
 
     class Meta:
         model = Agente
         fields = '__all__'
+
+    def get_usuario_username(self, obj):
+        try:
+            profile = obj.user_profile
+        except UserProfile.DoesNotExist:
+            return None
+        return profile.user.username if profile and profile.user_id else None
 
     def get_total_polizas(self, obj):
         return obj.polizas.count()
@@ -787,7 +804,13 @@ class CitaSerializer(serializers.ModelSerializer):
         read_only_fields = ('creado_por', 'fecha_creacion')
 
     def get_cliente_nombre(self, obj):
-        return str(obj.cliente) if obj.cliente else None
+        cliente = obj.cliente
+        if cliente is None:
+            principal = next(iter(obj.poliza.polizacliente_set.all()), None)
+            cliente = principal.cliente if principal else None
+        if not cliente:
+            return None
+        return f'{cliente.primer_nombre} {cliente.apellido_paterno}'.strip() or str(cliente)
 
     def validate(self, attrs):
         poliza = attrs.get('poliza') or (self.instance.poliza if self.instance else None)
@@ -799,6 +822,127 @@ class CitaSerializer(serializers.ModelSerializer):
                 'cliente': 'El paciente seleccionado no pertenece a esta póliza.',
             })
         return attrs
+
+
+class SiniestroClienteOptionSerializer(serializers.ModelSerializer):
+    cliente_id = serializers.IntegerField(read_only=True)
+    nombre = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PolizaCliente
+        fields = ['cliente_id', 'nombre', 'es_solicitante_principal', 'es_aplicante', 'relacion']
+
+    def get_nombre(self, obj):
+        cliente = obj.cliente
+        return f'{cliente.primer_nombre} {cliente.apellido_paterno}'.strip()
+
+
+class SiniestroPolizaOptionSerializer(serializers.ModelSerializer):
+    plan_nombre = serializers.ReadOnlyField(source='plan.nombre')
+    tipo_producto_nombre = serializers.ReadOnlyField(source='tipo_producto.nombre')
+    estado_nombre = serializers.ReadOnlyField(source='estado.nombre')
+    clientes = SiniestroClienteOptionSerializer(source='polizacliente_set', many=True, read_only=True)
+
+    class Meta:
+        model = Poliza
+        fields = [
+            'id',
+            'id_mercado',
+            'plan_nombre',
+            'tipo_producto_nombre',
+            'fecha_efectiva',
+            'estado_nombre',
+            'clientes',
+        ]
+
+
+class SiniestroSerializer(serializers.ModelSerializer):
+    poliza_codigo = serializers.ReadOnlyField(source='poliza.id_mercado')
+    cliente_nombre = serializers.SerializerMethodField()
+    estado_display = serializers.CharField(source='get_estado_display', read_only=True)
+    tipo_display = serializers.CharField(source='get_tipo_display', read_only=True)
+    causa_display = serializers.CharField(source='get_causa_display', read_only=True)
+    reportado_por_username = serializers.ReadOnlyField(source='reportado_por.username')
+    asignado_a_username = serializers.ReadOnlyField(source='asignado_a.username')
+
+    class Meta:
+        model = Siniestro
+        fields = '__all__'
+        read_only_fields = ('numero_siniestro', 'reportado_por', 'fecha_reporte', 'ultima_actualizacion')
+
+    def get_cliente_nombre(self, obj):
+        return f'{obj.cliente.primer_nombre} {obj.cliente.apellido_paterno}'.strip()
+
+    def validate(self, attrs):
+        poliza = attrs.get('poliza') or getattr(self.instance, 'poliza', None)
+        cliente = attrs.get('cliente') or getattr(self.instance, 'cliente', None)
+        if not poliza or not cliente:
+            return attrs
+        if self.instance and (
+            poliza.pk != self.instance.poliza_id or cliente.pk != self.instance.cliente_id
+        ):
+            raise serializers.ValidationError(
+                'La póliza y el cliente asociados no se pueden cambiar después de registrar el siniestro.'
+            )
+        if poliza.tipo_producto.nombre.strip().casefold() != 'property & casualty (p&c)'.casefold():
+            raise serializers.ValidationError({
+                'poliza': 'Solo se pueden registrar siniestros para pólizas de Property & Casualty (P&C).',
+            })
+        if not poliza.clientes.filter(pk=cliente.pk).exists():
+            raise serializers.ValidationError({
+                'cliente': 'El cliente seleccionado no está asociado a la póliza.',
+            })
+        return attrs
+
+    def validate_monto_estimado(self, value):
+        if value is not None and value < 0:
+            raise serializers.ValidationError('El monto estimado no puede ser negativo.')
+        return value
+
+
+class SiniestroAdjuntoSerializer(serializers.ModelSerializer):
+    subido_por_username = serializers.ReadOnlyField(source='subido_por.username')
+    download_url = serializers.SerializerMethodField()
+    archivo = serializers.FileField(write_only=True)
+
+    class Meta:
+        model = SiniestroAdjunto
+        fields = ['id', 'siniestro', 'archivo', 'nombre', 'descripcion', 'subido_por', 'subido_por_username', 'fecha_subida', 'download_url']
+        read_only_fields = ('subido_por', 'fecha_subida', 'download_url')
+
+    def validate_archivo(self, archivo):
+        extension = archivo.name.rsplit('.', 1)[-1].lower() if '.' in archivo.name else ''
+        if extension not in {'pdf', 'jpg', 'jpeg', 'png', 'webp'}:
+            raise serializers.ValidationError('Adjunta un PDF o una imagen JPG, PNG o WEBP.')
+        if archivo.size > 20 * 1024 * 1024:
+            raise serializers.ValidationError('Cada evidencia debe pesar 20 MB o menos.')
+        return archivo
+
+    def get_download_url(self, obj):
+        from rest_framework.reverse import reverse
+        request = self.context.get('request')
+        url = reverse('siniestro-adjunto-descargar', kwargs={'pk': obj.pk}, request=request)
+        return url
+
+
+class SiniestroHistorialSerializer(serializers.ModelSerializer):
+    usuario_username = serializers.ReadOnlyField(source='usuario.username')
+
+    class Meta:
+        model = SiniestroHistorial
+        fields = ['id', 'siniestro', 'usuario', 'usuario_username', 'accion', 'detalles', 'fecha']
+
+
+class PolizaClienteCitaOptionSerializer(serializers.ModelSerializer):
+    cliente_nombre = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PolizaCliente
+        fields = ['cliente', 'cliente_nombre', 'es_solicitante_principal', 'relacion']
+
+    def get_cliente_nombre(self, obj):
+        return f'{obj.cliente.primer_nombre} {obj.cliente.apellido_paterno}'.strip()
+
 
 class HistorialPolizaSerializer(serializers.ModelSerializer):
     usuario_username = serializers.ReadOnlyField(source='usuario.username')
@@ -881,6 +1025,12 @@ class PolizaListSerializer(serializers.ModelSerializer):
     estado_pago = serializers.SerializerMethodField()
     estado_pago_display = serializers.SerializerMethodField()
     cliente_principal = serializers.SerializerMethodField()
+    cliente_principal_id = serializers.SerializerMethodField()
+    clientes_info = PolizaClienteCitaOptionSerializer(
+        source='polizacliente_set',
+        many=True,
+        read_only=True,
+    )
 
     class Meta:
         model = Poliza
@@ -914,6 +1064,8 @@ class PolizaListSerializer(serializers.ModelSerializer):
             'total_aplicantes',
             'total_dependientes',
             'cliente_principal',
+            'cliente_principal_id',
+            'clientes_info',
             'ultima_actualizacion',
             'archivada',
             'archivada_en',
@@ -986,6 +1138,13 @@ class PolizaListSerializer(serializers.ModelSerializer):
         apellido = (cliente.apellido_paterno or '').strip()
         full_name = f"{nombre} {apellido}".strip()
         return full_name or str(cliente)
+
+    def get_cliente_principal_id(self, obj):
+        principal_link = next(
+            (pc for pc in obj.polizacliente_set.all() if pc.es_solicitante_principal and pc.cliente_id),
+            None,
+        )
+        return principal_link.cliente_id if principal_link else None
 
 class PolizaSerializer(serializers.ModelSerializer):
     clientes_info = PolizaClienteSerializer(source='polizacliente_set', many=True, read_only=True)

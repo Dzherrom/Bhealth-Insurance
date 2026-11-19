@@ -175,7 +175,7 @@ export function MedicosMedicamentosSection({
         <hr className="border-slate-200 dark:border-slate-600 mx-2 my-4" />
 
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-gray-700 dark:text-white text-sm font-semibold">Medicamentos necesarios</h3>
+          <h3 className="text-gray-700 dark:text-white text-sm font-semibold">Medicamentos</h3>
           <button
             className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md"
             type="button"

@@ -8,7 +8,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { usePermission } from '@/hooks/use-permission';
 import api from '@/lib/api';
@@ -22,6 +21,7 @@ import {
 } from '@/lib/paymentMaskUtils';
 import { PaymentCardFormModal } from '@/components/polizas/PaymentCardFormModal';
 import { PaymentBankFormModal } from '@/components/polizas/PaymentBankFormModal';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface PaymentMethodsSectionProps {
   polizaId: number;
@@ -172,9 +172,19 @@ export function PaymentMethodsSection({
   return (
     <>
       <div className="bg-white shadow-sm border-[1px] border-slate-100 rounded-lg dark:bg-slate-800 dark:border-slate-800 p-4 min-w-0 overflow-hidden">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
           <h2 className="text-gray-700 dark:text-white text-base font-semibold">Información de pago</h2>
-          {onEditInfoPago ? (
+          <div className="flex items-center gap-2">
+            <Select value="" onValueChange={(value) => value === 'tarjeta' ? openAddCard() : openAddBank()}>
+              <SelectTrigger className="h-[30px] w-[190px] text-xs">
+                <SelectValue placeholder="Agregar medio de pago" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="tarjeta">Tarjeta de pago</SelectItem>
+                <SelectItem value="cuenta">Cuenta bancaria</SelectItem>
+              </SelectContent>
+            </Select>
+            {onEditInfoPago ? (
             <button
               className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md"
               type="button"
@@ -183,7 +193,8 @@ export function PaymentMethodsSection({
               <i className="fa-duotone fa-edit" />
               {infoPago ? 'Editar' : 'Agregar'}
             </button>
-          ) : null}
+            ) : null}
+          </div>
         </div>
         <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
 
@@ -206,14 +217,6 @@ export function PaymentMethodsSection({
 
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-gray-700 dark:text-white text-sm font-semibold">Tarjetas de pago</h3>
-          <button
-            className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md"
-            type="button"
-            onClick={openAddCard}
-          >
-            <i className="fa-solid fa-plus" />
-            Agregar
-          </button>
         </div>
         <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
 
@@ -300,14 +303,6 @@ export function PaymentMethodsSection({
 
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-gray-700 dark:text-white text-sm font-semibold">Cuentas bancarias</h3>
-          <button
-            className="flex gap-2 items-center bg-primary text-white hover:bg-primary/90 h-[30px] px-2 text-xs rounded-md"
-            type="button"
-            onClick={openAddBank}
-          >
-            <i className="fa-solid fa-plus" />
-            Agregar
-          </button>
         </div>
         <hr className="border-slate-200 dark:border-slate-600 mx-2 mb-3" />
 

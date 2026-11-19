@@ -99,6 +99,13 @@ const formatTime = (value: string) => {
   });
 };
 
+const formatCurrency = (value?: string | number | null) => {
+  const amount = Number(value ?? 0);
+  return Number.isFinite(amount)
+    ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
+    : '$0.00';
+};
+
 export function CitasPoliza({ polizaId, clientesInfo }: CitasPolizaProps) {
   const { toast } = useToast();
   const [citas, setCitas] = useState<Cita[]>([]);
@@ -295,6 +302,7 @@ export function CitasPoliza({ polizaId, clientesInfo }: CitasPolizaProps) {
                       <TableHead>Paciente</TableHead>
                       <TableHead>Proveedor</TableHead>
                       <TableHead>Lugar</TableHead>
+                      <TableHead>Costo</TableHead>
                       <TableHead>Estado</TableHead>
                       <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
@@ -324,6 +332,7 @@ export function CitasPoliza({ polizaId, clientesInfo }: CitasPolizaProps) {
                             <span className="line-clamp-2">{cita.lugar}</span>
                           </div>
                         </TableCell>
+                        <TableCell className="text-sm">{formatCurrency(cita.costo)}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className={ESTADO_BADGE_CLASS[estado]}>
                             {ESTADO_LABELS[estado]}

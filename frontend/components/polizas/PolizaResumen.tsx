@@ -81,12 +81,12 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
 
   const navItems = [
     { id: 'poliza', icon: <i className="fa-duotone fa-shield-halved"></i>, label: 'Póliza' },
-    { id: 'documentos', icon: <i className="fa-duotone fa-folder"></i>, label: 'Documentos', count: polizaContext?.documentos?.length ?? 0 },
     { id: 'notas', icon: <i className="fa-duotone fa-sticky-note"></i>, label: 'Notas', count: polizaContext?.notas?.length ?? 0, isChat: true },
     { id: 'recordatorios', icon: <i className="fa-duotone fa-bell-on"></i>, label: 'Recordatorios', count: 0 },
     { id: 'direcciones', icon: <i className="fa-duotone fa-location-dot"></i>, label: 'Direcciones' },
     { id: 'cambios', icon: <i className="fa-duotone ml-0.5 fa-family"></i>, label: 'Cambios de vida', isPanel: true },
     { id: 'citas', icon: <i className="fa-duotone ml-0.5 fa-user-doctor-hair"></i>, label: 'Citas médicas' },
+    { id: 'documentos', icon: <i className="fa-duotone fa-file-lines"></i>, label: 'Documentos' },
     { id: 'registros', icon: <i className="fa-duotone fa-list"></i>, label: 'Registros', isModal: true },
   ];
 
@@ -287,11 +287,11 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
             </div>
 
             {/* Navigation Links */}
-            <div className="flex flex-col gap-1 mt-2">
+            <div className="flex flex-col gap-1.5 mt-3">
               {navItems.map((item) => (
                 <div 
                   key={item.id}
-                  className={`flex items-center group font-normal rounded-lg transition-colors cursor-pointer ${
+                  className={`flex items-center group font-normal rounded-lg transition-colors cursor-pointer min-h-12 px-1 ${
                     activeSection === item.id 
                       ? 'bg-blue-100 dark:bg-primary/20' 
                       : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
@@ -309,7 +309,7 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
                   }}
                 >
                   <div className="flex flex-1 items-center font-normal w-full">
-                    <span className={`px-3 py-2 gap-4 w-11 h-10 flex justify-start items-center rounded-md ${
+                    <span className={`px-3 py-2 gap-4 w-12 h-12 flex justify-start items-center rounded-md text-base ${
                       activeSection === item.id 
                         ? 'text-primary dark:text-blue-400' 
                         : 'text-slate-500 dark:text-slate-400 group-hover:text-primary dark:group-hover:text-white'
@@ -317,7 +317,7 @@ export function PolizaResumen({ poliza, polizaContext, activeSection = 'poliza',
                       {item.icon}
                     </span>
                     <div className="flex justify-between items-center flex-1 pr-2">
-                      <span className={`text-sm text-left ${
+                      <span className={`text-[15px] text-left ${
                         activeSection === item.id 
                           ? 'text-primary dark:text-white font-medium' 
                           : 'text-gray-700 dark:text-slate-300 group-hover:text-primary dark:group-hover:text-white'

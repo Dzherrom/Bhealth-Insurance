@@ -1,6 +1,9 @@
 import uuid
+from decimal import Decimal, ROUND_HALF_UP
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import Q
+from django.db.models.functions import Lower, Trim
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save, post_delete, m2m_changed, pre_save
 from django.dispatch import receiver
@@ -60,6 +63,15 @@ class Agente(models.Model):
     ffm = models.CharField(max_length=100, blank=True, null=True, verbose_name="FFM Mercado")
     nombre_completo = models.CharField(max_length=255, verbose_name="Nombre Completo")
     agencia = models.ForeignKey(Agencia, on_delete=models.CASCADE, related_name='agentes')
+
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                Lower(Trim('nombre_completo')),
+                name='unique_agente_nombre_normalized',
+            ),
+        ]
 
     def __str__(self):
         return self.nombre_completo
@@ -372,6 +384,35 @@ class Poliza(models.Model):
     medico_hospital = models.CharField(max_length=255, blank=True, null=True, verbose_name="Hospital del Médico")
     medicamentos_necesarios = models.TextField(blank=True, null=True, verbose_name="Medicamentos Necesarios")
     medicamentos_dosis = models.CharField(max_length=255, blank=True, null=True, verbose_name="Dosis de Medicamentos")
+
+    def calculate_prima_mensual(self) -> Decimal:
+        '''Calcula la prima mensual neta (pago del cliente).
+
+        Regla (tratando los valores como mensuales):
+        - prima_mensual = max(costo_poliza - subsidio - credito_fiscal, 0)
+
+        Nota: Actualmente el modelo solo tiene `subsidio`, pero soportamos
+        `credito_fiscal` si se agrega en el futuro.
+        '''
+
+        costo_poliza = self.costo_poliza or Decimal('0')
+        subsidio = self.subsidio or Decimal('0')
+        credito_fiscal = getattr(self, 'credito_fiscal', None) or Decimal('0')
+
+        net = costo_poliza - subsidio - credito_fiscal
+        if net < 0:
+            net = Decimal('0')
+        return net.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    def save(self, *args, **kwargs):
+        # Siempre recalcula la prima mensual antes de persistir.
+        self.prima_mensual = self.calculate_prima_mensual()
+
+        update_fields = kwargs.get('update_fields')
+        if update_fields is not None and 'prima_mensual' not in update_fields:
+            kwargs['update_fields'] = set(update_fields) | {'prima_mensual'}
+
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.id_mercado
@@ -791,6 +832,13 @@ class Cita(models.Model):
     fecha_hora = models.DateTimeField(verbose_name="Fecha y Hora")
     proveedor = models.CharField(max_length=255, verbose_name="Proveedor/Doctor")
     lugar = models.CharField(max_length=255, verbose_name="Lugar/Dirección")
+    costo = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        validators=[MinValueValidator(0)],
+        verbose_name="Costo de la cita",
+    )
     motivo = models.TextField(blank=True, null=True, verbose_name="Motivo de la Cita")
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='PROGRAMADA', verbose_name="Estado")
     notas = models.TextField(blank=True, null=True, verbose_name="Notas Adicionales")
@@ -801,9 +849,124 @@ class Cita(models.Model):
         verbose_name = "Cita Médica"
         verbose_name_plural = "Citas Médicas"
         ordering = ['fecha_hora']
+        indexes = [
+            models.Index(fields=['estado', 'fecha_hora'], name='api_cita_est_fecha_idx'),
+        ]
 
     def __str__(self):
         return f"Cita {self.cliente} - {self.fecha_hora.date()}"
+
+
+class Siniestro(models.Model):
+    TIPO_CHOICES = [
+        ('HOGAR', 'Hogar'),
+        ('AUTO', 'Auto'),
+        ('RESPONSABILIDAD_CIVIL', 'Responsabilidad civil'),
+        ('OTRO', 'Otro'),
+    ]
+    CAUSA_CHOICES = [
+        ('INCENDIO', 'Incendio'),
+        ('AGUA', 'Daño por agua o tuberías'),
+        ('ROBO', 'Robo'),
+        ('VANDALISMO', 'Vandalismo'),
+        ('TORMENTA_GRANIZO', 'Tormenta o granizo'),
+        ('COLISION', 'Colisión'),
+        ('ROBO_VEHICULO', 'Robo de vehículo'),
+        ('RESPONSABILIDAD_CIVIL', 'Responsabilidad civil'),
+        ('OTRO', 'Otro'),
+    ]
+    ESTADO_CHOICES = [
+        ('RECIBIDO', 'Recibido'),
+        ('EN_REVISION', 'En revisión'),
+        ('ENVIADO_A_ASEGURADORA', 'Enviado a aseguradora'),
+        ('EN_SEGUIMIENTO', 'En seguimiento'),
+        ('RESUELTO', 'Resuelto'),
+        ('RECHAZADO', 'Rechazado'),
+        ('CERRADO', 'Cerrado'),
+    ]
+
+    numero_siniestro = models.CharField(max_length=32, unique=True, null=True, blank=True)
+    poliza = models.ForeignKey(
+        Poliza,
+        on_delete=models.PROTECT,
+        related_name='siniestros',
+        verbose_name='Póliza',
+    )
+    cliente = models.ForeignKey(
+        Cliente,
+        on_delete=models.PROTECT,
+        related_name='siniestros',
+        verbose_name='Cliente afectado',
+    )
+    tipo = models.CharField(max_length=30, choices=TIPO_CHOICES, default='HOGAR')
+    causa = models.CharField(max_length=30, choices=CAUSA_CHOICES, default='OTRO')
+    fecha_evento = models.DateTimeField(verbose_name='Fecha y hora del evento')
+    lugar_evento = models.CharField(max_length=500)
+    descripcion = models.TextField()
+    monto_estimado = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    numero_reclamo_aseguradora = models.CharField(max_length=100, blank=True, default='')
+    contacto_aseguradora = models.CharField(max_length=255, blank=True, default='')
+    estado = models.CharField(max_length=30, choices=ESTADO_CHOICES, default='RECIBIDO')
+    reportado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='siniestros_reportados',
+    )
+    asignado_a = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='siniestros_asignados',
+    )
+    fecha_reporte = models.DateTimeField(auto_now_add=True)
+    ultima_actualizacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-fecha_reporte', '-id']
+        indexes = [
+            models.Index(fields=['estado', 'fecha_reporte']),
+            models.Index(fields=['poliza', 'cliente']),
+        ]
+
+    def save(self, *args, **kwargs):
+        create_number = self.pk is None and not self.numero_siniestro
+        super().save(*args, **kwargs)
+        if create_number:
+            year = self.fecha_reporte.year if self.fecha_reporte else timezone.localdate().year
+            self.numero_siniestro = f'SIN-{year}-{self.pk:06d}'
+            type(self).objects.filter(pk=self.pk).update(numero_siniestro=self.numero_siniestro)
+
+    def __str__(self):
+        return self.numero_siniestro or f'Siniestro #{self.pk}'
+
+
+class SiniestroAdjunto(models.Model):
+    siniestro = models.ForeignKey(Siniestro, on_delete=models.CASCADE, related_name='adjuntos')
+    archivo = models.FileField(upload_to='siniestros/%Y/%m/')
+    nombre = models.CharField(max_length=255)
+    descripcion = models.CharField(max_length=500, blank=True, default='')
+    subido_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    fecha_subida = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-fecha_subida', '-id']
+
+    def __str__(self):
+        return f'{self.nombre} - {self.siniestro}'
+
+
+class SiniestroHistorial(models.Model):
+    siniestro = models.ForeignKey(Siniestro, on_delete=models.CASCADE, related_name='historial')
+    usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    accion = models.CharField(max_length=100)
+    detalles = models.TextField(blank=True, default='')
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-fecha', '-id']
+
 
 class Medicamento(models.Model):
     poliza = models.ForeignKey(Poliza, on_delete=models.CASCADE, related_name='medicamentos', verbose_name="Póliza")

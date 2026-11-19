@@ -22,6 +22,15 @@ const TIPO_VENTA_OPTIONS = [
   { value: 'RENOVACION', label: 'Renovación' },
 ];
 
+function calculatePrimaMensual(costoPoliza: string, subsidio: string): string {
+  const costo = parseFloat(costoPoliza || '0');
+  const sub = parseFloat(subsidio || '0');
+  const costoValue = Number.isFinite(costo) ? costo : 0;
+  const subsidioValue = Number.isFinite(sub) ? sub : 0;
+  const net = Math.max(costoValue - subsidioValue, 0);
+  return net.toFixed(2);
+}
+
 interface EditPlanDetailsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -143,6 +152,8 @@ export function EditPlanDetailsModal({ open, onOpenChange, poliza, onSaved }: Ed
     if (!open || !poliza) return;
 
     const aseguradoraId = poliza.aseguradora ?? '';
+    const costoPoliza = poliza.costo_poliza?.toString() || '';
+    const subsidio = poliza.subsidio?.toString() || '';
 
     setForm({
       tipo_producto: poliza.tipo_producto ? String(poliza.tipo_producto) : '',
@@ -154,9 +165,9 @@ export function EditPlanDetailsModal({ open, onOpenChange, poliza, onSaved }: Ed
       id_mercado: poliza.id_mercado || '',
       id_miembro: poliza.id_miembro || '',
       id_plan_cms: poliza.id_plan_cms || '',
-      costo_poliza: poliza.costo_poliza?.toString() || '',
-      subsidio: poliza.subsidio?.toString() || '',
-      prima_mensual: poliza.prima_mensual?.toString() || '',
+      costo_poliza: costoPoliza,
+      subsidio,
+      prima_mensual: calculatePrimaMensual(costoPoliza, subsidio),
       tipo_inscripcion: poliza.tipo_inscripcion || '',
       ffm_mercado: poliza.ffm_mercado || '',
       npn_mercado: poliza.npn_mercado || '',
@@ -186,7 +197,17 @@ export function EditPlanDetailsModal({ open, onOpenChange, poliza, onSaved }: Ed
   }, [open]);
 
   const updateField = (field: string, value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    setForm((prev) => {
+      if (field === 'prima_mensual') {
+        return prev;
+      }
+
+      const next = { ...prev, [field]: value };
+      if (field === 'costo_poliza' || field === 'subsidio') {
+        next.prima_mensual = calculatePrimaMensual(next.costo_poliza, next.subsidio);
+      }
+      return next;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -199,6 +220,7 @@ export function EditPlanDetailsModal({ open, onOpenChange, poliza, onSaved }: Ed
 
     setSaving(true);
     try {
+      const primaMensual = calculatePrimaMensual(form.costo_poliza, form.subsidio);
       const payload: Record<string, unknown> = {
         tipo_producto: form.tipo_producto ? Number(form.tipo_producto) : null,
         aseguradora: form.aseguradora ? Number(form.aseguradora) : null,
@@ -211,7 +233,7 @@ export function EditPlanDetailsModal({ open, onOpenChange, poliza, onSaved }: Ed
         id_plan_cms: form.id_plan_cms || null,
         costo_poliza: form.costo_poliza ? parseFloat(form.costo_poliza) : 0,
         subsidio: form.subsidio ? parseFloat(form.subsidio) : 0,
-        prima_mensual: form.prima_mensual ? parseFloat(form.prima_mensual) : 0,
+        prima_mensual: parseFloat(primaMensual),
         tipo_inscripcion: form.tipo_inscripcion || null,
         ffm_mercado: form.ffm_mercado || null,
         npn_mercado: form.npn_mercado || null,

@@ -203,6 +203,13 @@ export interface PolizaListResponse {
   total_dependientes?: number;
   ultima_actualizacion?: string;
   cliente_principal?: string;
+  cliente_principal_id?: number | null;
+  clientes_info?: Array<{
+    cliente: number;
+    cliente_nombre: string;
+    es_solicitante_principal: boolean;
+    relacion: string;
+  }>;
   archivada?: boolean;
   archivada_en?: string | null;
   fecha_creacion?: string;
@@ -214,7 +221,6 @@ export interface PolizaListResponse {
   fecha_proximo_pago?: string;
   forma_pago?: string;
   notas?: string;
-  clientes_info?: ClientePolizaDetails[];
 }
 
 // ===============================
@@ -234,8 +240,9 @@ export interface Plan extends BaseEntity {
 export interface EstadoPoliza extends BaseEntity {
   nombre: string;
   descripcion?: string;
-  activo: boolean;
+  activo?: boolean;
   color?: string;
+  disponible_para_agentes?: boolean;
 }
 
 export interface Aseguradora extends BaseEntity {

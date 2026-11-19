@@ -7,7 +7,8 @@ import { UsersFilters } from '@/components/users/UsersFilters';
 import BoxComponent from '@/components/boxes/BoxComponent';
 import { UsersList } from '@/components/users/UsersList';
 import { User } from '@/components/users/types';
-import { authApi, departamentosApi, resolveApiMediaUrl, usersApi, type Departamento } from '@/lib/api';
+import { agentesApi, authApi, departamentosApi, resolveApiMediaUrl, usersApi, type Departamento } from '@/lib/api';
+import type { Agente } from '@/types/agencias';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -58,6 +59,7 @@ interface CreateUserForm {
   status: string;
   phone: string;
   departamento: number | null;
+  agente: number | null;
 }
 
 interface EditUserForm {
@@ -156,6 +158,7 @@ export default function UsersPage() {
   const [selectedUser, setSelectedUser] = useState<ApiUser | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [departments, setDepartments] = useState<Departamento[]>([]);
+  const [unlinkedAgents, setUnlinkedAgents] = useState<Agente[]>([]);
   const [createForm, setCreateForm] = useState<CreateUserForm>({
     username: '',
     email: '',
@@ -166,6 +169,7 @@ export default function UsersPage() {
     status: 'ACTIVE',
     phone: '',
     departamento: null,
+    agente: null,
   });
   const [editForm, setEditForm] = useState<EditUserForm>({
     firstName: '',
@@ -186,6 +190,9 @@ export default function UsersPage() {
 
   useEffect(() => {
     departamentosApi.list().then(setDepartments).catch(() => setDepartments([]));
+    agentesApi.list({ todos: '1' }).then((agents) => {
+      setUnlinkedAgents(agents.filter((agent) => !agent.usuario_username));
+    }).catch(() => setUnlinkedAgents([]));
   }, []);
 
   const fetchUsers = useCallback(async () => {
@@ -334,7 +341,7 @@ export default function UsersPage() {
           telefono: editForm.phone,
           departamento: editForm.departamento,
         },
-      } as any);
+      });
 
       await fetchUsers();
       setIsEditModalOpen(false);
@@ -379,6 +386,9 @@ export default function UsersPage() {
     setIsCreating(true);
 
     try {
+      if (createForm.role === 'AGENTE' && !createForm.agente) {
+        throw new Error('Selecciona el registro de agente que se vinculará a este usuario.');
+      }
       const registered = await authApi.register({
         username: createForm.username,
         email: createForm.email,
@@ -398,6 +408,7 @@ export default function UsersPage() {
           status: createForm.status,
           telefono: createForm.phone || '',
           departamento: createForm.departamento,
+          agente: createForm.role === 'AGENTE' ? createForm.agente : null,
         },
       } as any);
 
@@ -413,6 +424,7 @@ export default function UsersPage() {
         status: 'ACTIVE',
         phone: '',
         departamento: null,
+        agente: null,
       });
       toast({
         title: 'Usuario creado',
@@ -558,6 +570,7 @@ export default function UsersPage() {
                   onChange={(e) => setCreateForm((prev) => ({ ...prev, username: e.target.value }))}
                   required
                 />
+                <p className="text-xs text-muted-foreground">Se mostrará como @{createForm.username || 'usuario'} al mencionar en notas.</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Correo</Label>
@@ -615,6 +628,7 @@ export default function UsersPage() {
                     setCreateForm((prev) => ({
                       ...prev,
                       role: nextRole,
+                      agente: nextRole === 'AGENTE' ? prev.agente : null,
                       departamento: resolveDepartamentoForRole(nextRole, departments, prev.departamento),
                     }));
                   }}
@@ -648,6 +662,29 @@ export default function UsersPage() {
                   ))}
                 </select>
               </div>
+              {createForm.role === 'AGENTE' && (
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="linked-agent">Registro de agente</Label>
+                  <select
+                    id="linked-agent"
+                    value={createForm.agente ?? ''}
+                    onChange={(event) => setCreateForm((prev) => ({
+                      ...prev,
+                      agente: event.target.value ? Number(event.target.value) : null,
+                    }))}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    required
+                  >
+                    <option value="">Selecciona el agente</option>
+                    {unlinkedAgents.map((agent) => (
+                      <option key={agent.id} value={agent.id}>{agent.nombre_completo} · {agent.npn}</option>
+                    ))}
+                  </select>
+                  {unlinkedAgents.length === 0 && (
+                    <p className="text-xs text-amber-700 dark:text-amber-400">No hay agentes disponibles sin usuario vinculado.</p>
+                  )}
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="status">Estado</Label>
                 <select

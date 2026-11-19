@@ -112,10 +112,16 @@ export function NotasChat({ isOpen, onClose, onClosed, polizaInfo }: NotasChatPr
 
   const loadUsuarios = async () => {
     try {
-      const data = await usersApi.list();
-      let arr = data as any;
-      if (arr.results) arr = arr.results;
-      setUsuarios(arr);
+      const users: any[] = [];
+      let page = 1;
+      let hasNext = true;
+      while (hasNext && page <= 100) {
+        const result = await usersApi.listPaginated({ page, page_size: 100, empleados: '1' });
+        users.push(...result.results);
+        hasNext = Boolean(result.next);
+        page += 1;
+      }
+      setUsuarios(users);
     } catch (e) {
       console.error('Error cargando usuarios para menciones:', e);
     }

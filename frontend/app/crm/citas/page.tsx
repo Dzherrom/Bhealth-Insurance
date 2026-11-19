@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -24,8 +24,17 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { CalendarDays, Clock3, FileText, MapPin, Search, SquarePen, User2, Plus } from 'lucide-react';
-import { citasApi, polizasApi } from '@/lib/api';
+import { CalendarDays, Check, ChevronsUpDown, Clock3, FileText, Loader2, MapPin, Search, SquarePen, User2, Plus } from 'lucide-react';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { citasApi, polizasApi, type CitaResumen } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 
 type CitaApi = Awaited<ReturnType<typeof citasApi.list>>[number];
@@ -39,35 +48,14 @@ type AppointmentFormValues = {
   hora: string;
   proveedor: string;
   lugar: string;
+  costo: string;
+  pacienteId: string;
   estado: EstadoCita;
   motivo: string;
   notas: string;
 };
 
 const ITEMS_PER_PAGE = 50;
-
-const MOCK_CITAS: CitaApi[] = [
-  {
-    id: 1,
-    poliza: 34,
-    poliza_codigo: 'MKT-DEMO-034',
-    cliente_nombre: null,
-    fecha_hora: '2026-05-13T03:00:00',
-    proveedor: 'Pepito',
-    lugar: 'Florida',
-    estado: 'PROGRAMADA',
-  },
-  {
-    id: 2,
-    poliza: 1,
-    poliza_codigo: 'MKT-DEMO-001',
-    cliente_nombre: null,
-    fecha_hora: '2026-05-15T03:00:00',
-    proveedor: 'Raymundo',
-    lugar: 'Florida',
-    estado: 'PROGRAMADA',
-  },
-];
 
 const ESTADO_LABELS: Record<EstadoCita, string> = {
   PROGRAMADA: 'Programada',
@@ -109,11 +97,24 @@ const formatTime = (value: string) => {
   });
 };
 
+const formatCurrency = (value?: string | number | null) => {
+  const amount = Number(value ?? 0);
+  if (!Number.isFinite(amount)) return '$0.00';
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+};
+
 export default function CitasPage() {
   const { toast } = useToast();
   const [citas, setCitas] = useState<CitaApi[]>([]);
-  const [polizas, setPolizas] = useState<PolizaApi[]>([]);
+  const [citasCount, setCitasCount] = useState(0);
+  const [resumen, setResumen] = useState<CitaResumen>({ total: 0, programadas: 0, completadas: 0, canceladas: 0 });
+  const [policyOptions, setPolicyOptions] = useState<PolizaApi[]>([]);
+  const [selectedPoliza, setSelectedPoliza] = useState<PolizaApi | null>(null);
+  const [policySearch, setPolicySearch] = useState('');
+  const [isPolicyPickerOpen, setIsPolicyPickerOpen] = useState(false);
+  const [isPolicySearching, setIsPolicySearching] = useState(false);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [estadoFilter, setEstadoFilter] = useState<'ALL' | EstadoCita>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
@@ -126,83 +127,132 @@ export default function CitasPage() {
     hora: '',
     proveedor: '',
     lugar: '',
+    costo: '0',
+    pacienteId: '',
     estado: 'PROGRAMADA',
     motivo: '',
     notas: '',
   });
 
-  const polizaByCodigo = useMemo(
-    () => new Map(polizas.map((poliza) => [poliza.id_mercado, poliza])),
-    [polizas]
-  );
-
-  const selectedPoliza = useMemo(
-    () => polizaByCodigo.get(formValues.polizaCodigo.trim()),
-    [formValues.polizaCodigo, polizaByCodigo]
-  );
-
   const resetForm = () => {
     setEditingCitaId(null);
+    setSelectedPoliza(null);
+    setPolicyOptions([]);
     setFormValues({
       polizaCodigo: '',
       fecha: '',
       hora: '',
       proveedor: '',
       lugar: '',
+      costo: '0',
+      pacienteId: '',
       estado: 'PROGRAMADA',
       motivo: '',
       notas: '',
     });
+    setPolicySearch('');
+    setIsPolicyPickerOpen(false);
   };
 
-  const loadCitas = async () => {
+  const loadCitas = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [data, polizasData] = await Promise.all([citasApi.list(), polizasApi.list()]);
-      setPolizas(polizasData);
-      setCitas(data.length > 0 ? data : MOCK_CITAS);
-    } catch {
-      setCitas(MOCK_CITAS);
+      const page = await citasApi.listPaginated({
+        page: currentPage,
+        page_size: ITEMS_PER_PAGE,
+        search: debouncedSearch,
+        estado: estadoFilter === 'ALL' ? undefined : estadoFilter,
+      });
+      setCitas(page.results);
+      setCitasCount(page.count);
+    } catch (error) {
+      console.error(error);
+      setCitas([]);
+      setCitasCount(0);
+      toast({ title: 'No se pudieron cargar las citas', variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [currentPage, debouncedSearch, estadoFilter, toast]);
+
+  const loadResumen = useCallback(async () => {
+    try {
+      setResumen(await citasApi.resumen());
+    } catch (error) {
+      console.error(error);
+      toast({ title: 'No se pudo cargar el resumen de citas', variant: 'destructive' });
+    }
+  }, [toast]);
 
   useEffect(() => {
-    loadCitas();
-  }, []);
+    void loadCitas();
+  }, [loadCitas]);
+
+  useEffect(() => {
+    void loadResumen();
+  }, [loadResumen]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    if (!isDialogOpen || policySearch.trim().length < 2) {
+      setPolicyOptions([]);
+      setIsPolicySearching(false);
+      return;
+    }
+
+    let active = true;
+    setIsPolicySearching(true);
+    const timer = window.setTimeout(async () => {
+      try {
+        const page = await polizasApi.listPaginated({
+          page: 1,
+          page_size: 30,
+          search: policySearch.trim(),
+        });
+        if (!active) return;
+        setPolicyOptions(page.results);
+        const selected = page.results.find((policy) => String(policy.id) === formValues.polizaCodigo);
+        if (selected) {
+          setSelectedPoliza(selected);
+          setFormValues((previous) => ({
+            ...previous,
+            pacienteId: previous.pacienteId || String(
+              selected.cliente_principal_id
+              ?? selected.clientes_info?.find((member) => member.es_solicitante_principal)?.cliente
+              ?? '',
+            ),
+          }));
+        }
+      } catch (error) {
+        if (!active) return;
+        console.error(error);
+        setPolicyOptions([]);
+        toast({ title: 'No se pudieron buscar pólizas', variant: 'destructive' });
+      } finally {
+        if (active) setIsPolicySearching(false);
+      }
+    }, 250);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [formValues.polizaCodigo, isDialogOpen, policySearch, toast]);
 
   const citasConEstado = useMemo(
     () =>
       citas.map((cita) => ({
         ...cita,
         estado: toEstadoCita(cita.estado),
-        poliza_codigo: cita.poliza_codigo || polizas.find((poliza) => poliza.id === cita.poliza)?.id_mercado || `#${cita.poliza}`,
+        poliza_codigo: cita.poliza_codigo || `#${cita.poliza}`,
       })),
-    [citas, polizas]
+    [citas]
   );
 
-  const filteredCitas = useMemo(() => {
-    const searchTerm = search.trim().toLowerCase();
-
-    return citasConEstado.filter((cita) => {
-      const statusOk = estadoFilter === 'ALL' || cita.estado === estadoFilter;
-      if (!statusOk) return false;
-      if (!searchTerm) return true;
-
-      const polizaText = `${cita.poliza_codigo || `#${cita.poliza}`}`;
-      const cliente = (cita.cliente_nombre || '--').toLowerCase();
-
-      return (
-        cita.proveedor.toLowerCase().includes(searchTerm) ||
-        cita.lugar.toLowerCase().includes(searchTerm) ||
-        polizaText.toLowerCase().includes(searchTerm) ||
-        cliente.includes(searchTerm)
-      );
-    });
-  }, [citasConEstado, search, estadoFilter]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredCitas.length / ITEMS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(citasCount / ITEMS_PER_PAGE));
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -210,15 +260,7 @@ export default function CitasPage() {
     }
   }, [currentPage, totalPages]);
 
-  const paginatedCitas = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredCitas.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredCitas, currentPage]);
-
-  const total = citasConEstado.length;
-  const totalProgramadas = citasConEstado.filter((c) => c.estado === 'PROGRAMADA').length;
-  const totalCompletadas = citasConEstado.filter((c) => c.estado === 'COMPLETADA').length;
-  const totalCanceladas = citasConEstado.filter((c) => c.estado === 'CANCELADA').length;
+  const paginatedCitas = citasConEstado;
 
   const openCreateDialog = () => {
     resetForm();
@@ -233,16 +275,21 @@ export default function CitasPage() {
       : citaDate.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit', hour12: false });
 
     setEditingCitaId(cita.id ?? null);
+    setSelectedPoliza(null);
+    setPolicyOptions([]);
     setFormValues({
-      polizaCodigo: cita.poliza_codigo || polizas.find((poliza) => poliza.id === cita.poliza)?.id_mercado || '',
+      polizaCodigo: String(cita.poliza),
       fecha,
       hora,
       proveedor: cita.proveedor,
       lugar: cita.lugar,
+      costo: String(cita.costo ?? '0'),
+      pacienteId: cita.cliente ? String(cita.cliente) : '',
       estado: toEstadoCita(cita.estado),
       motivo: cita.motivo || '',
       notas: cita.notas || '',
     });
+    setPolicySearch(cita.poliza_codigo || '');
     setIsDialogOpen(true);
   };
 
@@ -251,9 +298,13 @@ export default function CitasPage() {
   };
 
   const saveCita = async () => {
-    const selectedPoliza = polizaByCodigo.get(formValues.polizaCodigo.trim());
-    if (!selectedPoliza) {
+    if (!selectedPoliza || String(selectedPoliza.id) !== formValues.polizaCodigo) {
       toast({ title: 'Selecciona un codigo de poliza valido', variant: 'destructive' });
+      return;
+    }
+
+    if (!formValues.pacienteId) {
+      toast({ title: 'Selecciona el paciente de la póliza', variant: 'destructive' });
       return;
     }
 
@@ -262,15 +313,15 @@ export default function CitasPage() {
       return;
     }
 
-    const clientePrincipal = selectedPoliza.clientes_info?.find((cliente) => cliente.es_solicitante_principal)?.cliente;
     const fecha_hora = `${formValues.fecha}T${formValues.hora}:00`;
 
     const payload = {
       poliza: selectedPoliza.id,
-      cliente: clientePrincipal || null,
+      cliente: Number(formValues.pacienteId),
       fecha_hora,
       proveedor: formValues.proveedor.trim(),
       lugar: formValues.lugar.trim(),
+      costo: formValues.costo ? Number(formValues.costo) : 0,
       estado: formValues.estado,
       motivo: formValues.motivo.trim(),
       notas: formValues.notas.trim(),
@@ -288,7 +339,7 @@ export default function CitasPage() {
 
       setIsDialogOpen(false);
       resetForm();
-      await loadCitas();
+      await Promise.all([loadCitas(), loadResumen()]);
     } catch (error) {
       console.error(error);
       toast({ title: 'No se pudo guardar la cita', variant: 'destructive' });
@@ -307,10 +358,13 @@ export default function CitasPage() {
 
     try {
       await citasApi.patch(citaId, { estado: 'CANCELADA' });
-    } catch {
+      await Promise.all([loadCitas(), loadResumen()]);
+    } catch (error) {
+      console.error(error);
       setCitas((prev) =>
         prev.map((cita) => (cita.id === citaId ? { ...cita, estado: current.estado } : cita))
       );
+      toast({ title: 'No se pudo cancelar la cita', variant: 'destructive' });
     }
   };
 
@@ -334,7 +388,7 @@ export default function CitasPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground dark:text-gray-400">Total</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{total}</p>
+            <p className="text-3xl font-bold">{resumen.total}</p>
           </CardContent>
         </Card>
 
@@ -343,7 +397,7 @@ export default function CitasPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground dark:text-gray-400">Programadas</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-blue-600">{totalProgramadas}</p>
+            <p className="text-3xl font-bold text-blue-600">{resumen.programadas}</p>
           </CardContent>
         </Card>
 
@@ -352,7 +406,7 @@ export default function CitasPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground dark:text-gray-400">Completadas</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-emerald-600">{totalCompletadas}</p>
+            <p className="text-3xl font-bold text-emerald-600">{resumen.completadas}</p>
           </CardContent>
         </Card>
 
@@ -361,7 +415,7 @@ export default function CitasPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground dark:text-gray-400">Canceladas</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-red-600">{totalCanceladas}</p>
+            <p className="text-3xl font-bold text-red-600">{resumen.canceladas}</p>
           </CardContent>
         </Card>
       </div>
@@ -414,6 +468,7 @@ export default function CitasPage() {
                 <TableHead>Lugar</TableHead>
                 <TableHead>Poliza</TableHead>
                 <TableHead>Cliente</TableHead>
+                <TableHead>Costo</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead className="pr-6 text-right">Acciones</TableHead>
               </TableRow>
@@ -421,7 +476,7 @@ export default function CitasPage() {
             <TableBody>
               {!isLoading && paginatedCitas.length === 0 && (
                 <TableRow>
-                  <TableCell className="h-24 text-center text-muted-foreground dark:text-gray-400" colSpan={7}>
+                  <TableCell className="h-24 text-center text-muted-foreground dark:text-gray-400" colSpan={8}>
                     No hay citas para los filtros seleccionados.
                   </TableCell>
                 </TableRow>
@@ -467,6 +522,7 @@ export default function CitasPage() {
                   </TableCell>
 
                   <TableCell>{cita.cliente_nombre || '--'}</TableCell>
+                  <TableCell>{formatCurrency(cita.costo)}</TableCell>
 
                   <TableCell>
                     <Badge variant="outline" className={ESTADO_BADGE_CLASS[cita.estado]}>
@@ -500,10 +556,10 @@ export default function CitasPage() {
             </TableBody>
           </Table>
 
-          {filteredCitas.length > ITEMS_PER_PAGE && (
+          {citasCount > ITEMS_PER_PAGE && (
             <div className="flex items-center justify-between border-t px-6 py-4">
               <p className="text-sm text-muted-foreground dark:text-gray-400">
-                Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredCitas.length)} de {filteredCitas.length} citas
+                Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, citasCount)} de {citasCount} citas
               </p>
 
               <div className="flex items-center gap-2">
@@ -536,39 +592,118 @@ export default function CitasPage() {
         setIsDialogOpen(open);
         if (!open) resetForm();
       }}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-2xl flex max-h-[90vh] flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle>{editingCitaId ? 'Editar cita' : 'Nueva cita'}</DialogTitle>
           </DialogHeader>
 
-          <div className="grid gap-4 py-2 md:grid-cols-2">
+          <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto px-1 py-2 md:grid-cols-2">
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="polizaCodigo">Póliza</Label>
-              <Select value={formValues.polizaCodigo} onValueChange={(value) => handleFormChange('polizaCodigo', value)}>
-                <SelectTrigger id="polizaCodigo">
-                  <SelectValue placeholder="Selecciona una póliza existente" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[560px] overflow-y-auto">
-                  {polizas.map((poliza) => (
-                    <SelectItem key={poliza.id} value={poliza.id_mercado}>
-                      {poliza.id_mercado}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={isPolicyPickerOpen} onOpenChange={setIsPolicyPickerOpen} modal>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="polizaCodigo"
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={isPolicyPickerOpen}
+                    className="w-full justify-between font-normal"
+                  >
+                    <span className="truncate text-left">
+                      {selectedPoliza
+                        ? `${selectedPoliza.cliente_principal || 'Sin titular'} · ${selectedPoliza.id_mercado}`
+                        : 'Selecciona una póliza existente'}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[100]" align="start">
+                  <Command shouldFilter={false} className="overflow-hidden">
+                    <CommandInput
+                      placeholder="Buscar por cliente, agente, plan o código de póliza..."
+                      value={policySearch}
+                      onValueChange={(value) => {
+                        setPolicySearch(value);
+                        setSelectedPoliza(null);
+                        handleFormChange('polizaCodigo', '');
+                        handleFormChange('pacienteId', '');
+                      }}
+                    />
+                    <CommandList>
+                      {isPolicySearching ? (
+                        <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Buscando pólizas...
+                        </div>
+                      ) : policySearch.trim().length < 2 ? (
+                        <CommandEmpty>Escribe al menos 2 caracteres para buscar.</CommandEmpty>
+                      ) : policyOptions.length === 0 ? (
+                        <CommandEmpty>No se encontraron pólizas.</CommandEmpty>
+                      ) : (
+                        <CommandGroup>
+                          {policyOptions.map((poliza) => (
+                            <CommandItem
+                              key={poliza.id}
+                              value={String(poliza.id)}
+                              onSelect={() => {
+                                setSelectedPoliza(poliza);
+                                handleFormChange('polizaCodigo', String(poliza.id));
+                                handleFormChange(
+                                  'pacienteId',
+                                  String(poliza.cliente_principal_id
+                                    ?? poliza.clientes_info?.find((member) => member.es_solicitante_principal)?.cliente
+                                    ?? poliza.clientes_info?.[0]?.cliente
+                                    ?? ''),
+                                );
+                                setPolicySearch(poliza.id_mercado);
+                                setIsPolicyPickerOpen(false);
+                              }}
+                            >
+                              <Check className={`mr-2 h-4 w-4 ${selectedPoliza?.id === poliza.id ? 'opacity-100' : 'opacity-0'}`} />
+                              <span className="truncate">
+                                {poliza.cliente_principal || 'Sin titular'} · {poliza.agente_nombre || 'Sin agente'} · {poliza.plan_nombre || 'Sin plan'} · {poliza.id_mercado}
+                              </span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      )}
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
               {selectedPoliza && (
                 <div className="rounded-md border dark:border-[#334155] bg-slate-50 dark:bg-[#0f172a] px-3 py-2 text-xs text-muted-foreground dark:text-gray-400">
                   <div>{selectedPoliza.id_mercado}</div>
                   <div>
-                    {(() => {
-                      const clientePrincipal = selectedPoliza.clientes_info?.find((cliente) => cliente.es_solicitante_principal)?.cliente_details;
-                      if (!clientePrincipal) return 'Cliente no disponible';
-                      return `${clientePrincipal.primer_nombre} ${clientePrincipal.apellido_paterno}`.trim();
-                    })()}
+                    {selectedPoliza.clientes_info?.find((cliente) => cliente.es_solicitante_principal)?.cliente_nombre
+                      || selectedPoliza.cliente_principal
+                      || 'Cliente no disponible'}
                     {selectedPoliza.agente_nombre ? ` · ${selectedPoliza.agente_nombre}` : ''}
                   </div>
+                  <div>{selectedPoliza.plan_nombre || 'Sin plan'}</div>
                 </div>
               )}
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="pacienteCita">Paciente</Label>
+              <Select
+                value={formValues.pacienteId}
+                onValueChange={(value) => handleFormChange('pacienteId', value)}
+                disabled={!selectedPoliza}
+              >
+                <SelectTrigger id="pacienteCita">
+                  <SelectValue placeholder="Selecciona titular o dependiente" />
+                </SelectTrigger>
+                <SelectContent>
+                  {selectedPoliza?.clientes_info?.map((member) => (
+                    <SelectItem key={member.cliente} value={String(member.cliente)}>
+                      {member.cliente_nombre}{member.es_solicitante_principal ? ' · Titular' : ` · ${member.relacion || 'Dependiente'}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
@@ -591,7 +726,19 @@ export default function CitasPage() {
               <Input id="lugar" value={formValues.lugar} onChange={(event) => handleFormChange('lugar', event.target.value)} />
             </div>
 
-            <div className="space-y-2 md:col-span-2">
+            <div className="space-y-2">
+              <Label htmlFor="costoCita">Costo de la cita ($)</Label>
+              <Input
+                id="costoCita"
+                type="number"
+                min="0"
+                step="0.01"
+                value={formValues.costo}
+                onChange={(event) => handleFormChange('costo', event.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="estado">Estado</Label>
               <Select value={formValues.estado} onValueChange={(value) => handleFormChange('estado', value as EstadoCita)}>
                 <SelectTrigger id="estado">
@@ -617,9 +764,9 @@ export default function CitasPage() {
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="shrink-0">
             <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSaving}>Cancelar</Button>
-            <Button onClick={saveCita} disabled={isSaving}>{isSaving ? 'Guardando...' : editingCitaId ? 'Guardar cambios' : 'Crear cita'}</Button>
+            <Button onClick={saveCita} disabled={isSaving || !selectedPoliza || !formValues.pacienteId}>{isSaving ? 'Guardando...' : editingCitaId ? 'Guardar cambios' : 'Crear cita'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

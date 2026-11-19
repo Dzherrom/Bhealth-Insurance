@@ -12,6 +12,7 @@ export * from './clientes';
 
 // Pólizas, planes y aseguradoras
 export * from './polizas';
+export * from './siniestros';
 
 // Agencias, agentes y tareas
 export * from './agencias';

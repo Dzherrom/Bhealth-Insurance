@@ -57,6 +57,7 @@ export interface Agente extends BaseEntity {
   codigo_agente?: string;
   nombre_completo?: string;
   npn?: string;
+  usuario_username?: string | null;
   telefono?: string;
   activo?: boolean;
   usuario_info?: {

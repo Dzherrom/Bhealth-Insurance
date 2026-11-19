@@ -843,7 +843,7 @@ export default function NuevaPolizaWizard() {
                 </div>
                 
                 <div className="flex flex-col gap-[8px]">
-                  <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Agente Registrado *</label>
+                  <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200">Agente asignado *</label>
                   <select
                     name="agenteId"
                     value={formData.agenteId}
@@ -861,7 +861,7 @@ export default function NuevaPolizaWizard() {
 
               <div className="flex flex-col gap-[8px]">
                 <label className="text-[13px] font-semibold text-[#334155] dark:text-gray-200 flex items-center gap-1">
-                  Select a product a quote <span className="text-red-500 font-normal text-sm">(required)</span>
+                  Selecciona un producto para la cotización <span className="text-red-500 font-normal text-sm">(requerido)</span>
                 </label>
                 <div className="bg-white dark:bg-[#1e293b] border border-[#e2e8f0] dark:border-[#334155] p-4 rounded-xl shadow-sm">
                   <ProductSelection
@@ -1260,7 +1260,7 @@ export default function NuevaPolizaWizard() {
                   Atrás
                 </button>
                 <button onClick={handleSubmit} disabled={loading} className="bg-[#10b981] hover:bg-[#059669] text-white py-[10px] px-[24px] text-[14px] font-bold rounded-[10px] shadow-sm flex items-center gap-2">
-                  {loading ? 'Guardando...' : 'Finalizar y Crear Cotización (QUOTE)'}
+                  {loading ? 'Guardando...' : 'Finalizar y crear cotización'}
                 </button>
               </div>
 

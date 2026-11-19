@@ -389,9 +389,6 @@ function PolizaDetailsContent() {
           <button className="flex gap-2 items-center cursor-pointer justify-center rounded-md py-2 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 text-primary dark:hover:bg-slate-100 dark:hover:bg-opacity-10 dark:text-primary-300 dark:hover:text-primary-50 h-[30px] px-2 text-xs bg-slate-50 dark:bg-slate-700 w-full hover:bg-primary transition-colors hover:text-white" type="button" title="Tarjetas">
             <i className="lg:text-base fa-solid fa-credit-card"></i>
           </button>
-          <button className="flex gap-2 items-center cursor-pointer justify-center rounded-md py-2 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 text-primary dark:hover:bg-slate-100 dark:hover:bg-opacity-10 dark:text-primary-300 dark:hover:text-primary-50 h-[30px] px-2 text-xs bg-slate-50 dark:bg-slate-700 w-full hover:bg-primary transition-colors hover:text-white" type="button" title="Documentos">
-            <i className="lg:text-base fa-solid fa-book"></i>
-          </button>
           <button className="flex gap-2 items-center cursor-pointer justify-center rounded-md py-2 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 text-primary dark:hover:bg-slate-100 dark:hover:bg-opacity-10 dark:text-primary-300 dark:hover:text-primary-50 h-[30px] px-2 text-xs bg-slate-50 dark:bg-slate-700 w-full hover:bg-primary transition-colors hover:text-white" type="button" title="Otras pólizas">
             <i className="lg:text-base fa-solid fa-shield-plus"></i>
           </button>

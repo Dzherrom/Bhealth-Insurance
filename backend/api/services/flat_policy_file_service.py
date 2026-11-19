@@ -3,13 +3,14 @@ import datetime
 import io
 import os
 import uuid
+import hashlib
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 import openpyxl
 from openpyxl.utils.datetime import from_excel
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.http import HttpResponse
 from django.utils import timezone
 
@@ -31,6 +32,17 @@ BASE_COLUMNS_COUNT = 51
 DEPENDENT_BLOCK_SIZE = 16
 MAX_DEPENDENT_BLOCKS = 20
 
+
+def _synthetic_agent_npn(agency_name: str, agent_name: str) -> str:
+    """Build a stable synthetic NPN when the source file doesn't provide one.
+
+    Historically we generated a random NPN (NPN-<uuid>), which caused massive
+    duplication when importing multiple rows for the same agent. A stable hash
+    keeps the import idempotent without guessing real NPN values.
+    """
+    base = f"{(agency_name or '').strip()}|{(agent_name or '').strip()}".lower()
+    digest = hashlib.sha1(base.encode('utf-8')).hexdigest()[:12]
+    return f"AUTO-{digest}"
 BASE_HEADERS: List[str] = [
     "AGENT",
     "AGENT NPN",
@@ -462,14 +474,22 @@ class FlatPolicyFileService:
             base_values.extend([""] * (BASE_COLUMNS_COUNT - len(base_values)))
 
         agent_name = self._value(base_headers, base_values, "agent") or "Agente importado"
-        agent_npn = self._value(base_headers, base_values, "agent_npn") or f"NPN-{uuid.uuid4().hex[:10]}"
         agency_name = self._value(base_headers, base_values, "agency") or "Agencia importada"
 
+        agent_npn_raw = self._value(base_headers, base_values, "agent_npn")
+        agent_npn = (agent_npn_raw or '').strip() or _synthetic_agent_npn(agency_name, agent_name)
+
         agency, _ = Agencia.objects.get_or_create(nombre=agency_name)
-        agent, _ = Agente.objects.get_or_create(
-            npn=agent_npn,
-            defaults={"nombre_completo": agent_name, "agencia": agency},
-        )
+        try:
+            agent, _ = Agente.objects.get_or_create(
+                npn=agent_npn,
+                defaults={"nombre_completo": agent_name, "agencia": agency},
+            )
+        except IntegrityError:
+            # Nombre duplicado (constraint unique_agente_nombre_normalized): reutilizar el existente.
+            agent = Agente.objects.filter(nombre_completo__iexact=agent_name).order_by('id').first()
+            if not agent:
+                raise
         if agent.nombre_completo != agent_name or agent.agencia_id != agency.id:
             agent.nombre_completo = agent_name
             agent.agencia = agency

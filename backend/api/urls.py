@@ -10,7 +10,7 @@ from .views import (
     ClienteViewSet, AseguradoraViewSet, PlanViewSet,
     EstadoPolizaViewSet, PolizaViewSet, NotaViewSet, HistorialPolizaViewSet,
     EtiquetaViewSet, DocumentoViewSet, CarpetaDocumentoViewSet, TareaViewSet, CambioDeVidaViewSet, UserManagementViewSet,
-    ZipCodeLookupView, CitaViewSet, MedicoViewSet, MedicoPolizaViewSet, MedicamentoViewSet, RecordatorioViewSet,
+    ZipCodeLookupView, CitaViewSet, SiniestroViewSet, SiniestroAdjuntoViewSet, MedicoViewSet, MedicoPolizaViewSet, MedicamentoViewSet, RecordatorioViewSet,
     IngresoEmpleadorViewSet,
     DocumentoLegalClienteViewSet,
     ReporteAgentesView, DashboardStatsView, ReporteIntentosFallidosView,
@@ -66,6 +66,8 @@ router.register(r'ingresos-empleador', IngresoEmpleadorViewSet, basename='ingres
 router.register(r'documentos-legales', DocumentoLegalClienteViewSet, basename='documento-legal')
 router.register(r'recordatorios', RecordatorioViewSet, basename='recordatorio')
 router.register(r'citas', CitaViewSet)
+router.register(r'siniestros', SiniestroViewSet, basename='siniestro')
+router.register(r'siniestros-adjuntos', SiniestroAdjuntoViewSet, basename='siniestro-adjunto')
 router.register(r'medicos', MedicoViewSet)
 router.register(r'medicos-poliza', MedicoPolizaViewSet)
 router.register(r'medicamentos', MedicamentoViewSet)

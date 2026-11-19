@@ -33,6 +33,17 @@ const API_BASE_URL =
 const USA_GEO_URL = "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json";
 
 const COLORS = ["#2563eb", "#16a34a", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#f97316", "#6b7280"];
+const MAPPED_US_STATES = new Set([
+  "alabama", "arizona", "arkansas", "california", "colorado", "connecticut",
+  "delaware", "district of columbia", "florida", "georgia", "idaho", "illinois",
+  "indiana", "iowa", "kansas", "kentucky", "louisiana", "maine", "maryland",
+  "massachusetts", "michigan", "minnesota", "mississippi", "missouri", "montana",
+  "nebraska", "nevada", "new hampshire", "new jersey", "new mexico", "new york",
+  "north carolina", "north dakota", "ohio", "oklahoma", "oregon", "pennsylvania",
+  "rhode island", "south carolina", "south dakota", "tennessee", "texas", "utah",
+  "vermont", "virginia", "washington", "west virginia", "wisconsin", "wyoming",
+  "alaska", "hawaii",
+]);
 
 type MonthlyTotalsRow = {
   date: string;
@@ -247,6 +258,15 @@ export default function DashboardPage() {
     }
     return map;
   }, [stats]);
+
+  const mappedPolicyCount = useMemo(
+    () =>
+      Array.from(stateCountMap.entries()).reduce(
+        (total, [state, count]) => total + (MAPPED_US_STATES.has(state) ? count : 0),
+        0,
+      ),
+    [stateCountMap],
+  );
 
   const maxStateCount = useMemo(() => {
     if (!stats?.polizas_por_estado?.length) return 0;
@@ -523,7 +543,15 @@ export default function DashboardPage() {
       <div className="grid gap-[24px] lg:grid-cols-2 mb-[24px]">
         {/* Pólizas por estados de EEUU */}
         <div className="bg-white dark:bg-[#1e293b] rounded-[16px] p-[24px] border border-[#f1f5f9] dark:border-[#334155] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col">
-          <div className="text-[16px] font-bold text-[#0f172a] dark:text-white mb-[20px]">Pólizas por Estados (EE.UU.)</div>
+          <div className="mb-[20px] flex items-center justify-between gap-3">
+            <div className="text-[16px] font-bold text-[#0f172a] dark:text-white">Pólizas por Estados (EE.UU.)</div>
+            <div className="shrink-0 rounded-lg bg-blue-50 px-3 py-1.5 text-right dark:bg-blue-950/40">
+              <div className="text-[10px] font-semibold text-[#64748b] dark:text-gray-400">Total en el mapa</div>
+              <div className="text-[15px] font-bold text-blue-700 dark:text-blue-300">
+                {stats ? mappedPolicyCount.toLocaleString("es-US") : "—"}
+              </div>
+            </div>
+          </div>
           <div className="flex-1 relative flex items-center justify-center min-h-[320px]">
             <ComposableMap projection="geoAlbersUsa" className="w-full h-full">
               <Geographies geography={USA_GEO_URL}>
@@ -578,10 +606,10 @@ export default function DashboardPage() {
         {/* Pólizas y Aplicantes por Aseguradora */}
         <div className="bg-white dark:bg-[#1e293b] rounded-[16px] p-[24px] border border-[#f1f5f9] dark:border-[#334155] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.03),0_8px_10px_-6px_rgba(0,0,0,0.03)] flex flex-col">
           <div className="text-[16px] font-bold text-[#0f172a] dark:text-white mb-[20px]">Pólizas y Aplicantes por Aseguradora</div>
-          <div className="h-[320px] w-full">
+          <div className="h-[560px] w-full">
             {insurerMergedData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={insurerMergedData} layout="vertical" margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                <BarChart data={insurerMergedData} layout="vertical" barCategoryGap="20%" margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
                   <XAxis type="number" tickLine={false} axisLine={false} tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 500}} />
                   <YAxis type="category" dataKey="aseguradora" tickLine={false} axisLine={false} tick={{fill: '#475569', fontSize: 11, fontWeight: 600}} width={90} />

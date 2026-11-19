@@ -112,6 +112,46 @@ class FlatPolicyFileServiceTests(APITestCase):
         self.assertTrue(Poliza.objects.exists())
 
 
+    def test_import_without_npn_is_idempotent_for_agent(self):
+        def build_upload() -> io.BytesIO:
+            workbook = openpyxl.Workbook()
+            sheet = workbook.active
+            sheet.append(self.service.build_export_headers(1))
+            row = [""] * BASE_COLUMNS_COUNT
+            row[0] = "No NPN Agent"
+            row[1] = ""  # missing NPN
+            row[2] = "No NPN Agency"
+            row[3] = "TRUE"
+            row[5] = "Ana"
+            row[7] = "Gomez"
+            row[12] = "ana.nonpn@test.com"
+            row[15] = "111223333"
+            row[31] = "Test Carrier"
+            row[32] = "Test Plan"
+            row[33] = "PLAN-NONPN-001"
+            row[34] = "MKT-NONPN-001"
+            row[35] = "MEM-NONPN-001"
+            row[37] = 500
+            row[38] = 450
+            row[39] = 50
+            row[40] = "2026-02-01"
+            row[41] = "Activo"
+            row[50] = "INT-NONPN-001"
+            sheet.append(row + [""] * DEPENDENT_BLOCK_SIZE)
+            buffer = io.BytesIO()
+            workbook.save(buffer)
+            buffer.seek(0)
+            buffer.name = "test_import_nonpn.xlsx"
+            return buffer
+
+        self.service.import_file(build_upload())
+        self.service.import_file(build_upload())
+
+        agents = Agente.objects.filter(nombre_completo="No NPN Agent", agencia__nombre="No NPN Agency")
+        self.assertEqual(agents.count(), 1)
+        self.assertTrue(agents.first().npn.startswith("AUTO-"))
+
+
 class FlatPolicyFileAPITests(APITestCase):
     def setUp(self):
         self.client_api = APIClient()

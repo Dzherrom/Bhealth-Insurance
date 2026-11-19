@@ -19,7 +19,7 @@ import requests
 import csv
 from django.db import transaction
 from rest_framework.parsers import MultiPartParser, FormParser
-from django.db.models import Sum, Count, F, Prefetch
+from django.db.models import Sum, Count, F, Prefetch, Q
 from django.db.models.functions import TruncMonth, TruncYear
 from .models import (
     Agencia, Direccion, Agente, Cliente, Aseguradora, Plan, 
@@ -27,7 +27,7 @@ from .models import (
     PolizaViewer, Cita, Medico, Medicamento, MedicoPoliza, Recordatorio, IntentoLoginFallido,
     Contrato, ReporteComision, Notificacion, TarjetaCredito, CuentaBancaria, InfoPago,
     PolizaTransferencia, MatrizPermisoRol, AuditoriaGlobal, registrar_auditoria_global, PolizaCliente,
-    IngresoEmpleador,
+    IngresoEmpleador, Siniestro, SiniestroAdjunto, SiniestroHistorial,
     DocumentoLegalCliente,
     Departamento,
 )
@@ -64,6 +64,16 @@ class PolizaPagination(PageNumberPagination):
     page_size = 25
     page_size_query_param = 'page_size'
     max_page_size = 200
+
+class CitaPagination(PageNumberPagination):
+    page_size = 50
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+class SiniestroPagination(PageNumberPagination):
+    page_size = 25
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 class UserPagination(PageNumberPagination):
     page_size = 25
@@ -522,7 +532,11 @@ class AgenteViewSet(viewsets.ModelViewSet):
         ).prefetch_related(
             Prefetch(
                 'polizacliente_set',
-                queryset=PolizaCliente.objects.select_related('cliente').filter(es_solicitante_principal=True),
+                queryset=PolizaCliente.objects.select_related('cliente').order_by(
+                    '-es_solicitante_principal',
+                    'cliente__primer_nombre',
+                    'cliente__apellido_paterno',
+                ),
             ),
         ).distinct()
         serializer = PolizaListSerializer(polizas, many=True, context={'request': request})
@@ -651,13 +665,20 @@ class EstadoPolizaViewSet(viewsets.ModelViewSet):
     search_fields = ['nombre']
     ordering_fields = ['nombre']
 
+    class Pagination(PageNumberPagination):
+        page_size = 100
+        page_size_query_param = 'page_size'
+        max_page_size = 500
+
+    pagination_class = Pagination
+
 class PolizaViewSet(viewsets.ModelViewSet):
     serializer_class = PolizaSerializer
     pagination_class = PolizaPagination
     permission_classes = [permissions.IsAuthenticated, IsPolicyOwnerOrHigher]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['estado', 'agente', 'plan', 'id_mercado', 'fecha_efectiva', 'archivada']
-    search_fields = ['id_mercado', 'clientes__primer_nombre', 'clientes__apellido_paterno', 'agente__nombre_completo', 'id_miembro']
+    search_fields = ['id_mercado', 'clientes__primer_nombre', 'clientes__apellido_paterno', 'agente__nombre_completo', 'plan__nombre', 'id_miembro']
     ordering_fields = ['fecha_efectiva', 'ultima_actualizacion', 'created_at']
 
     @staticmethod
@@ -667,6 +688,8 @@ class PolizaViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         if self.action == 'list':
             return PolizaListSerializer
+        if self.action == 'para_siniestro':
+            return SiniestroPolizaOptionSerializer
         return PolizaSerializer
 
     def get_queryset(self):
@@ -726,6 +749,49 @@ class PolizaViewSet(viewsets.ModelViewSet):
 
         return queryset
 
+    @action(detail=False, methods=['get'], url_path='para-siniestro')
+    def para_siniestro(self, request):
+        queryset = (
+            self.get_queryset()
+            .filter(
+                tipo_producto__nombre__iexact='Property & Casualty (P&C)',
+                archivada=False,
+                polizacliente__isnull=False,
+            )
+            .exclude(estado__nombre__iregex=r'^(draft|quote|borrador|cotizaci[oó]n)$')
+            .select_related('plan', 'tipo_producto', 'estado')
+            .prefetch_related(
+                Prefetch(
+                    'polizacliente_set',
+                    queryset=PolizaCliente.objects.select_related('cliente').order_by(
+                        '-es_solicitante_principal', 'cliente__primer_nombre', 'cliente__apellido_paterno'
+                    ),
+                ),
+            )
+            .distinct()
+            .order_by('-fecha_efectiva', 'pk')
+        )
+        cliente_id = request.query_params.get('cliente_id')
+        if cliente_id:
+            queryset = queryset.filter(clientes__id=cliente_id).distinct()
+
+        search = request.query_params.get('search', '').strip()
+        if len(search) < 2:
+            queryset = queryset.none()
+        else:
+            queryset = queryset.filter(
+                Q(id_mercado__icontains=search)
+                | Q(clientes__primer_nombre__icontains=search)
+                | Q(clientes__apellido_paterno__icontains=search)
+                | Q(plan__nombre__icontains=search)
+            ).distinct()
+
+        page = self.paginate_queryset(queryset)
+        serializer = self.get_serializer(page if page is not None else queryset, many=True)
+        if page is not None:
+            return self.get_paginated_response(serializer.data)
+        return Response(serializer.data)
+
     def destroy(self, request, *args, **kwargs):
         return Response(
             {"detail": "Las pólizas no se eliminan permanentemente. Use la acción archivar."},
@@ -738,14 +804,7 @@ class PolizaViewSet(viewsets.ModelViewSet):
         if hasattr(user, 'profile') and user.profile.agente_id:
             creator_agente = user.profile.agente
 
-        assigned_agent = serializer.validated_data.get('agente')
-        if (
-            not assigned_agent
-            and hasattr(user, 'profile')
-            and self._normalize_role(user.profile.role) in POLICY_OWN_PORTFOLIO_ROLES
-            and user.profile.agente
-        ):
-            assigned_agent = user.profile.agente
+        assigned_agent = serializer.validated_data.get('agente') or creator_agente
 
         estado_proporcionado = serializer.validated_data.get('estado')
         if not estado_proporcionado:
@@ -1558,13 +1617,195 @@ class CambioDeVidaViewSet(viewsets.ModelViewSet):
         return super().destroy(request, *args, **kwargs)
 
 class CitaViewSet(viewsets.ModelViewSet):
-    queryset = Cita.objects.all()
+    queryset = Cita.objects.select_related('poliza', 'cliente', 'creado_por', 'medico_asignado').prefetch_related(
+        Prefetch(
+            'poliza__polizacliente_set',
+            queryset=PolizaCliente.objects.select_related('cliente').filter(es_solicitante_principal=True),
+        ),
+    )
     serializer_class = CitaSerializer
     permission_classes = [permissions.IsAuthenticated]
     filterset_fields = ['poliza', 'cliente', 'estado', 'proveedor']
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = [
+        'proveedor',
+        'lugar',
+        'poliza__id_mercado',
+        'cliente__primer_nombre',
+        'cliente__apellido_paterno',
+    ]
+    ordering_fields = ['fecha_hora', 'fecha_creacion', 'estado']
+    pagination_class = CitaPagination
 
     def perform_create(self, serializer):
-        cita = serializer.save(creado_por=self.request.user)
+        cliente = serializer.validated_data.get('cliente')
+        poliza = serializer.validated_data['poliza']
+        if not cliente:
+            principal = poliza.polizacliente_set.filter(
+                es_solicitante_principal=True,
+            ).select_related('cliente').first()
+            cliente = principal.cliente if principal else None
+        serializer.save(creado_por=self.request.user, cliente=cliente)
+
+    @action(detail=False, methods=['get'], url_path='resumen')
+    def resumen(self, request):
+        counts = {
+            row['estado']: row['cantidad']
+            for row in self.get_queryset()
+            .order_by()
+            .values('estado')
+            .annotate(cantidad=Count('id'))
+        }
+        return Response({
+            'total': sum(counts.values()),
+            'programadas': counts.get('PROGRAMADA', 0),
+            'completadas': counts.get('COMPLETADA', 0),
+            'canceladas': counts.get('CANCELADA', 0),
+        })
+
+
+def _polizas_visibles_para_siniestros(user):
+    queryset = Poliza.objects.all()
+    if user.is_superuser:
+        return queryset
+    profile = getattr(user, 'profile', None)
+    if not profile:
+        return Poliza.objects.none()
+    role = normalize_role(profile.role)
+    if role in POLICY_GLOBAL_VIEW_ROLES:
+        return queryset
+    if role in POLICY_NPN_SCOPED_ROLES | POLICY_OWN_PORTFOLIO_ROLES and profile.agente_id:
+        return queryset.filter(agente_id=profile.agente_id)
+    return Poliza.objects.none()
+
+
+class SiniestroViewSet(viewsets.ModelViewSet):
+    serializer_class = SiniestroSerializer
+    permission_classes = [permissions.IsAuthenticated, IsCRMNonBasicRole]
+    pagination_class = SiniestroPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['poliza', 'cliente', 'estado', 'tipo']
+    search_fields = [
+        'numero_siniestro',
+        'poliza__id_mercado',
+        'cliente__primer_nombre',
+        'cliente__apellido_paterno',
+        'descripcion',
+    ]
+    ordering_fields = ['fecha_evento', 'fecha_reporte', 'ultima_actualizacion', 'estado']
+
+    def get_queryset(self):
+        return (
+            Siniestro.objects.select_related(
+                'poliza', 'poliza__tipo_producto', 'cliente', 'reportado_por', 'asignado_a'
+            )
+            .filter(poliza__in=_polizas_visibles_para_siniestros(self.request.user))
+        )
+
+    def perform_create(self, serializer):
+        poliza = serializer.validated_data['poliza']
+        if not _polizas_visibles_para_siniestros(self.request.user).filter(pk=poliza.pk).exists():
+            raise PermissionDenied('No tienes acceso a esta póliza.')
+        with transaction.atomic():
+            siniestro = serializer.save(reportado_por=self.request.user)
+            SiniestroHistorial.objects.create(
+                siniestro=siniestro,
+                usuario=self.request.user,
+                accion='SINIESTRO_REGISTRADO',
+                detalles='Se registró el reporte inicial del siniestro.',
+            )
+
+    def perform_update(self, serializer):
+        estado_anterior = serializer.instance.estado
+        with transaction.atomic():
+            siniestro = serializer.save()
+            estado_cambio = estado_anterior != siniestro.estado
+            SiniestroHistorial.objects.create(
+                siniestro=siniestro,
+                usuario=self.request.user,
+                accion='ESTADO_ACTUALIZADO' if estado_cambio else 'REGISTRO_ACTUALIZADO',
+                detalles=(
+                    f'Estado actualizado de {estado_anterior} a {siniestro.estado}.'
+                    if estado_cambio
+                    else 'Se actualizaron los datos del reporte.'
+                ),
+            )
+
+    def destroy(self, request, *args, **kwargs):
+        return Response(
+            {'detail': 'Los reportes de siniestro no se eliminan. Actualiza su estado a Cerrado.'},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
+
+    @action(detail=False, methods=['get'], url_path='resumen')
+    def resumen(self, request):
+        counts = {
+            row['estado']: row['cantidad']
+            for row in self.get_queryset()
+            .order_by()
+            .values('estado')
+            .annotate(cantidad=Count('id'))
+        }
+        return Response({
+            'total': sum(counts.values()),
+            'por_estado': counts,
+        })
+
+    @action(detail=True, methods=['get'], url_path='historial')
+    def historial(self, request, pk=None):
+        siniestro = self.get_object()
+        historial = SiniestroHistorial.objects.filter(siniestro=siniestro).select_related('usuario')
+        serializer = SiniestroHistorialSerializer(historial, many=True, context=self.get_serializer_context())
+        return Response(serializer.data)
+
+
+class SiniestroAdjuntoViewSet(viewsets.ModelViewSet):
+    serializer_class = SiniestroAdjuntoSerializer
+    permission_classes = [permissions.IsAuthenticated, IsCRMNonBasicRole]
+    parser_classes = [MultiPartParser, FormParser]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['siniestro']
+
+    def get_queryset(self):
+        return (
+            SiniestroAdjunto.objects.select_related('siniestro', 'subido_por')
+            .filter(siniestro__poliza__in=_polizas_visibles_para_siniestros(self.request.user))
+        )
+
+    def perform_create(self, serializer):
+        siniestro = serializer.validated_data['siniestro']
+        if not Siniestro.objects.filter(
+            pk=siniestro.pk,
+            poliza__in=_polizas_visibles_para_siniestros(self.request.user),
+        ).exists():
+            raise PermissionDenied('No tienes acceso a este reporte de siniestro.')
+        with transaction.atomic():
+            adjunto = serializer.save(
+                subido_por=self.request.user,
+                nombre=serializer.validated_data.get('nombre') or serializer.validated_data['archivo'].name,
+            )
+            SiniestroHistorial.objects.create(
+                siniestro=siniestro,
+                usuario=self.request.user,
+                accion='EVIDENCIA_ADJUNTADA',
+                detalles=f'Se adjuntó evidencia: {adjunto.nombre}.',
+            )
+
+    def destroy(self, request, *args, **kwargs):
+        return Response(
+            {'detail': 'Las evidencias adjuntas no se eliminan desde este módulo.'},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
+
+    @action(detail=True, methods=['get'], url_path='descargar')
+    def descargar(self, request, pk=None):
+        adjunto = self.get_object()
+        return FileResponse(
+            adjunto.archivo.open('rb'),
+            as_attachment=True,
+            filename=adjunto.nombre,
+        )
+
 
 class MedicoViewSet(viewsets.ModelViewSet):
     queryset = Medico.objects.all()

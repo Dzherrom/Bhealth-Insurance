@@ -19,6 +19,8 @@ import {
   Briefcase,
   FileText,
   CreditCard,
+  CalendarDays,
+  ShieldAlert,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -227,6 +229,30 @@ export function CRMHeaderActions() {
               <div className="flex flex-col">
                 <span className="font-medium">Nueva póliza</span>
                 <span className="text-xs text-muted-foreground">Iniciar cotización o venta</span>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="gap-2.5 py-2.5 cursor-pointer"
+              onSelect={() => router.push('/crm/citas')}
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-md bg-cyan-100 dark:bg-cyan-900/40 text-cyan-600 dark:text-cyan-300">
+                <CalendarDays className="w-4 h-4" />
+              </span>
+              <div className="flex flex-col">
+                <span className="font-medium">Nueva cita</span>
+                <span className="text-xs text-muted-foreground">Programar una cita para un paciente</span>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="gap-2.5 py-2.5 cursor-pointer"
+              onSelect={() => router.push('/crm/siniestros')}
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-md bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-300">
+                <ShieldAlert className="w-4 h-4" />
+              </span>
+              <div className="flex flex-col">
+                <span className="font-medium">Reportar siniestro</span>
+                <span className="text-xs text-muted-foreground">Registrar un reporte de hogar o auto</span>
               </div>
             </DropdownMenuItem>
           </DropdownMenuContent>

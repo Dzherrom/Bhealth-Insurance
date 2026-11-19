@@ -141,7 +141,7 @@ export function FamilyMemberFormModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto bg-slate-900 text-white border-slate-700">
+      <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto bg-background text-foreground">
         <DialogHeader>
           <DialogTitle className="text-xl">
             {mode === 'edit' ? 'Información personal' : 'Agregar miembro de la familia'}
@@ -155,7 +155,7 @@ export function FamilyMemberFormModal({
                 Relación con el titular <span className="text-red-400">(obligatorio)</span>
               </Label>
               <Select value={relacion} onValueChange={(v) => setRelacion(v as RelacionFamiliarValue)}>
-                <SelectTrigger className="bg-slate-800 border-slate-600">
+                <SelectTrigger className="bg-background border-input">
                   <SelectValue placeholder="Seleccionar relación" />
                 </SelectTrigger>
                 <SelectContent>
@@ -173,8 +173,8 @@ export function FamilyMemberFormModal({
               </Select>
             </div>
           ) : (
-            <p className="text-sm text-slate-300">
-              Relación: <span className="font-medium text-white">{getRelacionFamiliarLabel(member?.relacion)}</span>
+            <p className="text-sm text-muted-foreground dark:text-slate-300">
+              Relación: <span className="font-medium text-foreground dark:text-white">{getRelacionFamiliarLabel(member?.relacion)}</span>
             </p>
           )}
 
@@ -190,7 +190,7 @@ export function FamilyMemberFormModal({
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving} className="text-slate-300">
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
             Cerrar
           </Button>
           <Button onClick={handleSave} disabled={saving || (mode === 'create' && !relacion)} className="bg-violet-600 hover:bg-violet-700">

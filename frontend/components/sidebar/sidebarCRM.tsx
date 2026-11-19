@@ -10,6 +10,7 @@ import {
   Home,
   Users,
   Calendar,
+  ShieldAlert,
   ShieldCheck,
   FileText,
   Settings,
@@ -47,13 +48,8 @@ const navGroups: SidebarGroup[] = [
     items: [
       { icon: Calendar, label: 'Citas', href: '/crm/citas', colorClass: 'text-[#0d9488]', shadowClass: 'hover:drop-shadow-[0_0_10px_rgba(13,148,136,0.5)]' },
       { icon: ShieldCheck, label: 'Pólizas', href: '/crm/polizas', colorClass: 'text-[#059669]', shadowClass: 'hover:drop-shadow-[0_0_10px_rgba(5,150,105,0.5)]' },
+      { icon: ShieldAlert, label: 'Siniestros', href: '/crm/siniestros', colorClass: 'text-[#dc2626]', shadowClass: 'hover:drop-shadow-[0_0_10px_rgba(220,38,38,0.5)]' },
       { icon: FileText, label: 'Cotizaciones', href: '/crm/cotizaciones', colorClass: 'text-[#059669]', shadowClass: 'hover:drop-shadow-[0_0_10px_rgba(5,150,105,0.5)]' },
-    ],
-  },
-  {
-    label: 'Documentos',
-    items: [
-      { icon: FileText, label: 'Formularios', href: '/crm/formularios-de-firmas', colorClass: 'text-[#ea580c]', shadowClass: 'hover:drop-shadow-[0_0_10px_rgba(234,88,12,0.5)]' },
     ],
   },
   {

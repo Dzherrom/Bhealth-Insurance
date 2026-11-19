@@ -78,6 +78,7 @@ export function EditCitaPolizaModal({
   const [hora, setHora] = useState('');
   const [proveedor, setProveedor] = useState('');
   const [lugar, setLugar] = useState('');
+  const [costo, setCosto] = useState('0');
   const [estado, setEstado] = useState<EstadoCita>('PROGRAMADA');
   const [motivo, setMotivo] = useState('');
   const [notas, setNotas] = useState('');
@@ -98,6 +99,7 @@ export function EditCitaPolizaModal({
       setHora(h);
       setProveedor(cita.proveedor ?? '');
       setLugar(cita.lugar ?? '');
+      setCosto(String(cita.costo ?? '0'));
       setEstado(cita.estado ?? 'PROGRAMADA');
       setMotivo(cita.motivo ?? '');
       setNotas(cita.notas ?? '');
@@ -109,16 +111,17 @@ export function EditCitaPolizaModal({
     setHora('');
     setProveedor('');
     setLugar('');
+    setCosto('0');
     setEstado('PROGRAMADA');
     setMotivo('');
     setNotas('');
   }, [open, cita, defaultClienteId]);
 
   const handleSave = async () => {
-    if (!clienteId || !fecha || !hora || !proveedor.trim() || !lugar.trim()) {
+    if (!clienteId || !fecha || !hora || !proveedor.trim() || !lugar.trim() || Number(costo) < 0 || !Number.isFinite(Number(costo))) {
       toast({
         title: 'Campos requeridos',
-        description: 'Completa paciente, fecha, hora, proveedor y lugar.',
+        description: 'Completa paciente, fecha, hora, proveedor y lugar. El costo debe ser un monto no negativo.',
         variant: 'destructive',
       });
       return;
@@ -130,6 +133,7 @@ export function EditCitaPolizaModal({
       fecha_hora: `${fecha}T${hora}:00`,
       proveedor: proveedor.trim(),
       lugar: lugar.trim(),
+      costo: Number(costo || 0),
       estado,
       motivo: motivo.trim() || null,
       notas: notas.trim() || null,
@@ -229,20 +233,34 @@ export function EditCitaPolizaModal({
             />
           </div>
 
-          <div className="space-y-2">
-            <Label>Estado</Label>
-            <Select value={estado} onValueChange={(value) => setEstado(value as EstadoCita)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ESTADO_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="cita_costo">Costo de la cita ($)</Label>
+              <Input
+                id="cita_costo"
+                type="number"
+                min="0"
+                step="0.01"
+                value={costo}
+                onChange={(e) => setCosto(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Estado</Label>
+              <Select value={estado} onValueChange={(value) => setEstado(value as EstadoCita)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ESTADO_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="space-y-2">

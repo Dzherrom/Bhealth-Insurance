@@ -34,7 +34,12 @@ import {
   TipoProducto,
   MisTareasResponse,
   BaseEntity,
-  OptionalBaseEntity
+  OptionalBaseEntity,
+  Siniestro,
+  SiniestroAdjunto,
+  SiniestroCreateRequest,
+  SiniestroHistorial,
+  SiniestroPolizaOption,
 } from '../types';
 
 // Configuracion base de la API.
@@ -690,11 +695,19 @@ export interface Cita extends OptionalBaseEntity {
   fecha_hora: string;
   proveedor: string;
   lugar: string;
+  costo?: string | number;
   motivo?: string | null;
   estado: 'PROGRAMADA' | 'COMPLETADA' | 'CANCELADA' | 'NO_ASISTIO';
   notas?: string | null;
   medico_asignado?: number | null;
   fecha_creacion?: string;
+}
+
+export interface CitaResumen {
+  total: number;
+  programadas: number;
+  completadas: number;
+  canceladas: number;
 }
 
 interface ManagedUserProfile {
@@ -703,6 +716,7 @@ interface ManagedUserProfile {
   avatar?: string | null;
   telefono?: string | null;
   agente?: number | null;
+  departamento?: number | null;
 }
 
 interface ManagedUser extends OptionalBaseEntity {
@@ -866,10 +880,9 @@ export const clientesApi = {
     const response = await fetchWithAuth(`${API_BASE_URL}/clientes/?${params.toString()}`, {
       method: 'GET',
     });
-    const payload = await handleApiResponse<any>(response);
+    const payload = await handleApiResponse<PaginatedResponse<Cliente> | Cliente[]>(response);
     if (Array.isArray(payload)) return payload;
-    if (payload?.results && Array.isArray(payload.results)) return payload.results;
-    return [];
+    return payload.results ?? [];
   },
 
   verificarDuplicado: async (params: {
@@ -979,7 +992,29 @@ export const usersApi = {
 };
 
 // 📊 Estados de Póliza
-export const estadosPolizaApi = createCrudApi<EstadoPoliza>('estados-poliza');
+export const estadosPolizaApi = {
+  ...createCrudApi<EstadoPoliza>('estados-poliza'),
+  listPaginated: async (params?: { page?: number; page_size?: number }): Promise<PaginatedResponse<EstadoPoliza>> => {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set('page', String(params.page));
+    if (params?.page_size) searchParams.set('page_size', String(params.page_size));
+    const query = searchParams.toString();
+    const response = await fetchWithAuth(`${API_BASE_URL}/estados-poliza/${query ? `?${query}` : ''}`);
+    return handleApiResponse<PaginatedResponse<EstadoPoliza>>(response);
+  },
+  listAll: async (): Promise<EstadoPoliza[]> => {
+    const all: EstadoPoliza[] = [];
+    let page = 1;
+    let hasNext = true;
+    while (hasNext && page <= 100) {
+      const result = await estadosPolizaApi.listPaginated({ page, page_size: 500 });
+      all.push(...result.results);
+      hasNext = Boolean(result.next);
+      page += 1;
+    }
+    return all;
+  },
+};
 
 // 📜 Pólizas - Con funciones especializadas
 export interface PolizaPresenceViewer {
@@ -1437,6 +1472,39 @@ export const documentosApi = {
 // 📅 Citas
 export const citasApi = {
   ...createCrudApi<Cita>('citas'),
+  listPaginated: async (params?: {
+    page?: number;
+    page_size?: number;
+    search?: string;
+    estado?: string;
+  }): Promise<PaginatedResponse<Cita>> => {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set('page', String(params.page));
+    if (params?.page_size) searchParams.set('page_size', String(params.page_size));
+    if (params?.search) searchParams.set('search', params.search);
+    if (params?.estado) searchParams.set('estado', params.estado);
+    const query = searchParams.toString();
+    const response = await fetchWithAuth(`${API_BASE_URL}/citas/${query ? `?${query}` : ''}`);
+    const payload = await handleApiResponse<PaginatedResponse<Cita> | Cita[]>(response);
+    if (Array.isArray(payload)) return { count: payload.length, next: null, previous: null, results: payload };
+    return payload;
+  },
+  resumen: async (): Promise<CitaResumen> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/citas/resumen/`);
+    return handleApiResponse<CitaResumen>(response);
+  },
+  listAll: async (): Promise<Cita[]> => {
+    const all: Cita[] = [];
+    let page = 1;
+    let hasNext = true;
+    while (hasNext && page <= 100) {
+      const result = await citasApi.listPaginated({ page, page_size: 200 });
+      all.push(...result.results);
+      hasNext = Boolean(result.next);
+      page += 1;
+    }
+    return all;
+  },
   listByPoliza: async (polizaId: number | string): Promise<Cita[]> => {
     const response = await fetchWithAuth(
       `${API_BASE_URL}/citas/?poliza=${encodeURIComponent(String(polizaId))}`,
@@ -1446,6 +1514,66 @@ export const citasApi = {
     if (Array.isArray(payload)) return payload;
     if (payload?.results && Array.isArray(payload.results)) return payload.results;
     return [];
+  },
+};
+
+export const siniestrosApi = {
+  ...createCrudApi<Siniestro, SiniestroCreateRequest>('siniestros'),
+  listPaginated: async (params?: {
+    page?: number;
+    page_size?: number;
+    search?: string;
+    estado?: string;
+  }): Promise<PaginatedResponse<Siniestro>> => {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set('page', String(params.page));
+    if (params?.page_size) searchParams.set('page_size', String(params.page_size));
+    if (params?.search) searchParams.set('search', params.search);
+    if (params?.estado) searchParams.set('estado', params.estado);
+    const query = searchParams.toString();
+    const response = await fetchWithAuth(`${API_BASE_URL}/siniestros/${query ? `?${query}` : ''}`);
+    const payload = await handleApiResponse<PaginatedResponse<Siniestro> | Siniestro[]>(response);
+    if (Array.isArray(payload)) return { count: payload.length, next: null, previous: null, results: payload };
+    return payload;
+  },
+  resumen: async (): Promise<{ total: number; por_estado: Record<string, number> }> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/siniestros/resumen/`);
+    return handleApiResponse(response);
+  },
+  buscarPolizas: async (search: string): Promise<SiniestroPolizaOption[]> => {
+    const params = new URLSearchParams({ search, page_size: '20' });
+    const response = await fetchWithAuth(`${API_BASE_URL}/polizas/para-siniestro/?${params.toString()}`);
+    const payload = await handleApiResponse<PaginatedResponse<SiniestroPolizaOption> | SiniestroPolizaOption[]>(response);
+    return Array.isArray(payload) ? payload : payload.results;
+  },
+  listHistorial: async (id: number): Promise<SiniestroHistorial[]> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/siniestros/${id}/historial/`);
+    return handleApiResponse<SiniestroHistorial[]>(response);
+  },
+  listAdjuntos: async (siniestroId: number): Promise<SiniestroAdjunto[]> => {
+    const params = new URLSearchParams({ siniestro: String(siniestroId) });
+    const response = await fetchWithAuth(`${API_BASE_URL}/siniestros-adjuntos/?${params.toString()}`);
+    const payload = await handleApiResponse<PaginatedResponse<SiniestroAdjunto> | SiniestroAdjunto[]>(response);
+    return Array.isArray(payload) ? payload : payload.results;
+  },
+  subirAdjunto: async (siniestroId: number, archivo: File, descripcion = ''): Promise<SiniestroAdjunto> => {
+    const body = new FormData();
+    body.append('siniestro', String(siniestroId));
+    body.append('archivo', archivo);
+    body.append('nombre', archivo.name);
+    body.append('descripcion', descripcion);
+    const response = await fetchWithAuth(`${API_BASE_URL}/siniestros-adjuntos/`, {
+      method: 'POST',
+      body,
+    });
+    return handleApiResponse<SiniestroAdjunto>(response);
+  },
+  descargarAdjunto: async (id: number): Promise<Blob> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/siniestros-adjuntos/${id}/descargar/`);
+    if (!response.ok) {
+      throw new Error(`No se pudo descargar la evidencia (HTTP ${response.status}).`);
+    }
+    return response.blob();
   },
 };
 

@@ -181,13 +181,13 @@ export default function PolizasPage() {
       <header className="px-[30px] md:px-[40px] py-[15px] flex items-center justify-end bg-white dark:bg-[#1e293b] border-b border-[#f1f5f9] dark:border-[#334155] shrink-0 sticky top-0 z-[1] shadow-sm">
         <div className="flex flex-wrap items-center justify-end gap-[10px]">
           <button onClick={() => router.push('/crm/polizas/nueva')} className="bg-[#4f46e5] hover:bg-[#4338ca] text-white border-none py-[8px] px-[16px] text-[13px] font-semibold rounded-[8px] cursor-pointer flex items-center gap-[6px] shadow-sm transition-all focus:ring-2 focus:ring-[#4f46e5] focus:outline-none">
-            <Plus className="w-4 h-4" /> New policy
+            <Plus className="w-4 h-4" /> Nueva póliza
           </button>
           <button onClick={handleRefresh} disabled={isLoading} className="bg-[#4f46e5] hover:bg-[#4338ca] disabled:opacity-60 text-white border-none py-[8px] px-[16px] text-[13px] font-semibold rounded-[8px] cursor-pointer flex items-center gap-[6px] shadow-sm transition-all focus:ring-2 focus:ring-[#4f46e5] focus:outline-none">
-            <RefreshCw className="w-4 h-4" /> Refresh
+            <RefreshCw className="w-4 h-4" /> Actualizar
           </button>
           <button onClick={handleExport} className="bg-[#4f46e5] hover:bg-[#4338ca] text-white border-none py-[8px] px-[16px] text-[13px] font-semibold rounded-[8px] cursor-pointer flex items-center gap-[6px] shadow-sm transition-all focus:ring-2 focus:ring-[#4f46e5] focus:outline-none">
-            <FileText className="w-4 h-4" /> Export
+            <FileText className="w-4 h-4" /> Exportar
           </button>
         </div>
       </header>
@@ -374,7 +374,7 @@ export default function PolizasPage() {
                       <td className="p-[18px_24px] border-b border-[#f1f5f9] dark:border-[#334155] align-top text-right">
                         <div className="inline-flex relative align-middle" onClick={(e) => e.stopPropagation()}>
                           <button onClick={(e) => { e.stopPropagation(); handleViewPoliza(poliza.id); }} className="bg-white dark:bg-[#1e293b] border border-[#cbd5e1] dark:border-[#475569] border-r-0 py-[7px] pl-[14px] pr-[10px] text-[13px] font-bold text-[#4f46e5] rounded-[8px_0_0_8px] cursor-pointer hover:bg-[#f1f5f9] dark:hover:bg-[#334155] dark:bg-[#1e293b] dark:hover:bg-[#334155] dark:bg-[#1e293b] transition-colors focus:outline-none">
-                            Preview
+                            Detalles
                           </button>
                           <button onClick={(e) => toggleDropdown(e, poliza.id)} className={`bg-white dark:bg-[#1e293b] border border-[#cbd5e1] dark:border-[#475569] py-[7px] px-[10px] text-[11px] text-[#4f46e5] rounded-[0_8px_8px_0] cursor-pointer hover:bg-[#f1f5f9] dark:hover:bg-[#334155] dark:bg-[#1e293b] dark:hover:bg-[#334155] dark:bg-[#1e293b] transition-colors flex items-center justify-center focus:outline-none ${openDropdownId === poliza.id ? '!bg-[#4f46e5] !text-white !border-[#4f46e5]' : ''}`}>
                             {openDropdownId === poliza.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}

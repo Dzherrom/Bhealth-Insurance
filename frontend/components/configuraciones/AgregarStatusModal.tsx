@@ -11,7 +11,7 @@ import { StatusPoliza } from './statusTypes';
 interface AgregarStatusModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (status: StatusPoliza | Omit<StatusPoliza, 'id'>) => void;
+  onSave: (status: StatusPoliza | Omit<StatusPoliza, 'id'>) => void | Promise<void>;
   statusToEdit?: StatusPoliza | null;
 }
 
@@ -63,8 +63,10 @@ export function AgregarStatusModal({
     titulo: false,
     color: false
   });
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validar campos obligatorios
@@ -81,13 +83,22 @@ export function AgregarStatusModal({
     }
 
     // Crear o actualizar el status
-    if (statusToEdit) {
-      onSave({
-        ...statusToEdit,
-        ...formData
-      });
-    } else {
-      onSave(formData);
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      if (statusToEdit) {
+        await onSave({
+          ...statusToEdit,
+          ...formData
+        });
+      } else {
+        await onSave(formData);
+      }
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'No se pudo guardar el estatus.');
+      return;
+    } finally {
+      setIsSaving(false);
     }
 
     // Limpiar formulario y cerrar
@@ -95,6 +106,7 @@ export function AgregarStatusModal({
   };
 
   const handleClose = () => {
+    setSaveError(null);
     setFormData({
       titulo: '',
       color: '#3b82f6',
@@ -222,8 +234,9 @@ export function AgregarStatusModal({
             <Button type="button" variant="outline" onClick={handleClose}>
               Cancelar
             </Button>
-            <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
-              Crear
+            {saveError && <p className="text-sm text-red-600">{saveError}</p>}
+            <Button type="submit" className="bg-blue-600 hover:bg-blue-700" disabled={isSaving}>
+              {isSaving ? 'Guardando...' : statusToEdit ? 'Guardar cambios' : 'Crear'}
             </Button>
           </div>
         </form>

@@ -131,7 +131,7 @@ export function FamilyMemberPersonalForm({
     onChange({ ...value, [field]: fieldValue });
   };
 
-  const inputClass = 'h-10 dark:bg-slate-800 dark:border-slate-700';
+  const inputClass = 'h-10 bg-background text-foreground border-input dark:bg-slate-800 dark:border-slate-700';
 
   return (
     <div className="space-y-4">
@@ -167,7 +167,7 @@ export function FamilyMemberPersonalForm({
           <select
             value={value.sexo}
             onChange={(e) => update('sexo', e.target.value)}
-            className="flex h-10 w-full rounded-md border border-input bg-white dark:bg-slate-800 px-3 py-1 text-sm"
+            className="flex h-10 w-full rounded-md border border-input bg-background text-foreground px-3 py-1 text-sm dark:bg-slate-800"
           >
             <option value="Masculino">Masculino</option>
             <option value="Femenino">Femenino</option>
@@ -276,7 +276,7 @@ export function FamilyMemberPersonalForm({
             value={value.condicionMedica}
             onChange={(e) => update('condicionMedica', e.target.value)}
             rows={3}
-            className="dark:bg-slate-800"
+            className="bg-background text-foreground dark:bg-slate-800 dark:border-slate-700"
           />
         </div>
       </div>
